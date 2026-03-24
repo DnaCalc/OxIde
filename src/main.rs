@@ -4,6 +4,7 @@ use std::ffi::OsString;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
+use std::process::Command;
 
 use ftui::layout::{Constraint, Flex, Rect};
 use ftui::prelude::{App, Cmd, Event, Frame, KeyCode, KeyEvent, Model, Modifiers, ScreenMode};
@@ -17,6 +18,8 @@ struct ShellModel {
     show_help: bool,
     command_input: CommandInput,
     document_session: DocumentSession,
+    oxvba_services: Box<dyn OxVbaServices>,
+    last_execution: Option<OxVbaExecutionResult>,
     editor: TextArea,
     editor_state: RefCell<TextAreaState>,
     status: String,
@@ -32,6 +35,69 @@ struct DocumentSession {
     path: Option<PathBuf>,
     has_backing_file: bool,
     saved_text: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum OxVbaExecutionAction {
+    Build,
+    Run,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum OxVbaExecutionTarget {
+    LooseFile(PathBuf),
+    Project(PathBuf),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct OxVbaExecutionRequest {
+    action: OxVbaExecutionAction,
+    target: OxVbaExecutionTarget,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct OxVbaExecutionResult {
+    action: OxVbaExecutionAction,
+    target: OxVbaExecutionTarget,
+    success: bool,
+    exit_code: Option<i32>,
+    stdout: String,
+    stderr: String,
+}
+
+trait OxVbaServices {
+    fn execute(&self, request: &OxVbaExecutionRequest) -> io::Result<OxVbaExecutionResult>;
+}
+
+struct CargoOxVbaServices {
+    workspace_root: PathBuf,
+}
+
+impl CargoOxVbaServices {
+    fn discover() -> Self {
+        let workspace_root = env::var_os("OXVBA_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("../OxVba"));
+        Self { workspace_root }
+    }
+}
+
+impl OxVbaServices for CargoOxVbaServices {
+    fn execute(&self, request: &OxVbaExecutionRequest) -> io::Result<OxVbaExecutionResult> {
+        let output = Command::new("cargo")
+            .args(oxvba_cli_args_for_request(request))
+            .current_dir(&self.workspace_root)
+            .output()?;
+
+        Ok(OxVbaExecutionResult {
+            action: request.action.clone(),
+            target: request.target.clone(),
+            success: output.status.success(),
+            exit_code: output.status.code(),
+            stdout: String::from_utf8_lossy(&output.stdout).trim().to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        })
+    }
 }
 
 impl DocumentSession {
@@ -127,10 +193,50 @@ impl DocumentSession {
     fn open(path: PathBuf) -> io::Result<(Self, String)> {
         Self::load(Some(path))
     }
+
+    fn execution_target(&self, current_text: &str) -> Result<OxVbaExecutionTarget, String> {
+        if self.path.is_none() {
+            return Err(String::from("Build/run requires a file path."));
+        }
+
+        if self.is_dirty(current_text) {
+            return Err(String::from("Save the current buffer before build/run."));
+        }
+
+        let path = match &self.path {
+            Some(path) => path.clone(),
+            None => return Err(String::from("Build/run requires a file path.")),
+        };
+        let target_path = if path.is_absolute() {
+            path
+        } else {
+            env::current_dir()
+                .map_err(|error| format!("Cannot resolve working directory: {error}"))?
+                .join(path)
+        };
+
+        let extension = target_path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.to_ascii_lowercase());
+
+        if extension.as_deref() == Some("basproj") {
+            Ok(OxVbaExecutionTarget::Project(target_path))
+        } else {
+            Ok(OxVbaExecutionTarget::LooseFile(target_path))
+        }
+    }
 }
 
 impl ShellModel {
     fn new(path: Option<PathBuf>) -> io::Result<Self> {
+        Self::with_services(path, Box::new(CargoOxVbaServices::discover()))
+    }
+
+    fn with_services(
+        path: Option<PathBuf>,
+        oxvba_services: Box<dyn OxVbaServices>,
+    ) -> io::Result<Self> {
         let (document_session, status) = DocumentSession::load(path)?;
         let editor = new_editor(document_session.saved_text());
 
@@ -138,6 +244,8 @@ impl ShellModel {
             show_help: true,
             command_input: CommandInput::default(),
             document_session,
+            oxvba_services,
+            last_execution: None,
             editor,
             editor_state: RefCell::new(TextAreaState::default()),
             status,
@@ -294,16 +402,8 @@ impl ShellModel {
                 Cmd::none()
             }
             "quit" => Cmd::quit(),
-            "build" => {
-                self.status =
-                    String::from("Build command routed. OxVbaServices execution seam pending.");
-                Cmd::none()
-            }
-            "run" => {
-                self.status =
-                    String::from("Run command routed. OxVbaServices execution seam pending.");
-                Cmd::none()
-            }
+            "build" => self.execute_oxvba(OxVbaExecutionAction::Build),
+            "run" => self.execute_oxvba(OxVbaExecutionAction::Run),
             _ => {
                 self.status = format!("Unknown command: :{raw}");
                 Cmd::none()
@@ -321,6 +421,32 @@ impl ShellModel {
             }
             Err(error) => {
                 self.status = format!("Open failed: {error}");
+            }
+        }
+
+        Cmd::none()
+    }
+
+    fn execute_oxvba(&mut self, action: OxVbaExecutionAction) -> Cmd<Msg> {
+        let current_text = self.editor.text();
+        let target = match self.document_session.execution_target(&current_text) {
+            Ok(target) => target,
+            Err(message) => {
+                self.status = message;
+                return Cmd::none();
+            }
+        };
+
+        let request = OxVbaExecutionRequest { action, target };
+
+        match self.oxvba_services.execute(&request) {
+            Ok(result) => {
+                self.status = result.status_summary();
+                self.last_execution = Some(result);
+            }
+            Err(error) => {
+                self.status = format!("OxVbaServices invocation failed: {error}");
+                self.last_execution = None;
             }
         }
 
@@ -495,6 +621,65 @@ fn split_command(input: &str) -> (&str, Option<&str>) {
     (command, argument)
 }
 
+fn oxvba_cli_args_for_request(request: &OxVbaExecutionRequest) -> Vec<OsString> {
+    let mut args = vec![
+        OsString::from("run"),
+        OsString::from("--quiet"),
+        OsString::from("-p"),
+        OsString::from("oxvba-cli"),
+        OsString::from("--"),
+    ];
+
+    match (&request.action, &request.target) {
+        (OxVbaExecutionAction::Build, OxVbaExecutionTarget::LooseFile(path)) => {
+            args.push(OsString::from("compile"));
+            args.push(path.as_os_str().to_os_string());
+        }
+        (OxVbaExecutionAction::Build, OxVbaExecutionTarget::Project(path)) => {
+            args.push(OsString::from("build"));
+            args.push(path.as_os_str().to_os_string());
+        }
+        (OxVbaExecutionAction::Run, OxVbaExecutionTarget::LooseFile(path)) => {
+            args.push(OsString::from("run"));
+            args.push(path.as_os_str().to_os_string());
+        }
+        (OxVbaExecutionAction::Run, OxVbaExecutionTarget::Project(path)) => {
+            args.push(OsString::from("run-project"));
+            args.push(path.as_os_str().to_os_string());
+        }
+    }
+
+    args
+}
+
+impl OxVbaExecutionTarget {
+    fn display_name(&self) -> String {
+        match self {
+            Self::LooseFile(path) | Self::Project(path) => path.display().to_string(),
+        }
+    }
+}
+
+impl OxVbaExecutionResult {
+    fn status_summary(&self) -> String {
+        let action = match self.action {
+            OxVbaExecutionAction::Build => "Build",
+            OxVbaExecutionAction::Run => "Run",
+        };
+
+        if self.success {
+            format!("{action} succeeded for {}.", self.target.display_name())
+        } else if let Some(code) = self.exit_code {
+            format!(
+                "{action} failed for {} (exit {code}).",
+                self.target.display_name()
+            )
+        } else {
+            format!("{action} failed for {}.", self.target.display_name())
+        }
+    }
+}
+
 fn startup_path_from_args<I>(args: I) -> io::Result<Option<PathBuf>>
 where
     I: IntoIterator<Item = OsString>,
@@ -525,13 +710,40 @@ fn main() -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::{
-        DocumentSession, Msg, ShellModel, is_command_key, is_help_key, is_quit_key, is_save_key,
-        split_command, startup_path_from_args,
+        DocumentSession, Msg, OxVbaExecutionAction, OxVbaExecutionRequest, OxVbaExecutionResult,
+        OxVbaExecutionTarget, OxVbaServices, ShellModel, is_command_key, is_help_key, is_quit_key,
+        is_save_key, oxvba_cli_args_for_request, split_command, startup_path_from_args,
     };
     use ftui::prelude::{Cmd, Event, KeyCode, KeyEvent, Model, Modifiers};
+    use std::cell::RefCell;
     use std::env;
     use std::ffi::OsString;
+    use std::io;
     use std::path::PathBuf;
+
+    struct FakeOxVbaServices {
+        requests: RefCell<Vec<OxVbaExecutionRequest>>,
+        result: RefCell<Option<io::Result<OxVbaExecutionResult>>>,
+    }
+
+    impl FakeOxVbaServices {
+        fn succeed(result: OxVbaExecutionResult) -> Self {
+            Self {
+                requests: RefCell::new(Vec::new()),
+                result: RefCell::new(Some(Ok(result))),
+            }
+        }
+    }
+
+    impl OxVbaServices for FakeOxVbaServices {
+        fn execute(&self, request: &OxVbaExecutionRequest) -> io::Result<OxVbaExecutionResult> {
+            self.requests.borrow_mut().push(request.clone());
+            match self.result.borrow_mut().take() {
+                Some(result) => result,
+                None => Err(io::Error::other("missing fake result")),
+            }
+        }
+    }
 
     #[test]
     fn quit_key_mapping_requires_ctrl_q() -> Result<(), String> {
@@ -741,6 +953,105 @@ mod tests {
     }
 
     #[test]
+    fn execution_target_requires_saved_buffer() -> Result<(), String> {
+        let document = DocumentSession {
+            path: Some(PathBuf::from("sample.bas")),
+            has_backing_file: true,
+            saved_text: String::from("old"),
+        };
+
+        let error = document
+            .execution_target("new")
+            .err()
+            .ok_or_else(|| String::from("dirty buffer should be rejected"))?;
+
+        if !error.contains("Save") {
+            return Err(String::from("dirty-buffer message should mention save"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn execution_target_distinguishes_project_files() -> Result<(), String> {
+        let project = DocumentSession {
+            path: Some(PathBuf::from("demo.basproj")),
+            has_backing_file: true,
+            saved_text: String::from("same"),
+        };
+        let loose = DocumentSession {
+            path: Some(PathBuf::from("module.bas")),
+            has_backing_file: true,
+            saved_text: String::from("same"),
+        };
+
+        if !matches!(
+            project.execution_target("same"),
+            Ok(OxVbaExecutionTarget::Project(_))
+        ) {
+            return Err(String::from("basproj should map to project execution"));
+        }
+
+        if !matches!(
+            loose.execution_target("same"),
+            Ok(OxVbaExecutionTarget::LooseFile(_))
+        ) {
+            return Err(String::from(
+                "non-basproj should map to loose-file execution",
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn execution_target_resolves_relative_paths_to_absolute() -> Result<(), String> {
+        let document = DocumentSession {
+            path: Some(PathBuf::from("module.bas")),
+            has_backing_file: true,
+            saved_text: String::from("same"),
+        };
+
+        let target = document.execution_target("same")?;
+
+        match target {
+            OxVbaExecutionTarget::LooseFile(path) => {
+                if !path.is_absolute() {
+                    return Err(String::from("execution target should be absolute"));
+                }
+            }
+            _ => return Err(String::from("expected loose-file target")),
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn oxvba_cli_args_match_action_and_target() -> Result<(), String> {
+        let build_request = OxVbaExecutionRequest {
+            action: OxVbaExecutionAction::Build,
+            target: OxVbaExecutionTarget::LooseFile(PathBuf::from("module.bas")),
+        };
+        let run_request = OxVbaExecutionRequest {
+            action: OxVbaExecutionAction::Run,
+            target: OxVbaExecutionTarget::Project(PathBuf::from("demo.basproj")),
+        };
+
+        let build_args = oxvba_cli_args_for_request(&build_request);
+        let run_args = oxvba_cli_args_for_request(&run_request);
+
+        if build_args[5] != OsString::from("compile") {
+            return Err(String::from("loose-file build should use compile"));
+        }
+
+        if run_args[5] != OsString::from("run-project") {
+            return Err(String::from("project run should use run-project"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
     fn open_command_loads_a_new_document() -> Result<(), String> {
         let path = env::current_dir()
             .map_err(|error| error.to_string())?
@@ -799,25 +1110,64 @@ mod tests {
 
     #[test]
     fn build_and_run_commands_route_without_execution() -> Result<(), String> {
-        let mut model = ShellModel::new(None).map_err(|error| error.to_string())?;
-        model.enter_command_mode();
-        model.command_input.value = String::from("build");
-        model.dispatch_command_line();
-
-        if !model.status.contains("Build command routed") {
-            return Err(String::from("build should route through shell status"));
-        }
-
+        let path = PathBuf::from(env::temp_dir()).join("oxide-bd-237-6-run.bas");
+        let run_result = OxVbaExecutionResult {
+            action: OxVbaExecutionAction::Run,
+            target: OxVbaExecutionTarget::LooseFile(path.clone()),
+            success: true,
+            exit_code: Some(0),
+            stdout: String::from("ok"),
+            stderr: String::new(),
+        };
+        let mut model =
+            ShellModel::with_services(Some(path), Box::new(FakeOxVbaServices::succeed(run_result)))
+                .map_err(|error| error.to_string())?;
         model.enter_command_mode();
         model.command_input.value = String::from("run");
         let cmd = model.dispatch_command_line();
 
-        if !model.status.contains("Run command routed") {
-            return Err(String::from("run should route through shell status"));
+        if !model.status.contains("Run succeeded") {
+            return Err(String::from("run should report service success"));
+        }
+
+        if model.last_execution.is_none() {
+            return Err(String::from(
+                "run should store the structured execution result",
+            ));
         }
 
         if !matches!(cmd, Cmd::None) {
-            return Err(String::from("run routing should not request a side effect"));
+            return Err(String::from("run should not request a side effect"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn build_command_blocks_unsaved_buffers_before_service_call() -> Result<(), String> {
+        let path = PathBuf::from(env::temp_dir()).join("oxide-bd-237-6-dirty.bas");
+        let result = OxVbaExecutionResult {
+            action: OxVbaExecutionAction::Build,
+            target: OxVbaExecutionTarget::LooseFile(path.clone()),
+            success: true,
+            exit_code: Some(0),
+            stdout: String::new(),
+            stderr: String::new(),
+        };
+        let mut model =
+            ShellModel::with_services(Some(path), Box::new(FakeOxVbaServices::succeed(result)))
+                .map_err(|error| error.to_string())?;
+        model.update(Msg::Editor(Event::Key(KeyEvent::new(KeyCode::Char('a')))));
+        model.enter_command_mode();
+        model.command_input.value = String::from("build");
+        model.dispatch_command_line();
+
+        if !model.status.contains("Save the current buffer") {
+            return Err(String::from("dirty build should require save first"));
+        }
+
+        if model.last_execution.is_some() {
+            return Err(String::from("service should not run for a dirty buffer"));
         }
 
         Ok(())
