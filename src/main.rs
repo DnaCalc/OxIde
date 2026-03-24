@@ -1,14 +1,18 @@
+use std::cell::RefCell;
 use std::io;
 
 use ftui::layout::{Constraint, Flex, Rect};
 use ftui::prelude::{App, Cmd, Event, Frame, KeyCode, KeyEvent, Model, Modifiers, ScreenMode};
-use ftui::widgets::Widget;
 use ftui::widgets::block::{Alignment, Block};
 use ftui::widgets::borders::Borders;
 use ftui::widgets::paragraph::Paragraph;
+use ftui::widgets::textarea::{TextArea, TextAreaState};
+use ftui::widgets::{StatefulWidget, Widget};
 
 struct ShellModel {
     show_help: bool,
+    editor: TextArea,
+    editor_state: RefCell<TextAreaState>,
     status: String,
 }
 
@@ -16,48 +20,40 @@ impl ShellModel {
     fn new() -> Self {
         Self {
             show_help: true,
-            status: String::from("Shell ready. Press q to quit."),
+            editor: TextArea::new()
+                .with_placeholder("Type OxVba code here")
+                .with_focus(true)
+                .with_line_numbers(true),
+            editor_state: RefCell::new(TextAreaState::default()),
+            status: String::from("Editor ready."),
         }
     }
 
     fn header_text(&self) -> &'static str {
-        "OxIde  |  console shell frame"
+        "OxIde  |  single-buffer editor"
     }
 
-    fn body_text(&self) -> String {
-        let help_state = if self.show_help {
-            "help visible"
-        } else {
-            "help hidden"
-        };
-
-        if self.show_help {
-            format!(
-                "The first OxIde shell frame is running.\n\n\
-                 Scope in this bead:\n\
-                 - FrankenTui event loop\n\
-                 - base shell layout\n\
-                 - fullscreen terminal lifecycle\n\n\
-                 Next beads will add:\n\
-                 - editor surface\n\
-                 - command input\n\
-                 - OxVba build and run integration\n\n\
-                 Keys:\n\
-                 - q / Esc / Ctrl-C: quit\n\
-                 - ?: toggle this help\n\n\
-                 State: {help_state}"
-            )
-        } else {
-            format!(
-                "OxIde shell frame is active.\n\
-                 Press ? for help.\n\n\
-                 State: {help_state}"
-            )
-        }
+    fn help_text(&self) -> &'static str {
+        "Editor keys\n\n\
+         Ctrl-Q  quit\n\
+         F1      toggle help\n\
+         arrows  move cursor\n\
+         Enter   newline\n\
+         Backspace/Delete edit text\n\
+         Ctrl-K  delete to end of line\n\
+         Ctrl-Z  undo\n\
+         Ctrl-Y  redo"
     }
 
     fn footer_text(&self) -> String {
-        format!("q quit  ? help  |  {}", self.status)
+        let cursor = self.editor.cursor();
+        format!(
+            "Ctrl-Q quit  F1 help  |  line {} col {}  lines {}  |  {}",
+            cursor.line + 1,
+            cursor.visual_col + 1,
+            self.editor.line_count(),
+            self.status
+        )
     }
 }
 
@@ -65,17 +61,17 @@ impl ShellModel {
 enum Msg {
     Quit,
     ToggleHelp,
+    Editor(Event),
     Resized(u16, u16),
-    Ignored,
 }
 
 impl From<Event> for Msg {
     fn from(event: Event) -> Self {
         match event {
             Event::Key(key) if is_quit_key(key) => Msg::Quit,
-            Event::Key(key) if key.is_char('?') => Msg::ToggleHelp,
+            Event::Key(key) if is_help_key(key) => Msg::ToggleHelp,
             Event::Resize { width, height } => Msg::Resized(width, height),
-            _ => Msg::Ignored,
+            other => Msg::Editor(other),
         }
     }
 }
@@ -95,11 +91,16 @@ impl Model for ShellModel {
                 };
                 Cmd::none()
             }
+            Msg::Editor(event) => {
+                if self.editor.handle_event(&event) {
+                    self.status = String::from("Buffer updated.");
+                }
+                Cmd::none()
+            }
             Msg::Resized(width, height) => {
                 self.status = format!("Resized to {width}x{height}.");
                 Cmd::none()
             }
-            Msg::Ignored => Cmd::none(),
         }
     }
 
@@ -118,14 +119,37 @@ impl Model for ShellModel {
             )
             .render(sections[0], frame);
 
-        Paragraph::new(self.body_text())
-            .block(
-                Block::new()
-                    .borders(Borders::ALL)
-                    .title("Shell")
-                    .title_alignment(Alignment::Center),
-            )
-            .render(sections[1], frame);
+        let body_sections = if self.show_help {
+            Flex::horizontal()
+                .constraints([Constraint::Percentage(72.0), Constraint::Fill])
+                .split(sections[1])
+        } else {
+            vec![sections[1]]
+        };
+
+        let editor_block = Block::new()
+            .borders(Borders::ALL)
+            .title("Buffer")
+            .title_alignment(Alignment::Center);
+        editor_block.render(body_sections[0], frame);
+        let editor_area = editor_block.inner(body_sections[0]);
+        StatefulWidget::render(
+            &self.editor,
+            editor_area,
+            frame,
+            &mut self.editor_state.borrow_mut(),
+        );
+
+        if self.show_help {
+            Paragraph::new(self.help_text())
+                .block(
+                    Block::new()
+                        .borders(Borders::ALL)
+                        .title("Help")
+                        .title_alignment(Alignment::Center),
+                )
+                .render(body_sections[1], frame);
+        }
 
         Paragraph::new(self.footer_text())
             .block(
@@ -139,9 +163,11 @@ impl Model for ShellModel {
 }
 
 fn is_quit_key(key: KeyEvent) -> bool {
-    matches!(key.code, KeyCode::Escape)
-        || key.is_char('q')
-        || (key.is_char('c') && key.modifiers.contains(Modifiers::CTRL))
+    key.is_char('q') && key.modifiers.contains(Modifiers::CTRL)
+}
+
+fn is_help_key(key: KeyEvent) -> bool {
+    matches!(key.code, KeyCode::F(1))
 }
 
 fn main() -> io::Result<()> {
@@ -152,32 +178,36 @@ fn main() -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Msg, ShellModel, is_quit_key};
+    use super::{Msg, ShellModel, is_help_key, is_quit_key};
     use ftui::prelude::{Cmd, Event, KeyCode, KeyEvent, Model, Modifiers};
 
     #[test]
-    fn quit_key_mapping_covers_expected_shortcuts() -> Result<(), String> {
-        let cases = [
-            KeyEvent::new(KeyCode::Char('q')),
-            KeyEvent::new(KeyCode::Escape),
-            KeyEvent::new(KeyCode::Char('c')).with_modifiers(Modifiers::CTRL),
-        ];
+    fn quit_key_mapping_requires_ctrl_q() -> Result<(), String> {
+        let quit = KeyEvent::new(KeyCode::Char('q')).with_modifiers(Modifiers::CTRL);
 
-        for case in cases {
-            if !is_quit_key(case) {
-                return Err(format!("expected key to quit: {case:?}"));
-            }
+        if !is_quit_key(quit) {
+            return Err(String::from("Ctrl-Q should quit"));
+        }
+
+        if is_quit_key(KeyEvent::new(KeyCode::Char('q'))) {
+            return Err(String::from("plain q should remain editor input"));
         }
 
         Ok(())
     }
 
     #[test]
-    fn question_mark_toggles_help() -> Result<(), String> {
-        let msg = Msg::from(Event::Key(KeyEvent::new(KeyCode::Char('?'))));
+    fn f1_toggles_help() -> Result<(), String> {
+        let help_key = KeyEvent::new(KeyCode::F(1));
+
+        if !is_help_key(help_key) {
+            return Err(String::from("F1 should toggle help"));
+        }
+
+        let msg = Msg::from(Event::Key(help_key));
 
         if !matches!(msg, Msg::ToggleHelp) {
-            return Err(String::from("question mark should toggle help"));
+            return Err(String::from("F1 should map to ToggleHelp"));
         }
 
         Ok(())
@@ -198,6 +228,26 @@ mod tests {
 
         if !matches!(cmd, Cmd::None) {
             return Err(String::from("toggle should not request a side effect"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn editor_events_modify_the_single_buffer() -> Result<(), String> {
+        let mut model = ShellModel::new();
+        let cmd = model.update(Msg::Editor(Event::Key(KeyEvent::new(KeyCode::Char('a')))));
+
+        if model.editor.text() != "a" {
+            return Err(String::from("editor should insert typed characters"));
+        }
+
+        if !model.status.contains("updated") {
+            return Err(String::from("status should report buffer edits"));
+        }
+
+        if !matches!(cmd, Cmd::None) {
+            return Err(String::from("editing should not request a side effect"));
         }
 
         Ok(())
