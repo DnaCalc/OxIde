@@ -6,3 +6,4 @@ description = "Console micro-IDE companion for OxVba"
 publish = false
 
 [dependencies]
+ftui = { version = "0.2.1", default-features = false, features = ["crossterm"] }
