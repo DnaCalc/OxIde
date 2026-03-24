@@ -15,19 +15,19 @@ use ftui::widgets::{StatefulWidget, Widget};
 
 struct ShellModel {
     show_help: bool,
-    document: Document,
+    document_session: DocumentSession,
     editor: TextArea,
     editor_state: RefCell<TextAreaState>,
     status: String,
 }
 
-struct Document {
+struct DocumentSession {
     path: Option<PathBuf>,
     has_backing_file: bool,
     saved_text: String,
 }
 
-impl Document {
+impl DocumentSession {
     fn load(path: Option<PathBuf>) -> io::Result<(Self, String)> {
         match path {
             Some(path) if path.exists() => {
@@ -71,6 +71,10 @@ impl Document {
         }
     }
 
+    fn saved_text(&self) -> &str {
+        &self.saved_text
+    }
+
     fn is_dirty(&self, current_text: &str) -> bool {
         current_text != self.saved_text
     }
@@ -111,12 +115,12 @@ impl Document {
 
 impl ShellModel {
     fn new(path: Option<PathBuf>) -> io::Result<Self> {
-        let (document, status) = Document::load(path)?;
-        let editor = new_editor(&document.saved_text);
+        let (document_session, status) = DocumentSession::load(path)?;
+        let editor = new_editor(document_session.saved_text());
 
         Ok(Self {
             show_help: true,
-            document,
+            document_session,
             editor,
             editor_state: RefCell::new(TextAreaState::default()),
             status,
@@ -126,7 +130,7 @@ impl ShellModel {
     fn header_text(&self) -> String {
         format!(
             "OxIde  |  {}{}",
-            self.document.display_name(),
+            self.document_session.display_name(),
             self.dirty_marker()
         )
     }
@@ -147,7 +151,7 @@ impl ShellModel {
 
     fn footer_text(&self) -> String {
         let cursor = self.editor.cursor();
-        let file_state = self.document.state_label(&self.editor.text());
+        let file_state = self.document_session.state_label(&self.editor.text());
         format!(
             "Ctrl-Q quit  Ctrl-S save  F1 help  |  line {} col {}  lines {}  |  {}  |  {}",
             cursor.line + 1,
@@ -161,7 +165,7 @@ impl ShellModel {
     fn buffer_title(&self) -> String {
         format!(
             "Buffer  {}{}",
-            self.document.display_name(),
+            self.document_session.display_name(),
             self.dirty_marker()
         )
     }
@@ -171,12 +175,12 @@ impl ShellModel {
     }
 
     fn is_dirty(&self) -> bool {
-        self.document.is_dirty(&self.editor.text())
+        self.document_session.is_dirty(&self.editor.text())
     }
 
     fn save_current_file(&mut self) {
         let current_text = self.editor.text();
-        self.status = match self.document.save(&current_text) {
+        self.status = match self.document_session.save(&current_text) {
             Ok(status) => status,
             Err(error) if error.kind() == io::ErrorKind::InvalidInput => {
                 String::from("No file path yet. Start OxIde with a file path for save support.")
@@ -357,7 +361,8 @@ fn main() -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::{
-        Document, Msg, ShellModel, is_help_key, is_quit_key, is_save_key, startup_path_from_args,
+        DocumentSession, Msg, ShellModel, is_help_key, is_quit_key, is_save_key,
+        startup_path_from_args,
     };
     use ftui::prelude::{Cmd, Event, KeyCode, KeyEvent, Model, Modifiers};
     use std::env;
@@ -507,7 +512,7 @@ mod tests {
     #[test]
     fn document_save_updates_saved_state() -> Result<(), String> {
         let path = PathBuf::from(env::temp_dir()).join("oxide-bd-237-4-save-test.bas");
-        let mut document = Document {
+        let mut document = DocumentSession {
             path: Some(path.clone()),
             has_backing_file: false,
             saved_text: String::new(),
