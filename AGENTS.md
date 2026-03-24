@@ -60,7 +60,8 @@ Every approved public post must begin with this italicized line at the top:
 
 - Primary implementation language: **Rust**.
 - Primary console shell: **FrankenTui**.
-- Primary editing surface: **msedit** or an extracted/adapted derivative of it.
+- Primary editing path: **FrankenTui** editor components behind an `OxIde`-owned `EditorSurface`.
+- `msedit` is a correctness/behavior reference and a selective donor for editor algorithms, behavior, and tests.
 - This is not a general JS/TS repo. Introduce JS/TS tooling only for a specific, documented need.
 
 ---
@@ -74,9 +75,17 @@ It should begin as a text editor and command shell for `OxVba`, then grow increm
 ### Components
 
 - **Console shell** — built on FrankenTui
-- **Editor surface** — based on msedit or an extracted/adapted subset
+- **Document session** — current document identity, path binding, dirty state, and open/save/reload semantics
+- **Editor surface** — implemented behind an `OxIde`-owned seam, initially using the FrankenTui editor path
 - **OxVba integration** — compiler, runtime, project hosting, and execution workflows
 - **Future layers** — language services, debugging, and embedded/in-process hosting
+
+### Architectural Seams
+
+- `OxIdeShell` — panes, commands, status, focus routing, and workflow orchestration
+- `DocumentSession` — file/document semantics and buffer lifecycle
+- `EditorSurface` — text editing behavior and viewport behavior
+- `OxVbaHost` — compile/run/host/project operations
 
 ---
 
