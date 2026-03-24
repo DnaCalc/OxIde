@@ -15,10 +15,17 @@ use ftui::widgets::{StatefulWidget, Widget};
 
 struct ShellModel {
     show_help: bool,
+    command_input: CommandInput,
     document_session: DocumentSession,
     editor: TextArea,
     editor_state: RefCell<TextAreaState>,
     status: String,
+}
+
+#[derive(Default)]
+struct CommandInput {
+    active: bool,
+    value: String,
 }
 
 struct DocumentSession {
@@ -111,6 +118,15 @@ impl DocumentSession {
         self.saved_text = String::from(current_text);
         Ok(format!("Saved {}.", path.display()))
     }
+
+    fn save_as(&mut self, path: PathBuf, current_text: &str) -> io::Result<String> {
+        self.path = Some(path);
+        self.save(current_text)
+    }
+
+    fn open(path: PathBuf) -> io::Result<(Self, String)> {
+        Self::load(Some(path))
+    }
 }
 
 impl ShellModel {
@@ -120,6 +136,7 @@ impl ShellModel {
 
         Ok(Self {
             show_help: true,
+            command_input: CommandInput::default(),
             document_session,
             editor,
             editor_state: RefCell::new(TextAreaState::default()),
@@ -139,6 +156,7 @@ impl ShellModel {
         "Editor keys\n\n\
          Ctrl-Q  quit\n\
          Ctrl-S  save current file\n\
+         :       command mode\n\
          F1      toggle help\n\
          arrows  move cursor\n\
          Enter   newline\n\
@@ -146,19 +164,31 @@ impl ShellModel {
          Ctrl-K  delete to end of line\n\
          Ctrl-Z  undo\n\
          Ctrl-Y  redo\n\n\
+         Commands\n\n\
+         :open <path>\n\
+         :write [path]\n\
+         :build\n\
+         :run\n\
+         :quit\n\n\
          Start with: cargo run -- path/to/file.bas"
     }
 
     fn footer_text(&self) -> String {
         let cursor = self.editor.cursor();
         let file_state = self.document_session.state_label(&self.editor.text());
+        let command_line = if self.command_input.active {
+            format!(":{}", self.command_input.value)
+        } else {
+            String::from(": command mode  |  :open <path>  :write [path]  :build  :run  :quit")
+        };
         format!(
-            "Ctrl-Q quit  Ctrl-S save  F1 help  |  line {} col {}  lines {}  |  {}  |  {}",
+            "Ctrl-Q quit  Ctrl-S save  : command  F1 help  |  line {} col {}  lines {}  |  {}  |  {}\n{}",
             cursor.line + 1,
             cursor.visual_col + 1,
             self.editor.line_count(),
             file_state,
-            self.status
+            self.status,
+            command_line
         )
     }
 
@@ -187,6 +217,114 @@ impl ShellModel {
             }
             Err(error) => format!("Save failed: {error}"),
         };
+    }
+
+    fn save_current_file_as(&mut self, path: PathBuf) {
+        let current_text = self.editor.text();
+        self.status = match self.document_session.save_as(path, &current_text) {
+            Ok(status) => status,
+            Err(error) => format!("Save failed: {error}"),
+        };
+    }
+
+    fn enter_command_mode(&mut self) {
+        self.command_input.active = true;
+        self.command_input.value.clear();
+        self.status = String::from("Command mode.");
+    }
+
+    fn cancel_command_mode(&mut self) {
+        self.command_input.active = false;
+        self.command_input.value.clear();
+        self.status = String::from("Command cancelled.");
+    }
+
+    fn handle_command_event(&mut self, event: Event) -> Cmd<Msg> {
+        let Event::Key(key) = event else {
+            return Cmd::none();
+        };
+
+        match key.code {
+            KeyCode::Escape => {
+                self.cancel_command_mode();
+                Cmd::none()
+            }
+            KeyCode::Enter => self.dispatch_command_line(),
+            KeyCode::Backspace => {
+                self.command_input.value.pop();
+                Cmd::none()
+            }
+            KeyCode::Char(ch)
+                if !key.modifiers.contains(Modifiers::CTRL)
+                    && !key.modifiers.contains(Modifiers::ALT) =>
+            {
+                self.command_input.value.push(ch);
+                Cmd::none()
+            }
+            _ => Cmd::none(),
+        }
+    }
+
+    fn dispatch_command_line(&mut self) -> Cmd<Msg> {
+        let raw = self.command_input.value.trim().to_string();
+        self.command_input.active = false;
+        self.command_input.value.clear();
+
+        if raw.is_empty() {
+            self.status = String::from("Empty command.");
+            return Cmd::none();
+        }
+
+        let (command, arg) = split_command(&raw);
+
+        match command {
+            "open" => match arg {
+                Some(path_text) => self.open_document(PathBuf::from(path_text)),
+                None => {
+                    self.status = String::from("Usage: :open <path>");
+                    Cmd::none()
+                }
+            },
+            "write" => {
+                if let Some(path_text) = arg {
+                    self.save_current_file_as(PathBuf::from(path_text));
+                } else {
+                    self.save_current_file();
+                }
+                Cmd::none()
+            }
+            "quit" => Cmd::quit(),
+            "build" => {
+                self.status =
+                    String::from("Build command routed. OxVbaServices execution seam pending.");
+                Cmd::none()
+            }
+            "run" => {
+                self.status =
+                    String::from("Run command routed. OxVbaServices execution seam pending.");
+                Cmd::none()
+            }
+            _ => {
+                self.status = format!("Unknown command: :{raw}");
+                Cmd::none()
+            }
+        }
+    }
+
+    fn open_document(&mut self, path: PathBuf) -> Cmd<Msg> {
+        match DocumentSession::open(path) {
+            Ok((document_session, status)) => {
+                self.document_session = document_session;
+                self.editor = new_editor(self.document_session.saved_text());
+                self.editor_state = RefCell::new(TextAreaState::default());
+                self.status = status;
+            }
+            Err(error) => {
+                self.status = format!("Open failed: {error}");
+            }
+        }
+
+        Cmd::none()
     }
 }
 
@@ -231,6 +369,15 @@ impl Model for ShellModel {
                 Cmd::none()
             }
             Msg::Editor(event) => {
+                if self.command_input.active {
+                    return self.handle_command_event(event);
+                }
+
+                if is_command_key(&event) {
+                    self.enter_command_mode();
+                    return Cmd::none();
+                }
+
                 if self.editor.handle_event(&event) {
                     self.status = if self.is_dirty() {
                         String::from("Buffer modified.")
@@ -250,7 +397,7 @@ impl Model for ShellModel {
     fn view(&self, frame: &mut Frame) {
         let area = Rect::new(0, 0, frame.width(), frame.height());
         let sections = Flex::vertical()
-            .constraints([Constraint::Fixed(3), Constraint::Fill, Constraint::Fixed(3)])
+            .constraints([Constraint::Fixed(3), Constraint::Fill, Constraint::Fixed(4)])
             .split(area);
 
         Paragraph::new(self.header_text())
@@ -331,6 +478,23 @@ fn is_help_key(key: KeyEvent) -> bool {
     matches!(key.code, KeyCode::F(1))
 }
 
+fn is_command_key(event: &Event) -> bool {
+    matches!(
+        event,
+        Event::Key(key)
+            if matches!(key.code, KeyCode::Char(':'))
+                && !key.modifiers.contains(Modifiers::CTRL)
+                && !key.modifiers.contains(Modifiers::ALT)
+    )
+}
+
+fn split_command(input: &str) -> (&str, Option<&str>) {
+    let mut parts = input.trim().splitn(2, char::is_whitespace);
+    let command = parts.next().unwrap_or("");
+    let argument = parts.next().map(str::trim).filter(|part| !part.is_empty());
+    (command, argument)
+}
+
 fn startup_path_from_args<I>(args: I) -> io::Result<Option<PathBuf>>
 where
     I: IntoIterator<Item = OsString>,
@@ -361,8 +525,8 @@ fn main() -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::{
-        DocumentSession, Msg, ShellModel, is_help_key, is_quit_key, is_save_key,
-        startup_path_from_args,
+        DocumentSession, Msg, ShellModel, is_command_key, is_help_key, is_quit_key, is_save_key,
+        split_command, startup_path_from_args,
     };
     use ftui::prelude::{Cmd, Event, KeyCode, KeyEvent, Model, Modifiers};
     use std::env;
@@ -396,6 +560,30 @@ mod tests {
 
         if !matches!(msg, Msg::Save) {
             return Err(String::from("Ctrl-S should map to Save"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn colon_enters_command_mode() -> Result<(), String> {
+        let key = Event::Key(KeyEvent::new(KeyCode::Char(':')));
+
+        if !is_command_key(&key) {
+            return Err(String::from("colon should enter command mode"));
+        }
+
+        let mut model = ShellModel::new(None).map_err(|error| error.to_string())?;
+        let cmd = model.update(Msg::Editor(key));
+
+        if !model.command_input.active {
+            return Err(String::from("colon should activate command mode"));
+        }
+
+        if !matches!(cmd, Cmd::None) {
+            return Err(String::from(
+                "entering command mode should not request a side effect",
+            ));
         }
 
         Ok(())
@@ -532,6 +720,119 @@ mod tests {
 
         if document.state_label("Print \"Hello\"") != "saved" {
             return Err(String::from("saved document should report saved state"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn command_parser_preserves_path_arguments() -> Result<(), String> {
+        let (command, argument) = split_command("open path/with spaces/file.bas");
+
+        if command != "open" {
+            return Err(String::from("command should be parsed"));
+        }
+
+        if argument != Some("path/with spaces/file.bas") {
+            return Err(String::from("path argument should preserve spaces"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn open_command_loads_a_new_document() -> Result<(), String> {
+        let path = env::current_dir()
+            .map_err(|error| error.to_string())?
+            .join("Cargo.toml");
+        let mut model = ShellModel::new(None).map_err(|error| error.to_string())?;
+        model.enter_command_mode();
+        model.command_input.value = format!("open {}", path.display());
+
+        let cmd = model.dispatch_command_line();
+
+        if !model.editor.text().contains("name = \"ox-ide\"") {
+            return Err(String::from("open command should load the requested file"));
+        }
+
+        if model.document_session.display_name() != path.display().to_string() {
+            return Err(String::from(
+                "document session should track the opened path",
+            ));
+        }
+
+        if !matches!(cmd, Cmd::None) {
+            return Err(String::from("open should not request a side effect"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn write_command_can_bind_and_save_a_new_path() -> Result<(), String> {
+        let path = PathBuf::from(env::temp_dir()).join("oxide-bd-237-5-write-command.bas");
+        let mut model = ShellModel::new(None).map_err(|error| error.to_string())?;
+        model.update(Msg::Editor(Event::Key(KeyEvent::new(KeyCode::Char('a')))));
+        model.enter_command_mode();
+        model.command_input.value = format!("write {}", path.display());
+
+        let cmd = model.dispatch_command_line();
+
+        if !model.status.contains("Saved") {
+            return Err(String::from("write command should save the file"));
+        }
+
+        if model.is_dirty() {
+            return Err(String::from("write command should clear dirty state"));
+        }
+
+        if model.document_session.display_name() != path.display().to_string() {
+            return Err(String::from("write command should bind the document path"));
+        }
+
+        if !matches!(cmd, Cmd::None) {
+            return Err(String::from("write should not request a side effect"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn build_and_run_commands_route_without_execution() -> Result<(), String> {
+        let mut model = ShellModel::new(None).map_err(|error| error.to_string())?;
+        model.enter_command_mode();
+        model.command_input.value = String::from("build");
+        model.dispatch_command_line();
+
+        if !model.status.contains("Build command routed") {
+            return Err(String::from("build should route through shell status"));
+        }
+
+        model.enter_command_mode();
+        model.command_input.value = String::from("run");
+        let cmd = model.dispatch_command_line();
+
+        if !model.status.contains("Run command routed") {
+            return Err(String::from("run should route through shell status"));
+        }
+
+        if !matches!(cmd, Cmd::None) {
+            return Err(String::from("run routing should not request a side effect"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn quit_command_requests_quit() -> Result<(), String> {
+        let mut model = ShellModel::new(None).map_err(|error| error.to_string())?;
+        model.enter_command_mode();
+        model.command_input.value = String::from("quit");
+
+        let cmd = model.dispatch_command_line();
+
+        if !matches!(cmd, Cmd::Quit) {
+            return Err(String::from("quit command should request application quit"));
         }
 
         Ok(())
