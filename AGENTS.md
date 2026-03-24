@@ -70,22 +70,24 @@ Every approved public post must begin with this italicized line at the top:
 
 `OxIde` is a console-based micro-IDE companion for the `OxVba` compiler and runtime, in the style of QuickBasic or Visual Basic for MS-DOS.
 
-It should begin as a text editor and command shell for `OxVba`, then grow incrementally into a proving ground for project hosting, language services, debugging, and embedded IDE scenarios.
+It should begin as a text editor and command shell for `OxVba`, then grow incrementally into a proving ground for `.basproj` project/workspace handling, language services, target-aware build/runtime flows, debugging, and embedded IDE scenarios.
 
 ### Components
 
 - **Console shell** — built on FrankenTui
+- **Project session** — `.basproj` identity, module roster, project references, target selection, and runtime/profile/policy selections shown in the UI
 - **Document session** — current document identity, path binding, dirty state, and open/save/reload semantics
 - **Editor surface** — implemented behind an `OxIde`-owned seam, initially using the FrankenTui editor path
-- **OxVba integration** — compiler, runtime, project hosting, and execution workflows
+- **OxVba services** — project loading/generation, language services, build target selection, and execution/runtime workflows
 - **Future layers** — language services, debugging, and embedded/in-process hosting
 
 ### Architectural Seams
 
 - `OxIdeShell` — panes, commands, status, focus routing, and workflow orchestration
+- `ProjectSession` — project/workspace semantics and target selection
 - `DocumentSession` — file/document semantics and buffer lifecycle
 - `EditorSurface` — text editing behavior and viewport behavior
-- `OxVbaHost` — compile/run/host/project operations
+- `OxVbaServices` — OxVba-side project, language-service, build, and runtime contracts
 
 ---
 
