@@ -1,0 +1,8 @@
+[package]
+name = "ox-ide"
+version = "0.1.0"
+edition = "2024"
+description = "Console micro-IDE companion for OxVba"
+publish = false
+
+[dependencies]
