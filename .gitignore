@@ -28,3 +28,15 @@ __pycache__/
 node_modules/
 .venv/
 venv/
+target/
+.claude/settings.local.json
+.claude/.settings.local.json.*.bak
+.ntm/
+*.mcp.json
+*.mcp.json.*.bak
+opencode.json
+opencode.json.*.bak
+.opencode.json.*.bak
+
+# bv (beads viewer) local config and caches
+.bv/
