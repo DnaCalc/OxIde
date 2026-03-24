@@ -300,6 +300,48 @@ impl ShellModel {
         )
     }
 
+    fn output_title(&self) -> &'static str {
+        "OxVba Output"
+    }
+
+    fn output_text(&self) -> String {
+        let Some(result) = &self.last_execution else {
+            return String::from("No OxVba output yet.");
+        };
+
+        let action = match result.action {
+            OxVbaExecutionAction::Build => "Build",
+            OxVbaExecutionAction::Run => "Run",
+        };
+
+        let mut lines = vec![
+            format!("Action: {action}"),
+            format!("Target: {}", result.target.display_name()),
+            format!("Success: {}", if result.success { "yes" } else { "no" }),
+        ];
+
+        if let Some(code) = result.exit_code {
+            lines.push(format!("Exit code: {code}"));
+        }
+
+        lines.push(String::new());
+        lines.push(String::from("Stdout:"));
+        lines.push(if result.stdout.is_empty() {
+            String::from("(empty)")
+        } else {
+            result.stdout.clone()
+        });
+        lines.push(String::new());
+        lines.push(String::from("Stderr:"));
+        lines.push(if result.stderr.is_empty() {
+            String::from("(empty)")
+        } else {
+            result.stderr.clone()
+        });
+
+        lines.join("\n")
+    }
+
     fn buffer_title(&self) -> String {
         format!(
             "Buffer  {}{}",
@@ -543,19 +585,32 @@ impl Model for ShellModel {
             vec![sections[1]]
         };
 
+        let main_sections = Flex::vertical()
+            .constraints([Constraint::Percentage(68.0), Constraint::Fill])
+            .split(body_sections[0]);
+
         let buffer_title = self.buffer_title();
         let editor_block = Block::new()
             .borders(Borders::ALL)
             .title(&buffer_title)
             .title_alignment(Alignment::Center);
-        editor_block.render(body_sections[0], frame);
-        let editor_area = editor_block.inner(body_sections[0]);
+        editor_block.render(main_sections[0], frame);
+        let editor_area = editor_block.inner(main_sections[0]);
         StatefulWidget::render(
             &self.editor,
             editor_area,
             frame,
             &mut self.editor_state.borrow_mut(),
         );
+
+        Paragraph::new(self.output_text())
+            .block(
+                Block::new()
+                    .borders(Borders::ALL)
+                    .title(self.output_title())
+                    .title_alignment(Alignment::Center),
+            )
+            .render(main_sections[1], frame);
 
         if self.show_help {
             Paragraph::new(self.help_text())
@@ -1027,6 +1082,19 @@ mod tests {
     }
 
     #[test]
+    fn output_text_shows_placeholder_before_execution() -> Result<(), String> {
+        let model = ShellModel::new(None).map_err(|error| error.to_string())?;
+
+        if model.output_text() != "No OxVba output yet." {
+            return Err(String::from(
+                "placeholder output should be shown before execution",
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
     fn oxvba_cli_args_match_action_and_target() -> Result<(), String> {
         let build_request = OxVbaExecutionRequest {
             action: OxVbaExecutionAction::Build,
@@ -1138,6 +1206,41 @@ mod tests {
 
         if !matches!(cmd, Cmd::None) {
             return Err(String::from("run should not request a side effect"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn output_text_renders_structured_execution_result() -> Result<(), String> {
+        let path = PathBuf::from(env::temp_dir()).join("oxide-bd-237-13-run.bas");
+        let run_result = OxVbaExecutionResult {
+            action: OxVbaExecutionAction::Run,
+            target: OxVbaExecutionTarget::LooseFile(path),
+            success: false,
+            exit_code: Some(2),
+            stdout: String::from("line one"),
+            stderr: String::from("line two"),
+        };
+        let mut model = ShellModel::new(None).map_err(|error| error.to_string())?;
+        model.last_execution = Some(run_result);
+
+        let output = model.output_text();
+
+        if !output.contains("Action: Run") {
+            return Err(String::from("output should include the action"));
+        }
+
+        if !output.contains("Exit code: 2") {
+            return Err(String::from("output should include the exit code"));
+        }
+
+        if !output.contains("Stdout:\nline one") {
+            return Err(String::from("output should include stdout"));
+        }
+
+        if !output.contains("Stderr:\nline two") {
+            return Err(String::from("output should include stderr"));
         }
 
         Ok(())
