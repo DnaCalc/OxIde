@@ -691,6 +691,7 @@ version = "0.1.0"
 dependencies = [
  "ftui",
  "oxvba-compiler",
+ "oxvba-languageservice",
  "oxvba-project",
 ]
 
@@ -765,6 +766,14 @@ dependencies = [
  "oxvba-runtime",
  "oxvba-vm",
  "thiserror",
+]
+
+[[package]]
+name = "oxvba-languageservice"
+version = "0.1.0"
+dependencies = [
+ "oxvba-compiler",
+ "oxvba-syntax",
 ]
 
 [[package]]

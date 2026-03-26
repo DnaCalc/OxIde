@@ -16,6 +16,7 @@ use ftui::widgets::paragraph::Paragraph;
 use ftui::widgets::textarea::{TextArea, TextAreaState};
 use ftui::widgets::{StatefulWidget, Widget};
 use oxvba_compiler::{ModuleKind, ProjectKind, ProjectManifest};
+use oxvba_languageservice::{DiagnosticSeverity, DocumentId, LanguageService, Workspace};
 use oxvba_project::{
     ClassModuleMetadata, LoadedProject, NativeExportDescriptor, OutputType, RuntimeFlavor,
     generate_basproj_xml, load_basproj, load_basproj_from_str,
@@ -26,6 +27,7 @@ struct ShellModel {
     command_input: CommandInput,
     project_session: ProjectSession,
     document_session: DocumentSession,
+    language_workspace: LanguageWorkspaceSession,
     oxvba_services: Box<dyn OxVbaServices>,
     last_execution: Option<OxVbaExecutionResult>,
     editor: TextArea,
@@ -56,6 +58,11 @@ struct ProjectSession {
 struct ProjectModuleEntry {
     module_name: String,
     path: PathBuf,
+}
+
+struct LanguageWorkspaceSession {
+    service: LanguageService,
+    current_document: Option<DocumentId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -444,6 +451,111 @@ impl ProjectSession {
     }
 }
 
+impl LanguageWorkspaceSession {
+    fn from_host_state(
+        project_session: &ProjectSession,
+        document_session: &DocumentSession,
+        current_text: &str,
+    ) -> Self {
+        let mut workspace = match project_session.manifest() {
+            Some(manifest) => Workspace::new().with_project(manifest.clone()),
+            None => Workspace::new(),
+        };
+
+        let current_path = document_session.path().cloned();
+        let mut current_document = None;
+
+        if let Some(loaded_project) = &project_session.loaded_project {
+            let module_entries = project_session.module_entries();
+            for (module, entry) in loaded_project
+                .manifest
+                .modules
+                .iter()
+                .zip(module_entries.iter())
+            {
+                let document_id = DocumentId::new(module.module_name.clone());
+                let source = if current_path.as_ref().is_some_and(|path| path == &entry.path) {
+                    current_document = Some(document_id.clone());
+                    current_text
+                } else {
+                    module.source.as_str()
+                };
+                workspace.open_document(document_id, source);
+            }
+        }
+
+        if workspace.document_count() == 0 && is_language_document_path(current_path.as_deref()) {
+            let document_id = document_id_for_path(current_path.as_deref());
+            workspace.open_document(document_id.clone(), current_text);
+            current_document = Some(document_id);
+        }
+
+        Self {
+            service: LanguageService::new(workspace),
+            current_document,
+        }
+    }
+
+    fn document_count(&self) -> usize {
+        self.service.workspace.document_count()
+    }
+
+    fn current_diagnostics(&self) -> Vec<oxvba_languageservice::SpannedDiagnostic> {
+        self.current_document
+            .as_ref()
+            .map(|id| self.service.diagnostics(id))
+            .unwrap_or_default()
+    }
+
+    fn current_symbols(&self) -> Vec<oxvba_languageservice::SymbolInfo> {
+        self.current_document
+            .as_ref()
+            .map(|id| self.service.symbols(id))
+            .unwrap_or_default()
+    }
+
+    fn surface_text(&self) -> String {
+        let mut lines = vec![format!("Workspace Docs: {}", self.document_count())];
+        if let Some(project) = self.service.workspace.project() {
+            lines.push(format!("Workspace Project: {}", project.project_name));
+        }
+
+        match &self.current_document {
+            Some(document_id) => {
+                lines.push(format!("Current Doc: {}", document_id.0));
+                lines.push(format!("Symbols: {}", self.current_symbols().len()));
+
+                let diagnostics = self.current_diagnostics();
+                let error_count = diagnostics
+                    .iter()
+                    .filter(|diag| diag.severity == DiagnosticSeverity::Error)
+                    .count();
+                let warning_count = diagnostics
+                    .iter()
+                    .filter(|diag| diag.severity == DiagnosticSeverity::Warning)
+                    .count();
+                lines.push(format!(
+                    "Diagnostics: {} error(s), {} warning(s)",
+                    error_count, warning_count
+                ));
+
+                if let Some(first) = diagnostics.first() {
+                    lines.push(String::new());
+                    lines.push(format!(
+                        "First Diagnostic: {} [{}..{}]",
+                        first.message, first.span.start, first.span.end
+                    ));
+                }
+            }
+            None => {
+                lines.push(String::from("Current Doc: none"));
+            }
+        }
+
+        lines.join("\n")
+    }
+}
+
 impl ShellModel {
     fn new(path: Option<PathBuf>) -> io::Result<Self> {
         Self::with_services(path, Box::new(CargoOxVbaServices::discover()))
@@ -465,12 +577,18 @@ impl ShellModel {
             };
         }
         let editor = new_editor(document_session.saved_text());
+        let language_workspace = LanguageWorkspaceSession::from_host_state(
+            &project_session,
+            &document_session,
+            document_session.saved_text(),
+        );
 
         Ok(Self {
             show_help: true,
             command_input: CommandInput::default(),
             project_session,
             document_session,
+            language_workspace,
             oxvba_services,
             last_execution: None,
             editor,
@@ -578,9 +696,10 @@ impl ShellModel {
 
     fn buffer_title(&self) -> String {
         format!(
-            "Buffer  {}{}",
+            "Buffer  {}{}  |  LS docs {}",
             self.document_session.display_name(),
-            self.dirty_marker()
+            self.dirty_marker(),
+            self.language_workspace.document_count()
         )
     }
 
@@ -590,6 +709,14 @@ impl ShellModel {
 
     fn is_dirty(&self) -> bool {
         self.document_session.is_dirty(&self.editor.text())
+    }
+
+    fn sync_language_workspace(&mut self, current_text: &str) {
+        self.language_workspace = LanguageWorkspaceSession::from_host_state(
+            &self.project_session,
+            &self.document_session,
+            current_text,
+        );
     }
 
     fn save_current_file(&mut self) {
@@ -633,9 +760,12 @@ impl ShellModel {
             self.document_session.saved_text = canonical_xml.clone();
             self.editor = new_editor(&canonical_xml);
             self.editor_state = RefCell::new(TextAreaState::default());
+            self.sync_language_workspace(&canonical_xml);
             Ok(status)
         } else {
-            self.document_session.save_as(path, current_text)
+            let status = self.document_session.save_as(path, current_text)?;
+            self.sync_language_workspace(current_text);
+            Ok(status)
         }
     }
 
@@ -754,6 +884,8 @@ impl ShellModel {
                 self.project_session = project_session;
                 self.editor = new_editor(self.document_session.saved_text());
                 self.editor_state = RefCell::new(TextAreaState::default());
+                let current_text = self.document_session.saved_text().to_string();
+                self.sync_language_workspace(&current_text);
                 self.status = status;
             }
             Err(error) => {
@@ -771,6 +903,8 @@ impl ShellModel {
                 self.document_session = document_session;
                 self.editor = new_editor(self.document_session.saved_text());
                 self.editor_state = RefCell::new(TextAreaState::default());
+                let current_text = self.document_session.saved_text().to_string();
+                self.sync_language_workspace(&current_text);
                 self.status = format!("Opened project module {}.", module.module_name);
             }
             Err(error) => {
@@ -879,6 +1013,8 @@ impl Model for ShellModel {
                 }
 
                 if self.editor.handle_event(&event) {
+                    let current_text = self.editor.text();
+                    self.sync_language_workspace(&current_text);
                     self.status = if self.is_dirty() {
                         String::from("Buffer modified.")
                     } else {
@@ -958,7 +1094,11 @@ impl Model for ShellModel {
             };
 
             if has_project_surface {
-                Paragraph::new(self.project_session.surface_text(&self.document_session))
+                Paragraph::new(format!(
+                    "{}\n\nLanguage\n{}",
+                    self.project_session.surface_text(&self.document_session),
+                    self.language_workspace.surface_text()
+                ))
                     .block(
                         Block::new()
                             .borders(Borders::ALL)
@@ -1042,6 +1182,20 @@ fn is_basproj_path(path: &Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
         .is_some_and(|ext| ext.eq_ignore_ascii_case("basproj"))
+}
+
+fn is_language_document_path(path: Option<&Path>) -> bool {
+    path.and_then(|path| path.extension().and_then(|ext| ext.to_str()))
+        .is_some_and(|ext| matches!(ext.to_ascii_lowercase().as_str(), "bas" | "cls"))
+}
+
+fn document_id_for_path(path: Option<&Path>) -> DocumentId {
+    let name = path
+        .and_then(|path| path.file_stem())
+        .and_then(|stem| stem.to_str())
+        .filter(|stem| !stem.is_empty())
+        .unwrap_or("CurrentDocument");
+    DocumentId::new(name)
 }
 
 fn project_error_to_io(error: oxvba_project::BasProjError) -> io::Error {
@@ -2050,6 +2204,65 @@ End Sub\n"
         )?;
         if model.document_session.display_name() != module1_path.display().to_string() {
             return Err(String::from("module-prev should wrap back to the previous module"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn language_workspace_tracks_project_modules_from_manifest() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-q2k-4-workspace")?;
+        let project_path = workspace_dir.join("WorkspaceSurface.basproj");
+        write_test_file(&workspace_dir.join("Module1.bas"), sample_module_text())?;
+        write_test_file(&workspace_dir.join("Module2.bas"), sample_second_module_text())?;
+        write_test_file(&project_path, sample_workspace_project_text())?;
+
+        let model = ShellModel::new(Some(project_path)).map_err(|error| error.to_string())?;
+
+        if model.language_workspace.document_count() != 2 {
+            return Err(String::from(
+                "language workspace should open all project modules from the manifest",
+            ));
+        }
+
+        let language_surface = model.language_workspace.surface_text();
+        if !language_surface.contains("Workspace Project: WorkspaceSurface") {
+            return Err(String::from(
+                "language workspace should retain the project manifest identity",
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn language_workspace_uses_unsaved_host_text_for_current_module() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-q2k-4-host-text")?;
+        let project_path = workspace_dir.join("WorkspaceSurface.basproj");
+        write_test_file(&workspace_dir.join("Module1.bas"), sample_module_text())?;
+        write_test_file(&workspace_dir.join("Module2.bas"), sample_second_module_text())?;
+        write_test_file(&project_path, sample_workspace_project_text())?;
+
+        let mut model = ShellModel::new(Some(project_path)).map_err(|error| error.to_string())?;
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "module Module1"),
+            "opening a project module",
+        )?;
+
+        let initial_diagnostics = model.language_workspace.current_diagnostics();
+
+        for ch in "\nSub Broken(\n".chars() {
+            expect_none_cmd(
+                model.update(Msg::Editor(Event::Key(KeyEvent::new(KeyCode::Char(ch))))),
+                "typing invalid module text",
+            )?;
+        }
+
+        let updated_diagnostics = model.language_workspace.current_diagnostics();
+        if updated_diagnostics.len() <= initial_diagnostics.len() {
+            return Err(String::from(
+                "language workspace should analyze the unsaved editor text, not just disk contents",
+            ));
         }
 
         Ok(())
