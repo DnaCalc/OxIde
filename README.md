@@ -10,13 +10,74 @@ It is intended to be the focused interactive environment around:
 - target-aware build and run workflows
 - embedded and host-driven `OxVba` scenarios
 
-Current implementation focus:
+## Current Thin Slice
+
+The current implementation is intentionally narrow. It proves the editor, shell,
+document, and service seams without pretending that full project/workspace
+ support already exists.
+
+What works now:
+
+- launch `OxIde` as a Rust console app
+- open one file at startup or create one bound new file
+- edit text in a single buffer
+- save with `Ctrl-S` or `:write`
+- open another file with `:open <path>`
+- run `:build` and `:run` through `OxVbaServices`
+- view structured results in the `OxVba Output` pane
+
+Current command surface:
+
+- `:open <path>`
+- `:write [path]`
+- `:build`
+- `:run`
+- `:quit`
+
+Current limitations:
+
+- one active `DocumentSession` at a time
+- no explicit `ProjectSession` UI yet
+- project build/run currently works by making the `.basproj` file the active
+  document before `:build` or `:run`
+- no language-service, module navigation, or target-selection surface yet
+
+## Architecture Seams
+
+The intended top-level seams are:
+
+- `OxIdeShell`
+  owns panes, commands, status, focus routing, and workflow orchestration
+- `ProjectSession`
+  owns `.basproj` identity, project/workspace state, target selection, and
+  runtime/profile/policy selections
+- `DocumentSession`
+  owns document identity, file path binding, dirty state, and open/save/reload
+  semantics
+- `EditorSurface`
+  owns text editing behavior and viewport behavior
+- `OxVbaServices`
+  owns project, language-service, build, and execution contracts consumed by
+  `OxIde`
+
+Current implementation status against those seams:
+
+- `DocumentSession` is explicit and implemented
+- `OxVbaServices` is explicit and implemented behind a narrow execution seam
+- the current shell already separates command handling, buffer state, footer
+  status, and output-pane rendering
+- `EditorSurface` and `ProjectSession` are still architectural seams more than
+  fully-factored runtime objects
+
+## Technical Direction
+
+The repo is aligned around these decisions:
 
 - Rust application
-- `FrankenTui` shell/runtime
-- `FrankenTui` editor path behind an `OxIde`-owned `EditorSurface`
-- explicit `ProjectSession` and `DocumentSession` seams
-- `OxVba` consumed as a project/language-service/build/runtime substrate
+- `FrankenTui` as the shell/runtime foundation
+- `FrankenTui` editor path behind an `OxIde`-owned editor seam
+- `msedit` as a correctness/behavior reference and selective donor
+- `OxVba` treated as the project/language-service/build/runtime substrate
 
 Planned `OxVba` target surface in scope:
 
@@ -27,10 +88,7 @@ Planned `OxVba` target surface in scope:
 - `ComServer`
 - `ComExe`
 
-## Thin-Slice Sample Workflow
-
-The current thin slice is a single-document shell with `OxVba` build and run
-commands behind the command surface.
+## Thin-Slice Workflow
 
 Use the sample project in `examples/thin-slice/`:
 
@@ -51,3 +109,38 @@ shows the action, target, success flag, exit code, and captured stdout/stderr.
 
 For a fuller walkthrough, including a deliberate failing build to prove the
 output pane, see `examples/thin-slice/README.md`.
+
+## Smoke Verification
+
+The current thin slice has an in-repo smoke test that exercises the implemented
+flow:
+
+- launch with a bound startup path
+- edit the buffer
+- save to disk
+- open the sample `.basproj`
+- issue `:build`
+- issue `:run`
+- assert the final structured output state
+
+Run it with:
+
+```bash
+cargo test smoke_flow_covers_launch_edit_save_open_build_and_run
+```
+
+Run the full unit test suite with:
+
+```bash
+cargo test
+```
+
+## Near-Term Direction
+
+The next layer after this thin slice is the explicit project/workspace surface:
+
+- define `ProjectSession` around `.basproj` and `ProjectManifest`
+- add project/workspace UI and module navigation
+- add target-aware build and run surfaces
+- expose runtime profile and host policy selection
+- integrate `oxvba-languageservice` against host-provided document text
