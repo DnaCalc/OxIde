@@ -13,10 +13,12 @@ use ftui::widgets::borders::Borders;
 use ftui::widgets::paragraph::Paragraph;
 use ftui::widgets::textarea::{TextArea, TextAreaState};
 use ftui::widgets::{StatefulWidget, Widget};
+use oxvba_compiler::ProjectManifest;
 
 struct ShellModel {
     show_help: bool,
     command_input: CommandInput,
+    project_session: ProjectSession,
     document_session: DocumentSession,
     oxvba_services: Box<dyn OxVbaServices>,
     last_execution: Option<OxVbaExecutionResult>,
@@ -35,6 +37,12 @@ struct DocumentSession {
     path: Option<PathBuf>,
     has_backing_file: bool,
     saved_text: String,
+}
+
+#[derive(Default)]
+struct ProjectSession {
+    project_path: Option<PathBuf>,
+    manifest: Option<ProjectManifest>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -144,6 +152,10 @@ impl DocumentSession {
         }
     }
 
+    fn path(&self) -> Option<&PathBuf> {
+        self.path.as_ref()
+    }
+
     fn saved_text(&self) -> &str {
         &self.saved_text
     }
@@ -228,6 +240,47 @@ impl DocumentSession {
     }
 }
 
+impl ProjectSession {
+    fn from_document_path(path: Option<&PathBuf>) -> Self {
+        let mut session = Self::default();
+        if let Some(path) = path
+            && path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("basproj"))
+        {
+            session.bind_path(path.clone());
+        }
+        session
+    }
+
+    fn bind_path(&mut self, path: PathBuf) {
+        self.project_path = Some(path);
+        self.manifest = None;
+    }
+
+    fn bind_manifest(&mut self, project_path: PathBuf, manifest: ProjectManifest) {
+        self.project_path = Some(project_path);
+        self.manifest = Some(manifest);
+    }
+
+    fn clear(&mut self) {
+        self.project_path = None;
+        self.manifest = None;
+    }
+
+    fn display_name(&self) -> String {
+        match &self.project_path {
+            Some(path) => path.display().to_string(),
+            None => String::from("(no project)"),
+        }
+    }
+
+    fn has_manifest(&self) -> bool {
+        self.manifest.is_some()
+    }
+}
+
 impl ShellModel {
     fn new(path: Option<PathBuf>) -> io::Result<Self> {
         Self::with_services(path, Box::new(CargoOxVbaServices::discover()))
@@ -238,11 +291,13 @@ impl ShellModel {
         oxvba_services: Box<dyn OxVbaServices>,
     ) -> io::Result<Self> {
         let (document_session, status) = DocumentSession::load(path)?;
+        let project_session = ProjectSession::from_document_path(document_session.path());
         let editor = new_editor(document_session.saved_text());
 
         Ok(Self {
             show_help: true,
             command_input: CommandInput::default(),
+            project_session,
             document_session,
             oxvba_services,
             last_execution: None,
@@ -254,9 +309,10 @@ impl ShellModel {
 
     fn header_text(&self) -> String {
         format!(
-            "OxIde  |  {}{}",
+            "OxIde  |  Buffer: {}{}  |  Project: {}",
             self.document_session.display_name(),
-            self.dirty_marker()
+            self.dirty_marker(),
+            self.project_session.display_name()
         )
     }
 
@@ -457,6 +513,7 @@ impl ShellModel {
         match DocumentSession::open(path) {
             Ok((document_session, status)) => {
                 self.document_session = document_session;
+                self.project_session = ProjectSession::from_document_path(self.document_session.path());
                 self.editor = new_editor(self.document_session.saved_text());
                 self.editor_state = RefCell::new(TextAreaState::default());
                 self.status = status;
@@ -766,11 +823,14 @@ fn main() -> io::Result<()> {
 mod tests {
     use super::{
         DocumentSession, Msg, OxVbaExecutionAction, OxVbaExecutionRequest, OxVbaExecutionResult,
-        OxVbaExecutionTarget, OxVbaServices, ShellModel, is_command_key, is_help_key, is_quit_key,
-        is_save_key, oxvba_cli_args_for_request, split_command, startup_path_from_args,
+        OxVbaExecutionTarget, OxVbaServices, ProjectSession, ShellModel, is_command_key,
+        is_help_key, is_quit_key, is_save_key, oxvba_cli_args_for_request, split_command,
+        startup_path_from_args,
     };
     use ftui::prelude::{Cmd, Event, KeyCode, KeyEvent, Model, Modifiers};
+    use oxvba_compiler::{ProjectKind, ProjectManifest};
     use std::cell::RefCell;
+    use std::collections::BTreeMap;
     use std::env;
     use std::ffi::OsString;
     use std::fs;
@@ -878,6 +938,17 @@ End Sub\n"
     <Module Include=\"Module1.bas\" />\n\
   </ItemGroup>\n\
 </Project>\n"
+    }
+
+    fn sample_manifest(name: &str) -> ProjectManifest {
+        ProjectManifest {
+            project_name: String::from(name),
+            project_kind: ProjectKind::Source,
+            modules: Vec::new(),
+            references: Vec::new(),
+            reference_projects: Vec::new(),
+            conditional_constants: BTreeMap::new(),
+        }
     }
 
     impl OxVbaServices for FakeOxVbaServices {
@@ -1391,6 +1462,68 @@ End Sub\n"
 
         if startup_path_from_args(args).is_ok() {
             return Err(String::from("only one startup file should be accepted"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn startup_with_basproj_binds_project_session() -> Result<(), String> {
+        let path = PathBuf::from("sample.basproj");
+        let model = ShellModel::new(Some(path)).map_err(|error| error.to_string())?;
+
+        if model.project_session.display_name() != "sample.basproj" {
+            return Err(String::from("startup basproj should bind the project session"));
+        }
+
+        if !model.header_text().contains("Project: sample.basproj") {
+            return Err(String::from("header should surface the bound project session"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn opening_non_project_document_clears_project_session() -> Result<(), String> {
+        let basproj = PathBuf::from("sample.basproj");
+        let module = env::current_dir()
+            .map_err(|error| error.to_string())?
+            .join("Cargo.toml");
+        let mut model = ShellModel::new(Some(basproj)).map_err(|error| error.to_string())?;
+        model.enter_command_mode();
+        model.command_input.value = format!("open {}", module.display());
+
+        let cmd = model.dispatch_command_line();
+
+        if model.project_session.display_name() != "(no project)" {
+            return Err(String::from("opening a non-project document should clear the project session"));
+        }
+
+        if !matches!(cmd, Cmd::None) {
+            return Err(String::from("open should not request a side effect"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn project_session_can_store_manifest_for_future_project_work() -> Result<(), String> {
+        let mut session = ProjectSession::default();
+        let path = PathBuf::from("demo.basproj");
+        session.bind_manifest(path.clone(), sample_manifest("DemoProject"));
+
+        if session.display_name() != path.display().to_string() {
+            return Err(String::from("project session should retain the project path"));
+        }
+
+        if !session.has_manifest() {
+            return Err(String::from("project session should retain the manifest seam"));
+        }
+
+        session.clear();
+
+        if session.has_manifest() || session.display_name() != "(no project)" {
+            return Err(String::from("clearing the project session should drop project state"));
         }
 
         Ok(())
