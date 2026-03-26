@@ -15,7 +15,7 @@ use ftui::widgets::borders::Borders;
 use ftui::widgets::paragraph::Paragraph;
 use ftui::widgets::textarea::{TextArea, TextAreaState};
 use ftui::widgets::{StatefulWidget, Widget};
-use oxvba_compiler::{ProjectKind, ProjectManifest};
+use oxvba_compiler::{ModuleKind, ProjectKind, ProjectManifest};
 use oxvba_project::{
     ClassModuleMetadata, LoadedProject, NativeExportDescriptor, OutputType, RuntimeFlavor,
     generate_basproj_xml, load_basproj, load_basproj_from_str,
@@ -49,6 +49,13 @@ struct DocumentSession {
 struct ProjectSession {
     project_path: Option<PathBuf>,
     loaded_project: Option<LoadedProject>,
+    selected_module_index: Option<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ProjectModuleEntry {
+    module_name: String,
+    path: PathBuf,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -270,6 +277,7 @@ impl ProjectSession {
                 Self {
                     project_path: Some(path.to_path_buf()),
                     loaded_project: Some(loaded_project),
+                    selected_module_index: Some(0),
                 },
                 Some(text),
             ))
@@ -280,6 +288,7 @@ impl ProjectSession {
                 Self {
                     project_path: Some(path.to_path_buf()),
                     loaded_project: Some(loaded_project),
+                    selected_module_index: Some(0),
                 },
                 Some(text),
             ))
@@ -292,6 +301,7 @@ impl ProjectSession {
             load_basproj_from_str(project_text, project_dir).map_err(project_error_to_io)?;
         self.project_path = Some(project_path.to_path_buf());
         self.loaded_project = Some(loaded_project);
+        self.selected_module_index = Some(0);
         Ok(())
     }
 
@@ -307,6 +317,7 @@ impl ProjectSession {
     fn clear(&mut self) {
         self.project_path = None;
         self.loaded_project = None;
+        self.selected_module_index = None;
     }
 
     fn display_name(&self) -> String {
@@ -326,6 +337,110 @@ impl ProjectSession {
 
     fn canonical_xml(&self) -> Option<String> {
         self.loaded_project.as_ref().map(canonical_project_xml)
+    }
+
+    fn module_entries(&self) -> Vec<ProjectModuleEntry> {
+        let Some(project_path) = &self.project_path else {
+            return Vec::new();
+        };
+        let Some(loaded_project) = &self.loaded_project else {
+            return Vec::new();
+        };
+        let project_dir = project_path.parent().unwrap_or_else(|| Path::new("."));
+
+        loaded_project
+            .manifest
+            .modules
+            .iter()
+            .map(|module| ProjectModuleEntry {
+                module_name: module.module_name.clone(),
+                path: project_dir.join(module_filename_for_kind(
+                    &module.module_name,
+                    module.module_kind,
+                )),
+            })
+            .collect()
+    }
+
+    fn selected_module(&self) -> Option<ProjectModuleEntry> {
+        let modules = self.module_entries();
+        let index = self.selected_module_index?;
+        modules.get(index).cloned()
+    }
+
+    fn select_module_by_name(&mut self, module_name: &str) -> Result<ProjectModuleEntry, String> {
+        let modules = self.module_entries();
+        let Some((index, module)) = modules.iter().enumerate().find(|(_, module)| {
+            module.module_name.eq_ignore_ascii_case(module_name)
+                || module.path.display().to_string().eq_ignore_ascii_case(module_name)
+        }) else {
+            return Err(format!("Unknown project module: {module_name}"));
+        };
+        self.selected_module_index = Some(index);
+        Ok(module.clone())
+    }
+
+    fn select_adjacent_module(&mut self, step: isize) -> Result<ProjectModuleEntry, String> {
+        let modules = self.module_entries();
+        if modules.is_empty() {
+            return Err(String::from("Project has no modules to navigate."));
+        }
+
+        let current = self.selected_module_index.unwrap_or(0) as isize;
+        let len = modules.len() as isize;
+        let next = (current + step).rem_euclid(len) as usize;
+        self.selected_module_index = Some(next);
+        Ok(modules[next].clone())
+    }
+
+    fn sync_selection_from_document_path(&mut self, path: &Path) {
+        let modules = self.module_entries();
+        if let Some((index, _)) = modules.iter().enumerate().find(|(_, module)| module.path == path)
+        {
+            self.selected_module_index = Some(index);
+        }
+    }
+
+    fn surface_text(&self, current_document: &DocumentSession) -> String {
+        let Some(loaded_project) = &self.loaded_project else {
+            return String::from("No project session.\n\nOpen a .basproj to show project/workspace state.");
+        };
+
+        let mut lines = vec![
+            format!("Path: {}", self.display_name()),
+            format!("Kind: {:?}", loaded_project.manifest.project_kind),
+            format!("Modules: {}", loaded_project.manifest.modules.len()),
+            format!("References: {}", loaded_project.manifest.references.len()),
+        ];
+
+        if let Some(selected) = self.selected_module() {
+            lines.push(format!("Selected: {}", selected.module_name));
+        }
+
+        lines.push(String::new());
+        lines.push(String::from("Modules"));
+
+        for (index, module) in self.module_entries().iter().enumerate() {
+            let mut marker = if Some(index) == self.selected_module_index {
+                ">"
+            } else {
+                " "
+            };
+            if current_document.path().is_some_and(|path| path == &module.path) {
+                marker = "*";
+            }
+            lines.push(format!("{marker} {}", module.module_name));
+        }
+
+        if self.module_entries().is_empty() {
+            lines.push(String::from("(none)"));
+        }
+
+        lines.push(String::new());
+        lines.push(String::from(
+            "Commands: :module <name>  :module-next  :module-prev",
+        ));
+        lines.join("\n")
     }
 }
 
@@ -389,6 +504,9 @@ impl ShellModel {
          :open <path>\n\
          :write [path]\n\
          :project-new <path>\n\
+         :module <name>\n\
+         :module-next\n\
+         :module-prev\n\
          :build\n\
          :run\n\
          :quit\n\n\
@@ -402,7 +520,7 @@ impl ShellModel {
             format!(":{}", self.command_input.value)
         } else {
             String::from(
-                ": command mode  |  :open <path>  :write [path]  :project-new <path>  :build  :run  :quit",
+                ": command mode  |  :open <path>  :write [path]  :project-new <path>  :module <name>  :module-next  :module-prev  :build  :run  :quit",
             )
         };
         format!(
@@ -594,6 +712,15 @@ impl ShellModel {
                     Cmd::none()
                 }
             },
+            "module" => match arg {
+                Some(module_name) => self.open_named_project_module(module_name),
+                None => {
+                    self.status = String::from("Usage: :module <name>");
+                    Cmd::none()
+                }
+            },
+            "module-next" => self.cycle_project_module(1),
+            "module-prev" => self.cycle_project_module(-1),
             "quit" => Cmd::quit(),
             "build" => self.execute_oxvba(OxVbaExecutionAction::Build),
             "run" => self.execute_oxvba(OxVbaExecutionAction::Run),
@@ -635,6 +762,43 @@ impl ShellModel {
         }
 
         Cmd::none()
+    }
+
+    fn open_selected_project_module(&mut self, module: ProjectModuleEntry) -> Cmd<Msg> {
+        match DocumentSession::open(module.path.clone()) {
+            Ok((document_session, _status)) => {
+                self.project_session.sync_selection_from_document_path(&module.path);
+                self.document_session = document_session;
+                self.editor = new_editor(self.document_session.saved_text());
+                self.editor_state = RefCell::new(TextAreaState::default());
+                self.status = format!("Opened project module {}.", module.module_name);
+            }
+            Err(error) => {
+                self.status = format!("Open failed: {error}");
+            }
+        }
+
+        Cmd::none()
+    }
+
+    fn open_named_project_module(&mut self, module_name: &str) -> Cmd<Msg> {
+        match self.project_session.select_module_by_name(module_name) {
+            Ok(module) => self.open_selected_project_module(module),
+            Err(message) => {
+                self.status = message;
+                Cmd::none()
+            }
+        }
+    }
+
+    fn cycle_project_module(&mut self, step: isize) -> Cmd<Msg> {
+        match self.project_session.select_adjacent_module(step) {
+            Ok(module) => self.open_selected_project_module(module),
+            Err(message) => {
+                self.status = message;
+                Cmd::none()
+            }
+        }
     }
 
     fn execute_oxvba(&mut self, action: OxVbaExecutionAction) -> Cmd<Msg> {
@@ -745,17 +909,20 @@ impl Model for ShellModel {
             )
             .render(sections[0], frame);
 
-        let body_sections = if self.show_help {
+        let has_project_surface = self.project_session.has_manifest();
+        let show_side_panel = has_project_surface || self.show_help;
+        let main_and_side_sections = if show_side_panel {
             Flex::horizontal()
                 .constraints([Constraint::Percentage(72.0), Constraint::Fill])
                 .split(sections[1])
         } else {
             vec![sections[1]]
         };
+        let main_area = main_and_side_sections[0];
 
         let main_sections = Flex::vertical()
             .constraints([Constraint::Percentage(68.0), Constraint::Fill])
-            .split(body_sections[0]);
+            .split(main_area);
 
         let buffer_title = self.buffer_title();
         let editor_block = Block::new()
@@ -780,15 +947,42 @@ impl Model for ShellModel {
             )
             .render(main_sections[1], frame);
 
-        if self.show_help {
-            Paragraph::new(self.help_text())
-                .block(
-                    Block::new()
-                        .borders(Borders::ALL)
-                        .title("Help")
-                        .title_alignment(Alignment::Center),
-                )
-                .render(body_sections[1], frame);
+        if show_side_panel {
+            let side_area = main_and_side_sections[1];
+            let side_sections = if has_project_surface && self.show_help {
+                Flex::vertical()
+                    .constraints([Constraint::Percentage(58.0), Constraint::Fill])
+                    .split(side_area)
+            } else {
+                vec![side_area]
+            };
+
+            if has_project_surface {
+                Paragraph::new(self.project_session.surface_text(&self.document_session))
+                    .block(
+                        Block::new()
+                            .borders(Borders::ALL)
+                            .title("Project")
+                            .title_alignment(Alignment::Center),
+                    )
+                    .render(side_sections[0], frame);
+            }
+
+            if self.show_help {
+                let help_area = if has_project_surface {
+                    side_sections[1]
+                } else {
+                    side_sections[0]
+                };
+                Paragraph::new(self.help_text())
+                    .block(
+                        Block::new()
+                            .borders(Borders::ALL)
+                            .title("Help")
+                            .title_alignment(Alignment::Center),
+                    )
+                    .render(help_area, frame);
+            }
         }
 
         Paragraph::new(self.footer_text())
@@ -867,6 +1061,16 @@ fn canonical_project_xml(loaded_project: &LoadedProject) -> String {
         &loaded_project.native_exports,
         &loaded_project.class_module_metadata,
     )
+}
+
+fn module_filename_for_kind(module_name: &str, module_kind: ModuleKind) -> String {
+    let extension = match module_kind {
+        ModuleKind::Procedural => "bas",
+        ModuleKind::Class | ModuleKind::Document | ModuleKind::Form | ModuleKind::Extension => {
+            "cls"
+        }
+    };
+    format!("{module_name}.{extension}")
 }
 
 fn default_loaded_project_for_path(path: &Path) -> LoadedProject {
@@ -1103,6 +1307,29 @@ End Sub\n"
     <Module Include=\"Module1.bas\" />\n\
   </ItemGroup>\n\
 </Project>\n"
+    }
+
+    fn sample_workspace_project_text() -> &'static str {
+        "<Project Sdk=\"OxVba.Sdk/0.1.0\">\n\
+  <PropertyGroup>\n\
+    <OutputType>Exe</OutputType>\n\
+    <ProjectName>WorkspaceSurface</ProjectName>\n\
+    <EntryPoint>Module1.Main</EntryPoint>\n\
+  </PropertyGroup>\n\
+  <ItemGroup>\n\
+    <Module Include=\"Module1.bas\" />\n\
+    <Module Include=\"Module2.bas\" />\n\
+  </ItemGroup>\n\
+</Project>\n"
+    }
+
+    fn sample_second_module_text() -> &'static str {
+        "Attribute VB_Name = \"Module2\"\n\
+\n\
+Option Explicit\n\
+\n\
+Public Sub Helper()\n\
+End Sub\n"
     }
 
     impl OxVbaServices for FakeOxVbaServices {
@@ -1733,6 +1960,96 @@ End Sub\n"
             return Err(String::from(
                 "saving a new basproj should persist the canonical project XML",
             ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn project_surface_lists_modules_and_navigation_commands() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-q2k-3-surface")?;
+        let project_path = workspace_dir.join("WorkspaceSurface.basproj");
+        write_test_file(&workspace_dir.join("Module1.bas"), sample_module_text())?;
+        write_test_file(&workspace_dir.join("Module2.bas"), sample_second_module_text())?;
+        write_test_file(&project_path, sample_workspace_project_text())?;
+
+        let model = ShellModel::new(Some(project_path)).map_err(|error| error.to_string())?;
+        let surface = model.project_session.surface_text(&model.document_session);
+
+        if !surface.contains("Modules: 2") {
+            return Err(String::from("project surface should report the module count"));
+        }
+
+        if !surface.contains("> Module1") || !surface.contains("  Module2") {
+            return Err(String::from("project surface should list the project modules"));
+        }
+
+        if !surface.contains(":module <name>") || !surface.contains(":module-next") {
+            return Err(String::from(
+                "project surface should advertise the module navigation commands",
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn module_command_opens_project_module_and_keeps_project_session() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-q2k-3-open-module")?;
+        let project_path = workspace_dir.join("WorkspaceSurface.basproj");
+        let module1_path = workspace_dir.join("Module1.bas");
+        write_test_file(&module1_path, sample_module_text())?;
+        write_test_file(&workspace_dir.join("Module2.bas"), sample_second_module_text())?;
+        write_test_file(&project_path, sample_workspace_project_text())?;
+
+        let mut model = ShellModel::new(Some(project_path.clone())).map_err(|error| error.to_string())?;
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "module Module1"),
+            "opening a project module",
+        )?;
+
+        if model.document_session.display_name() != module1_path.display().to_string() {
+            return Err(String::from("module command should open the selected module document"));
+        }
+
+        if model.project_session.display_name() != project_path.display().to_string() {
+            return Err(String::from("module command should retain the active project session"));
+        }
+
+        let surface = model.project_session.surface_text(&model.document_session);
+        if !surface.contains("* Module1") {
+            return Err(String::from("project surface should mark the active module document"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn module_next_and_prev_cycle_project_modules() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-q2k-3-cycle-modules")?;
+        let project_path = workspace_dir.join("WorkspaceSurface.basproj");
+        let module1_path = workspace_dir.join("Module1.bas");
+        let module2_path = workspace_dir.join("Module2.bas");
+        write_test_file(&module1_path, sample_module_text())?;
+        write_test_file(&module2_path, sample_second_module_text())?;
+        write_test_file(&project_path, sample_workspace_project_text())?;
+
+        let mut model = ShellModel::new(Some(project_path)).map_err(|error| error.to_string())?;
+
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "module-next"),
+            "cycling to the next module",
+        )?;
+        if model.document_session.display_name() != module2_path.display().to_string() {
+            return Err(String::from("module-next should open the next project module"));
+        }
+
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "module-prev"),
+            "cycling to the previous module",
+        )?;
+        if model.document_session.display_name() != module1_path.display().to_string() {
+            return Err(String::from("module-prev should wrap back to the previous module"));
         }
 
         Ok(())
