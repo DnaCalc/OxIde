@@ -60,6 +60,13 @@ struct ProjectModuleEntry {
     path: PathBuf,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ProjectRunDisposition {
+    Executable,
+    HostActivated,
+    BuildOnly,
+}
+
 struct LanguageWorkspaceSession {
     service: LanguageService,
     current_document: Option<DocumentId>,
@@ -346,6 +353,66 @@ impl ProjectSession {
         self.loaded_project.as_ref().map(canonical_project_xml)
     }
 
+    fn output_type(&self) -> Option<OutputType> {
+        self.loaded_project.as_ref().map(|loaded| loaded.output_type)
+    }
+
+    fn run_disposition(&self) -> Option<ProjectRunDisposition> {
+        self.output_type().map(|output_type| match output_type {
+            OutputType::Exe | OutputType::ComExe => ProjectRunDisposition::Executable,
+            OutputType::HostModule | OutputType::Addin => ProjectRunDisposition::HostActivated,
+            OutputType::Library | OutputType::ComServer => ProjectRunDisposition::BuildOnly,
+        })
+    }
+
+    fn build_artifact_label(&self) -> &'static str {
+        match self.output_type() {
+            Some(OutputType::HostModule) => "host-target bundle",
+            Some(OutputType::Library) => "library bundle",
+            Some(OutputType::Exe) => "executable bundle",
+            Some(OutputType::Addin) => "addin bundle",
+            Some(OutputType::ComServer) => "COM server bundle",
+            Some(OutputType::ComExe) => "COM executable bundle",
+            None => "bundle",
+        }
+    }
+
+    fn run_action_label(&self) -> &'static str {
+        match self.run_disposition() {
+            Some(ProjectRunDisposition::Executable) => "run-project",
+            Some(ProjectRunDisposition::HostActivated) => "host activation",
+            Some(ProjectRunDisposition::BuildOnly) => "build only",
+            None => "not available",
+        }
+    }
+
+    fn output_type_label(&self) -> &'static str {
+        match self.output_type() {
+            Some(OutputType::HostModule) => "HostModule",
+            Some(OutputType::Library) => "Library",
+            Some(OutputType::Exe) => "Exe",
+            Some(OutputType::Addin) => "Addin",
+            Some(OutputType::ComServer) => "ComServer",
+            Some(OutputType::ComExe) => "ComExe",
+            None => "(none)",
+        }
+    }
+
+    fn run_block_reason(&self) -> Option<String> {
+        match self.run_disposition()? {
+            ProjectRunDisposition::Executable => None,
+            ProjectRunDisposition::HostActivated => Some(format!(
+                "{} targets require host activation; OxIde does not launch host activation targets yet.",
+                self.output_type_label()
+            )),
+            ProjectRunDisposition::BuildOnly => Some(format!(
+                "{} targets are build-only in OxIde; use :build to produce the {}.",
+                self.output_type_label(),
+                self.build_artifact_label()
+            )),
+        }
+    }
+
     fn module_entries(&self) -> Vec<ProjectModuleEntry> {
         let Some(project_path) = &self.project_path else {
             return Vec::new();
@@ -416,6 +483,9 @@ impl ProjectSession {
         let mut lines = vec![
             format!("Path: {}", self.display_name()),
             format!("Kind: {:?}", loaded_project.manifest.project_kind),
+            format!("Target: {}", self.output_type_label()),
+            format!("Build Output: {}", self.build_artifact_label()),
+            format!("Run Surface: {}", self.run_action_label()),
             format!("Modules: {}", loaded_project.manifest.modules.len()),
             format!("References: {}", loaded_project.manifest.references.len()),
         ];
@@ -936,6 +1006,14 @@ impl ShellModel {
     }
 
     fn execute_oxvba(&mut self, action: OxVbaExecutionAction) -> Cmd<Msg> {
+        if action == OxVbaExecutionAction::Run
+            && let Some(message) = self.project_session.run_block_reason()
+        {
+            self.status = message;
+            self.last_execution = None;
+            return Cmd::none();
+        }
+
         let current_text = self.editor.text();
         let target = match self.document_session.execution_target(&current_text) {
             Ok(target) => target,
@@ -1475,6 +1553,21 @@ End Sub\n"
     <Module Include=\"Module2.bas\" />\n\
   </ItemGroup>\n\
 </Project>\n"
+    }
+
+    fn sample_project_text_for_output_type(output_type: &str) -> String {
+        format!(
+            "<Project Sdk=\"OxVba.Sdk/0.1.0\">\n\
+  <PropertyGroup>\n\
+    <OutputType>{output_type}</OutputType>\n\
+    <ProjectName>TargetSurface</ProjectName>\n\
+    <EntryPoint>Module1.Main</EntryPoint>\n\
+  </PropertyGroup>\n\
+  <ItemGroup>\n\
+    <Module Include=\"Module1.bas\" />\n\
+  </ItemGroup>\n\
+</Project>\n"
+        )
     }
 
     fn sample_second_module_text() -> &'static str {
@@ -2264,6 +2357,141 @@ End Sub\n"
                 "language workspace should analyze the unsaved editor text, not just disk contents",
             ));
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn project_surface_reports_target_aware_build_and_run_modes() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-q2k-5-surface")?;
+        let project_path = workspace_dir.join("TargetSurface.basproj");
+        write_test_file(&workspace_dir.join("Module1.bas"), sample_module_text())?;
+        write_test_file(&project_path, &sample_project_text_for_output_type("ComServer"))?;
+
+        let model = ShellModel::new(Some(project_path)).map_err(|error| error.to_string())?;
+        let surface = model.project_session.surface_text(&model.document_session);
+
+        if !surface.contains("Target: ComServer") {
+            return Err(String::from("project surface should show the selected output target"));
+        }
+
+        if !surface.contains("Build Output: COM server bundle")
+            || !surface.contains("Run Surface: build only")
+        {
+            return Err(String::from(
+                "project surface should expose target-aware build and run semantics",
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn run_command_blocks_build_only_library_targets() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-q2k-5-library")?;
+        let project_path = workspace_dir.join("TargetSurface.basproj");
+        write_test_file(&workspace_dir.join("Module1.bas"), sample_module_text())?;
+        write_test_file(&project_path, &sample_project_text_for_output_type("Library"))?;
+        let run_result = OxVbaExecutionResult {
+            action: OxVbaExecutionAction::Run,
+            target: OxVbaExecutionTarget::Project(project_path.clone()),
+            success: true,
+            exit_code: Some(0),
+            stdout: String::new(),
+            stderr: String::new(),
+        };
+        let (fake_services, state) = FakeOxVbaServices::queued(vec![Ok(run_result)]);
+        let mut model =
+            ShellModel::with_services(Some(project_path), Box::new(fake_services))
+                .map_err(|error| error.to_string())?;
+
+        expect_none_cmd(enter_and_dispatch_command(&mut model, "run"), "run command")?;
+
+        if !model.status.contains("Library targets are build-only") {
+            return Err(String::from(
+                "run should explain that library targets are build-only",
+            ));
+        }
+
+        if !state.requests.borrow().is_empty() {
+            return Err(String::from(
+                "run should not call OxVbaServices for build-only targets",
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn run_command_blocks_host_activation_targets() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-q2k-5-addin")?;
+        let project_path = workspace_dir.join("TargetSurface.basproj");
+        write_test_file(&workspace_dir.join("Module1.bas"), sample_module_text())?;
+        write_test_file(&project_path, &sample_project_text_for_output_type("Addin"))?;
+        let run_result = OxVbaExecutionResult {
+            action: OxVbaExecutionAction::Run,
+            target: OxVbaExecutionTarget::Project(project_path.clone()),
+            success: true,
+            exit_code: Some(0),
+            stdout: String::new(),
+            stderr: String::new(),
+        };
+        let (fake_services, state) = FakeOxVbaServices::queued(vec![Ok(run_result)]);
+        let mut model =
+            ShellModel::with_services(Some(project_path), Box::new(fake_services))
+                .map_err(|error| error.to_string())?;
+
+        expect_none_cmd(enter_and_dispatch_command(&mut model, "run"), "run command")?;
+
+        if !model.status.contains("Addin targets require host activation") {
+            return Err(String::from(
+                "run should explain that addin targets require host activation",
+            ));
+        }
+
+        if !state.requests.borrow().is_empty() {
+            return Err(String::from(
+                "run should not call OxVbaServices for host-activation targets",
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn run_command_allows_executable_targets() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-q2k-5-comexe")?;
+        let project_path = workspace_dir.join("TargetSurface.basproj");
+        write_test_file(&workspace_dir.join("Module1.bas"), sample_module_text())?;
+        write_test_file(&project_path, &sample_project_text_for_output_type("ComExe"))?;
+        let run_result = OxVbaExecutionResult {
+            action: OxVbaExecutionAction::Run,
+            target: OxVbaExecutionTarget::Project(project_path.clone()),
+            success: true,
+            exit_code: Some(0),
+            stdout: String::from("ran target"),
+            stderr: String::new(),
+        };
+        let (fake_services, state) = FakeOxVbaServices::queued(vec![Ok(run_result)]);
+        let mut model =
+            ShellModel::with_services(Some(project_path.clone()), Box::new(fake_services))
+                .map_err(|error| error.to_string())?;
+
+        expect_none_cmd(enter_and_dispatch_command(&mut model, "run"), "run command")?;
+
+        if !model.status.contains("Run succeeded") {
+            return Err(String::from(
+                "run should still execute through OxVbaServices for executable targets",
+            ));
+        }
+
+        let requests = state.requests.borrow();
+        if requests.len() != 1 {
+            return Err(String::from(
+                "run should make exactly one OxVbaServices request for executable targets",
+            ));
+        }
+        expect_project_request(&requests[0], OxVbaExecutionAction::Run, &project_path)?;
 
         Ok(())
     }
