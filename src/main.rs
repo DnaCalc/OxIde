@@ -773,27 +773,117 @@ mod tests {
     use std::cell::RefCell;
     use std::env;
     use std::ffi::OsString;
+    use std::fs;
     use std::io;
+    use std::collections::VecDeque;
     use std::path::PathBuf;
+    use std::rc::Rc;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[derive(Default)]
+    struct FakeOxVbaServicesState {
+        requests: RefCell<Vec<OxVbaExecutionRequest>>,
+        results: RefCell<VecDeque<io::Result<OxVbaExecutionResult>>>,
+    }
 
     struct FakeOxVbaServices {
-        requests: RefCell<Vec<OxVbaExecutionRequest>>,
-        result: RefCell<Option<io::Result<OxVbaExecutionResult>>>,
+        state: Rc<FakeOxVbaServicesState>,
     }
 
     impl FakeOxVbaServices {
         fn succeed(result: OxVbaExecutionResult) -> Self {
             Self {
-                requests: RefCell::new(Vec::new()),
-                result: RefCell::new(Some(Ok(result))),
+                state: Rc::new(FakeOxVbaServicesState {
+                    requests: RefCell::new(Vec::new()),
+                    results: RefCell::new(VecDeque::from([Ok(result)])),
+                }),
             }
         }
+
+        fn queued(results: Vec<io::Result<OxVbaExecutionResult>>) -> (Self, Rc<FakeOxVbaServicesState>) {
+            let state = Rc::new(FakeOxVbaServicesState {
+                requests: RefCell::new(Vec::new()),
+                results: RefCell::new(results.into()),
+            });
+            (
+                Self {
+                    state: Rc::clone(&state),
+                },
+                state,
+            )
+        }
+    }
+
+    fn unique_test_path(label: &str, extension: &str) -> Result<PathBuf, String> {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|error| error.to_string())?
+            .as_nanos();
+        Ok(env::temp_dir().join(format!("oxide-{label}-{nanos}.{extension}")))
+    }
+
+    fn write_test_file(path: &PathBuf, contents: &str) -> Result<(), String> {
+        fs::write(path, contents).map_err(|error| error.to_string())
+    }
+
+    fn enter_and_dispatch_command(model: &mut ShellModel, command: &str) -> Cmd<Msg> {
+        model.enter_command_mode();
+        model.command_input.value = String::from(command);
+        model.dispatch_command_line()
+    }
+
+    fn expect_none_cmd(cmd: Cmd<Msg>, context: &str) -> Result<(), String> {
+        if !matches!(cmd, Cmd::None) {
+            return Err(format!("{context} should not request a side effect"));
+        }
+        Ok(())
+    }
+
+    fn expect_project_request(
+        request: &OxVbaExecutionRequest,
+        expected_action: OxVbaExecutionAction,
+        expected_path: &PathBuf,
+    ) -> Result<(), String> {
+        if request.action != expected_action {
+            return Err(String::from("service request action did not match the command"));
+        }
+
+        match &request.target {
+            OxVbaExecutionTarget::Project(path) if path == expected_path => Ok(()),
+            _ => Err(String::from(
+                "service request should target the saved project path",
+            )),
+        }
+    }
+
+    fn sample_module_text() -> &'static str {
+        "Attribute VB_Name = \"Module1\"\n\
+\n\
+Option Explicit\n\
+\n\
+Public Sub Main()\n\
+    Dim answer As Integer\n\
+    answer = 40 + 2\n\
+End Sub\n"
+    }
+
+    fn sample_project_text() -> &'static str {
+        "<Project Sdk=\"OxVba.Sdk/0.1.0\">\n\
+  <PropertyGroup>\n\
+    <OutputType>Exe</OutputType>\n\
+    <ProjectName>ThinSliceSmoke</ProjectName>\n\
+    <EntryPoint>Module1.Main</EntryPoint>\n\
+  </PropertyGroup>\n\
+  <ItemGroup>\n\
+    <Module Include=\"Module1.bas\" />\n\
+  </ItemGroup>\n\
+</Project>\n"
     }
 
     impl OxVbaServices for FakeOxVbaServices {
         fn execute(&self, request: &OxVbaExecutionRequest) -> io::Result<OxVbaExecutionResult> {
-            self.requests.borrow_mut().push(request.clone());
-            match self.result.borrow_mut().take() {
+            self.state.requests.borrow_mut().push(request.clone());
+            match self.state.results.borrow_mut().pop_front() {
                 Some(result) => result,
                 None => Err(io::Error::other("missing fake result")),
             }
@@ -1301,6 +1391,100 @@ mod tests {
 
         if startup_path_from_args(args).is_ok() {
             return Err(String::from("only one startup file should be accepted"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn smoke_flow_covers_launch_edit_save_open_build_and_run() -> Result<(), String> {
+        let module_path = unique_test_path("bd-237-8-module", "bas")?;
+        let project_path = unique_test_path("bd-237-8-project", "basproj")?;
+
+        write_test_file(&project_path, sample_project_text())?;
+
+        let build_result = OxVbaExecutionResult {
+            action: OxVbaExecutionAction::Build,
+            target: OxVbaExecutionTarget::Project(project_path.clone()),
+            success: true,
+            exit_code: Some(0),
+            stdout: String::from("built sample"),
+            stderr: String::new(),
+        };
+        let run_result = OxVbaExecutionResult {
+            action: OxVbaExecutionAction::Run,
+            target: OxVbaExecutionTarget::Project(project_path.clone()),
+            success: true,
+            exit_code: Some(0),
+            stdout: String::from("ran sample"),
+            stderr: String::new(),
+        };
+        let (fake_services, state) =
+            FakeOxVbaServices::queued(vec![Ok(build_result), Ok(run_result)]);
+        let mut model = ShellModel::with_services(Some(module_path.clone()), Box::new(fake_services))
+            .map_err(|error| error.to_string())?;
+
+        if model.document_session.display_name() != module_path.display().to_string() {
+            return Err(String::from("startup path should bind the launched document"));
+        }
+
+        for ch in sample_module_text().chars() {
+            let cmd = model.update(Msg::Editor(Event::Key(KeyEvent::new(KeyCode::Char(ch)))));
+            expect_none_cmd(cmd, "typing into the editor")?;
+        }
+
+        if !model.is_dirty() {
+            return Err(String::from("editing should make the launch buffer dirty"));
+        }
+
+        expect_none_cmd(model.update(Msg::Save), "saving the launch buffer")?;
+
+        if model.is_dirty() {
+            return Err(String::from("save should clear the dirty state"));
+        }
+
+        let saved_module = fs::read_to_string(&module_path).map_err(|error| error.to_string())?;
+        if saved_module != sample_module_text() {
+            return Err(String::from("save should persist the edited module text"));
+        }
+
+        let open_cmd = format!("open {}", project_path.display());
+        expect_none_cmd(enter_and_dispatch_command(&mut model, &open_cmd), "opening the project")?;
+
+        if model.document_session.display_name() != project_path.display().to_string() {
+            return Err(String::from("open should switch the active document to the project"));
+        }
+
+        expect_none_cmd(enter_and_dispatch_command(&mut model, "build"), "build command")?;
+        if !model.status.contains("Build succeeded") {
+            return Err(String::from("build should report service success"));
+        }
+
+        expect_none_cmd(enter_and_dispatch_command(&mut model, "run"), "run command")?;
+        if !model.status.contains("Run succeeded") {
+            return Err(String::from("run should report service success"));
+        }
+
+        let requests = state.requests.borrow();
+        if requests.len() != 2 {
+            return Err(String::from("smoke flow should issue one build and one run request"));
+        }
+        expect_project_request(
+            &requests[0],
+            OxVbaExecutionAction::Build,
+            &project_path,
+        )?;
+        expect_project_request(
+            &requests[1],
+            OxVbaExecutionAction::Run,
+            &project_path,
+        )?;
+
+        let output = model.output_text();
+        if !output.contains("Action: Run") || !output.contains("Stdout:\nran sample") {
+            return Err(String::from(
+                "output pane should render the final structured run result",
+            ));
         }
 
         Ok(())
