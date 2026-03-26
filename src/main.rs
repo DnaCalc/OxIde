@@ -1,8 +1,10 @@
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::env;
 use std::ffi::OsString;
 use std::fs;
 use std::io;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -13,7 +15,11 @@ use ftui::widgets::borders::Borders;
 use ftui::widgets::paragraph::Paragraph;
 use ftui::widgets::textarea::{TextArea, TextAreaState};
 use ftui::widgets::{StatefulWidget, Widget};
-use oxvba_compiler::ProjectManifest;
+use oxvba_compiler::{ProjectKind, ProjectManifest};
+use oxvba_project::{
+    ClassModuleMetadata, LoadedProject, NativeExportDescriptor, OutputType, RuntimeFlavor,
+    generate_basproj_xml, load_basproj, load_basproj_from_str,
+};
 
 struct ShellModel {
     show_help: bool,
@@ -42,7 +48,7 @@ struct DocumentSession {
 #[derive(Default)]
 struct ProjectSession {
     project_path: Option<PathBuf>,
-    manifest: Option<ProjectManifest>,
+    loaded_project: Option<LoadedProject>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -241,32 +247,66 @@ impl DocumentSession {
 }
 
 impl ProjectSession {
-    fn from_document_path(path: Option<&PathBuf>) -> Self {
-        let mut session = Self::default();
-        if let Some(path) = path
-            && path
-                .extension()
-                .and_then(|ext| ext.to_str())
-                .is_some_and(|ext| ext.eq_ignore_ascii_case("basproj"))
+    fn from_document_path(path: Option<&PathBuf>) -> io::Result<(Self, Option<String>)> {
+        let Some(path) = path else {
+            return Ok((Self::default(), None));
+        };
+        if !path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("basproj"))
         {
-            session.bind_path(path.clone());
+            return Ok((Self::default(), None));
         }
-        session
+
+        Self::open_or_create(path)
     }
 
-    fn bind_path(&mut self, path: PathBuf) {
-        self.project_path = Some(path);
-        self.manifest = None;
+    fn open_or_create(path: &Path) -> io::Result<(Self, Option<String>)> {
+        if path.exists() {
+            let loaded_project = load_basproj(path).map_err(project_error_to_io)?;
+            let text = canonical_project_xml(&loaded_project);
+            Ok((
+                Self {
+                    project_path: Some(path.to_path_buf()),
+                    loaded_project: Some(loaded_project),
+                },
+                Some(text),
+            ))
+        } else {
+            let loaded_project = default_loaded_project_for_path(path);
+            let text = canonical_project_xml(&loaded_project);
+            Ok((
+                Self {
+                    project_path: Some(path.to_path_buf()),
+                    loaded_project: Some(loaded_project),
+                },
+                Some(text),
+            ))
+        }
     }
 
-    fn bind_manifest(&mut self, project_path: PathBuf, manifest: ProjectManifest) {
-        self.project_path = Some(project_path);
-        self.manifest = Some(manifest);
+    fn sync_from_text(&mut self, project_text: &str, project_path: &Path) -> io::Result<()> {
+        let project_dir = project_path.parent().unwrap_or_else(|| Path::new("."));
+        let loaded_project =
+            load_basproj_from_str(project_text, project_dir).map_err(project_error_to_io)?;
+        self.project_path = Some(project_path.to_path_buf());
+        self.loaded_project = Some(loaded_project);
+        Ok(())
+    }
+
+    fn save(&mut self, project_path: &Path, project_text: &str) -> io::Result<String> {
+        self.sync_from_text(project_text, project_path)?;
+        let canonical_xml = self
+            .canonical_xml()
+            .ok_or_else(|| io::Error::other("project session is missing a loaded project"))?;
+        fs::write(project_path, &canonical_xml)?;
+        Ok(format!("Saved {}.", project_path.display()))
     }
 
     fn clear(&mut self) {
         self.project_path = None;
-        self.manifest = None;
+        self.loaded_project = None;
     }
 
     fn display_name(&self) -> String {
@@ -277,7 +317,15 @@ impl ProjectSession {
     }
 
     fn has_manifest(&self) -> bool {
-        self.manifest.is_some()
+        self.loaded_project.is_some()
+    }
+
+    fn manifest(&self) -> Option<&ProjectManifest> {
+        self.loaded_project.as_ref().map(|loaded| &loaded.manifest)
+    }
+
+    fn canonical_xml(&self) -> Option<String> {
+        self.loaded_project.as_ref().map(canonical_project_xml)
     }
 }
 
@@ -290,8 +338,17 @@ impl ShellModel {
         path: Option<PathBuf>,
         oxvba_services: Box<dyn OxVbaServices>,
     ) -> io::Result<Self> {
-        let (document_session, status) = DocumentSession::load(path)?;
-        let project_session = ProjectSession::from_document_path(document_session.path());
+        let (mut document_session, mut status) = DocumentSession::load(path)?;
+        let (project_session, project_text) =
+            ProjectSession::from_document_path(document_session.path())?;
+        if let Some(project_text) = project_text {
+            document_session.saved_text = project_text.clone();
+            status = match document_session.path() {
+                Some(path) if path.exists() => format!("Opened project {}.", path.display()),
+                Some(path) => format!("New project {}.", path.display()),
+                None => status,
+            };
+        }
         let editor = new_editor(document_session.saved_text());
 
         Ok(Self {
@@ -331,6 +388,7 @@ impl ShellModel {
          Commands\n\n\
          :open <path>\n\
          :write [path]\n\
+         :project-new <path>\n\
          :build\n\
          :run\n\
          :quit\n\n\
@@ -343,7 +401,9 @@ impl ShellModel {
         let command_line = if self.command_input.active {
             format!(":{}", self.command_input.value)
         } else {
-            String::from(": command mode  |  :open <path>  :write [path]  :build  :run  :quit")
+            String::from(
+                ": command mode  |  :open <path>  :write [path]  :project-new <path>  :build  :run  :quit",
+            )
         };
         format!(
             "Ctrl-Q quit  Ctrl-S save  : command  F1 help  |  line {} col {}  lines {}  |  {}  |  {}\n{}",
@@ -416,7 +476,7 @@ impl ShellModel {
 
     fn save_current_file(&mut self) {
         let current_text = self.editor.text();
-        self.status = match self.document_session.save(&current_text) {
+        self.status = match self.save_document_to_current_path(&current_text) {
             Ok(status) => status,
             Err(error) if error.kind() == io::ErrorKind::InvalidInput => {
                 String::from("No file path yet. Start OxIde with a file path for save support.")
@@ -427,10 +487,38 @@ impl ShellModel {
 
     fn save_current_file_as(&mut self, path: PathBuf) {
         let current_text = self.editor.text();
-        self.status = match self.document_session.save_as(path, &current_text) {
+        self.status = match self.save_document_to_path(path, &current_text) {
             Ok(status) => status,
             Err(error) => format!("Save failed: {error}"),
         };
+    }
+
+    fn save_document_to_current_path(&mut self, current_text: &str) -> io::Result<String> {
+        match self.document_session.path() {
+            Some(path) => self.save_document_to_path(path.clone(), current_text),
+            None => Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "no file path is associated with this buffer",
+            )),
+        }
+    }
+
+    fn save_document_to_path(&mut self, path: PathBuf, current_text: &str) -> io::Result<String> {
+        if is_basproj_path(&path) {
+            let status = self.project_session.save(&path, current_text)?;
+            let canonical_xml = self
+                .project_session
+                .canonical_xml()
+                .ok_or_else(|| io::Error::other("project save did not produce project text"))?;
+            self.document_session.path = Some(path);
+            self.document_session.has_backing_file = true;
+            self.document_session.saved_text = canonical_xml.clone();
+            self.editor = new_editor(&canonical_xml);
+            self.editor_state = RefCell::new(TextAreaState::default());
+            Ok(status)
+        } else {
+            self.document_session.save_as(path, current_text)
+        }
     }
 
     fn enter_command_mode(&mut self) {
@@ -499,6 +587,13 @@ impl ShellModel {
                 }
                 Cmd::none()
             }
+            "project-new" => match arg {
+                Some(path_text) => self.open_document(PathBuf::from(path_text)),
+                None => {
+                    self.status = String::from("Usage: :project-new <path>");
+                    Cmd::none()
+                }
+            },
             "quit" => Cmd::quit(),
             "build" => self.execute_oxvba(OxVbaExecutionAction::Build),
             "run" => self.execute_oxvba(OxVbaExecutionAction::Run),
@@ -511,9 +606,25 @@ impl ShellModel {
 
     fn open_document(&mut self, path: PathBuf) -> Cmd<Msg> {
         match DocumentSession::open(path) {
-            Ok((document_session, status)) => {
+            Ok((mut document_session, mut status)) => {
+                let (project_session, project_text) =
+                    match ProjectSession::from_document_path(document_session.path()) {
+                        Ok(result) => result,
+                        Err(error) => {
+                            self.status = format!("Open failed: {error}");
+                            return Cmd::none();
+                        }
+                    };
+                if let Some(project_text) = project_text {
+                    document_session.saved_text = project_text.clone();
+                    status = match document_session.path() {
+                        Some(path) if path.exists() => format!("Opened project {}.", path.display()),
+                        Some(path) => format!("New project {}.", path.display()),
+                        None => status,
+                    };
+                }
                 self.document_session = document_session;
-                self.project_session = ProjectSession::from_document_path(self.document_session.path());
+                self.project_session = project_session;
                 self.editor = new_editor(self.document_session.saved_text());
                 self.editor_state = RefCell::new(TextAreaState::default());
                 self.status = status;
@@ -733,6 +844,60 @@ fn split_command(input: &str) -> (&str, Option<&str>) {
     (command, argument)
 }
 
+fn is_basproj_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("basproj"))
+}
+
+fn project_error_to_io(error: oxvba_project::BasProjError) -> io::Error {
+    io::Error::other(error.to_string())
+}
+
+fn canonical_project_xml(loaded_project: &LoadedProject) -> String {
+    generate_basproj_xml(
+        &loaded_project.manifest,
+        loaded_project.output_type,
+        loaded_project.entry_point.as_deref(),
+        Some(loaded_project.runtime_flavor),
+        Some(&loaded_project.default_runtime_profile),
+        Some(&loaded_project.default_policy_preset),
+        Some(&loaded_project.default_root_object),
+        &loaded_project.type_library_catalog,
+        &loaded_project.native_exports,
+        &loaded_project.class_module_metadata,
+    )
+}
+
+fn default_loaded_project_for_path(path: &Path) -> LoadedProject {
+    let project_name = path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .filter(|stem| !stem.is_empty())
+        .unwrap_or("NewProject")
+        .to_string();
+
+    LoadedProject {
+        manifest: ProjectManifest {
+            project_name: project_name.clone(),
+            project_kind: ProjectKind::Source,
+            modules: Vec::new(),
+            references: Vec::new(),
+            reference_projects: Vec::new(),
+            conditional_constants: BTreeMap::new(),
+        },
+        native_exports: Vec::<NativeExportDescriptor>::new(),
+        output_type: OutputType::Exe,
+        runtime_flavor: RuntimeFlavor::Lite,
+        default_runtime_profile: String::from("windows-headless"),
+        default_policy_preset: String::from("deterministic-runtime"),
+        default_root_object: String::from("Application"),
+        entry_point: None,
+        type_library_catalog: Vec::new(),
+        class_module_metadata: BTreeMap::<String, ClassModuleMetadata>::new(),
+    }
+}
+
 fn oxvba_cli_args_for_request(request: &OxVbaExecutionRequest) -> Vec<OsString> {
     let mut args = vec![
         OsString::from("run"),
@@ -828,14 +993,12 @@ mod tests {
         startup_path_from_args,
     };
     use ftui::prelude::{Cmd, Event, KeyCode, KeyEvent, Model, Modifiers};
-    use oxvba_compiler::{ProjectKind, ProjectManifest};
     use std::cell::RefCell;
-    use std::collections::BTreeMap;
+    use std::collections::VecDeque;
     use std::env;
     use std::ffi::OsString;
     use std::fs;
     use std::io;
-    use std::collections::VecDeque;
     use std::path::PathBuf;
     use std::rc::Rc;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -874,12 +1037,14 @@ mod tests {
         }
     }
 
-    fn unique_test_path(label: &str, extension: &str) -> Result<PathBuf, String> {
+    fn unique_test_dir(label: &str) -> Result<PathBuf, String> {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|error| error.to_string())?
             .as_nanos();
-        Ok(env::temp_dir().join(format!("oxide-{label}-{nanos}.{extension}")))
+        let path = env::temp_dir().join(format!("oxide-{label}-{nanos}"));
+        fs::create_dir_all(&path).map_err(|error| error.to_string())?;
+        Ok(path)
     }
 
     fn write_test_file(path: &PathBuf, contents: &str) -> Result<(), String> {
@@ -938,17 +1103,6 @@ End Sub\n"
     <Module Include=\"Module1.bas\" />\n\
   </ItemGroup>\n\
 </Project>\n"
-    }
-
-    fn sample_manifest(name: &str) -> ProjectManifest {
-        ProjectManifest {
-            project_name: String::from(name),
-            project_kind: ProjectKind::Source,
-            modules: Vec::new(),
-            references: Vec::new(),
-            reference_projects: Vec::new(),
-            conditional_constants: BTreeMap::new(),
-        }
     }
 
     impl OxVbaServices for FakeOxVbaServices {
@@ -1507,10 +1661,10 @@ End Sub\n"
     }
 
     #[test]
-    fn project_session_can_store_manifest_for_future_project_work() -> Result<(), String> {
-        let mut session = ProjectSession::default();
-        let path = PathBuf::from("demo.basproj");
-        session.bind_manifest(path.clone(), sample_manifest("DemoProject"));
+    fn project_session_can_open_or_create_basproj_and_clear_state() -> Result<(), String> {
+        let path = unique_test_dir("bd-q2k-2-session")?.join("Session.basproj");
+        let (mut session, project_text) =
+            ProjectSession::open_or_create(&path).map_err(|error| error.to_string())?;
 
         if session.display_name() != path.display().to_string() {
             return Err(String::from("project session should retain the project path"));
@@ -1518,6 +1672,25 @@ End Sub\n"
 
         if !session.has_manifest() {
             return Err(String::from("project session should retain the manifest seam"));
+        }
+
+        let manifest = session
+            .manifest()
+            .ok_or_else(|| String::from("project session should expose the loaded manifest"))?;
+        if manifest.project_name != "Session" {
+            return Err(String::from(
+                "new project sessions should derive the manifest name from the basproj path",
+            ));
+        }
+
+        let project_text = project_text
+            .ok_or_else(|| String::from("opening a basproj path should surface project text"))?;
+        if !project_text.contains("<Project Sdk=\"OxVba.Sdk/0.1.0\">")
+            || !project_text.contains("<ProjectName>")
+        {
+            return Err(String::from(
+                "project session should produce canonical project XML for new projects",
+            ));
         }
 
         session.clear();
@@ -1530,10 +1703,49 @@ End Sub\n"
     }
 
     #[test]
-    fn smoke_flow_covers_launch_edit_save_open_build_and_run() -> Result<(), String> {
-        let module_path = unique_test_path("bd-237-8-module", "bas")?;
-        let project_path = unique_test_path("bd-237-8-project", "basproj")?;
+    fn project_new_command_can_create_and_save_basproj() -> Result<(), String> {
+        let project_path = unique_test_dir("bd-q2k-2-new-project")?.join("NewProject.basproj");
+        let mut model = ShellModel::new(None).map_err(|error| error.to_string())?;
+        let open_cmd = format!("project-new {}", project_path.display());
 
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, &open_cmd),
+            "project-new command",
+        )?;
+
+        if model.document_session.display_name() != project_path.display().to_string() {
+            return Err(String::from("project-new should bind the requested basproj path"));
+        }
+
+        if !model.project_session.has_manifest() {
+            return Err(String::from("project-new should initialize a project session"));
+        }
+
+        let initial_text = model.editor.text();
+        if !initial_text.contains("<Project Sdk=\"OxVba.Sdk/0.1.0\">") {
+            return Err(String::from("project-new should seed canonical basproj XML"));
+        }
+
+        expect_none_cmd(model.update(Msg::Save), "saving a new basproj")?;
+
+        let saved_text = fs::read_to_string(&project_path).map_err(|error| error.to_string())?;
+        if saved_text != model.document_session.saved_text() {
+            return Err(String::from(
+                "saving a new basproj should persist the canonical project XML",
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn smoke_flow_covers_launch_edit_save_open_build_and_run() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-237-8")?;
+        let module_path = workspace_dir.join("Scratch.bas");
+        let project_path = workspace_dir.join("ThinSliceSmoke.basproj");
+        let project_module_path = workspace_dir.join("Module1.bas");
+
+        write_test_file(&project_module_path, sample_module_text())?;
         write_test_file(&project_path, sample_project_text())?;
 
         let build_result = OxVbaExecutionResult {
