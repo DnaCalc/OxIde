@@ -26,3 +26,28 @@ Planned `OxVba` target surface in scope:
 - `Addin`
 - `ComServer`
 - `ComExe`
+
+## Thin-Slice Sample Workflow
+
+The current thin slice is a single-document shell with `OxVba` build and run
+commands behind the command surface.
+
+Use the sample project in `examples/thin-slice/`:
+
+```bash
+cargo run -- examples/thin-slice/Module1.bas
+```
+
+Then in `OxIde`:
+
+1. Edit `Module1.bas`.
+2. Save with `Ctrl-S` or `:write`.
+3. Switch the active document to the project file with `:open examples/thin-slice/ThinSliceHello.basproj`.
+4. Run `:build` to compile the sample project through `OxVba`.
+5. Run `:run` to execute the sample project through `OxVba`.
+
+The footer status line shows the immediate result, and the `OxVba Output` pane
+shows the action, target, success flag, exit code, and captured stdout/stderr.
+
+For a fuller walkthrough, including a deliberate failing build to prove the
+output pane, see `examples/thin-slice/README.md`.

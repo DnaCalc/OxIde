@@ -1,0 +1,10 @@
+<Project Sdk="OxVba.Sdk/0.1.0">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <ProjectName>ThinSliceHello</ProjectName>
+    <EntryPoint>Module1.Main</EntryPoint>
+  </PropertyGroup>
+  <ItemGroup>
+    <Module Include="Module1.bas" />
+  </ItemGroup>
+</Project>
