@@ -52,6 +52,8 @@ struct ProjectSession {
     project_path: Option<PathBuf>,
     loaded_project: Option<LoadedProject>,
     selected_module_index: Option<usize>,
+    runtime_profile: Option<String>,
+    policy_preset: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,6 +90,8 @@ enum OxVbaExecutionTarget {
 struct OxVbaExecutionRequest {
     action: OxVbaExecutionAction,
     target: OxVbaExecutionTarget,
+    runtime_profile: Option<String>,
+    policy_preset: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -292,6 +296,8 @@ impl ProjectSession {
                     project_path: Some(path.to_path_buf()),
                     loaded_project: Some(loaded_project),
                     selected_module_index: Some(0),
+                    runtime_profile: None,
+                    policy_preset: None,
                 },
                 Some(text),
             ))
@@ -303,6 +309,8 @@ impl ProjectSession {
                     project_path: Some(path.to_path_buf()),
                     loaded_project: Some(loaded_project),
                     selected_module_index: Some(0),
+                    runtime_profile: None,
+                    policy_preset: None,
                 },
                 Some(text),
             ))
@@ -313,9 +321,13 @@ impl ProjectSession {
         let project_dir = project_path.parent().unwrap_or_else(|| Path::new("."));
         let loaded_project =
             load_basproj_from_str(project_text, project_dir).map_err(project_error_to_io)?;
+        let default_runtime_profile = loaded_project.default_runtime_profile.clone();
+        let default_policy_preset = loaded_project.default_policy_preset.clone();
         self.project_path = Some(project_path.to_path_buf());
         self.loaded_project = Some(loaded_project);
         self.selected_module_index = Some(0);
+        self.runtime_profile = Some(default_runtime_profile);
+        self.policy_preset = Some(default_policy_preset);
         Ok(())
     }
 
@@ -332,6 +344,8 @@ impl ProjectSession {
         self.project_path = None;
         self.loaded_project = None;
         self.selected_module_index = None;
+        self.runtime_profile = None;
+        self.policy_preset = None;
     }
 
     fn display_name(&self) -> String {
@@ -413,6 +427,54 @@ impl ProjectSession {
         }
     }
 
+    fn selected_runtime_profile(&self) -> Option<&str> {
+        self.runtime_profile.as_deref().or_else(|| {
+            self.loaded_project
+                .as_ref()
+                .map(|loaded| loaded.default_runtime_profile.as_str())
+        })
+    }
+
+    fn selected_policy_preset(&self) -> Option<&str> {
+        self.policy_preset.as_deref().or_else(|| {
+            self.loaded_project
+                .as_ref()
+                .map(|loaded| loaded.default_policy_preset.as_str())
+        })
+    }
+
+    fn set_runtime_profile(&mut self, raw: &str) -> Result<(), String> {
+        let value = raw.trim();
+        if value.eq_ignore_ascii_case("default") {
+            self.runtime_profile = self
+                .loaded_project
+                .as_ref()
+                .map(|loaded| loaded.default_runtime_profile.clone());
+            return Ok(());
+        }
+        if !is_known_runtime_profile(value) {
+            return Err(format!("Unknown runtime profile: {value}"));
+        }
+        self.runtime_profile = Some(value.to_string());
+        Ok(())
+    }
+
+    fn set_policy_preset(&mut self, raw: &str) -> Result<(), String> {
+        let value = raw.trim();
+        if value.eq_ignore_ascii_case("default") {
+            self.policy_preset = self
+                .loaded_project
+                .as_ref()
+                .map(|loaded| loaded.default_policy_preset.clone());
+            return Ok(());
+        }
+        if !is_known_policy_preset(value) {
+            return Err(format!("Unknown host policy preset: {value}"));
+        }
+        self.policy_preset = Some(value.to_string());
+        Ok(())
+    }
+
     fn module_entries(&self) -> Vec<ProjectModuleEntry> {
         let Some(project_path) = &self.project_path else {
             return Vec::new();
@@ -484,6 +546,14 @@ impl ProjectSession {
             format!("Path: {}", self.display_name()),
             format!("Kind: {:?}", loaded_project.manifest.project_kind),
             format!("Target: {}", self.output_type_label()),
+            format!(
+                "Runtime Profile: {}",
+                self.selected_runtime_profile().unwrap_or("(none)")
+            ),
+            format!(
+                "Host Policy: {}",
+                self.selected_policy_preset().unwrap_or("(none)")
+            ),
             format!("Build Output: {}", self.build_artifact_label()),
             format!("Run Surface: {}", self.run_action_label()),
             format!("Modules: {}", loaded_project.manifest.modules.len()),
@@ -695,6 +765,8 @@ impl ShellModel {
          :module <name>\n\
          :module-next\n\
          :module-prev\n\
+         :profile <id|default>\n\
+         :policy <preset|default>\n\
          :build\n\
          :run\n\
          :quit\n\n\
@@ -708,7 +780,7 @@ impl ShellModel {
             format!(":{}", self.command_input.value)
         } else {
             String::from(
-                ": command mode  |  :open <path>  :write [path]  :project-new <path>  :module <name>  :module-next  :module-prev  :build  :run  :quit",
+                ": command mode  |  :open <path>  :write [path]  :project-new <path>  :module <name>  :module-next  :module-prev  :profile <id>  :policy <preset>  :build  :run  :quit",
             )
         };
         format!(
@@ -921,6 +993,40 @@ impl ShellModel {
             },
             "module-next" => self.cycle_project_module(1),
             "module-prev" => self.cycle_project_module(-1),
+            "profile" => match arg {
+                Some(profile) => {
+                    self.status = match self.project_session.set_runtime_profile(profile) {
+                        Ok(()) => format!(
+                            "Runtime profile set to {}.",
+                            self.project_session
+                                .selected_runtime_profile()
+                                .unwrap_or("(none)")
+                        ),
+                        Err(message) => message,
+                    };
+                    Cmd::none()
+                }
+                None => {
+                    self.status = String::from("Usage: :profile <id|default>");
+                    Cmd::none()
+                }
+            },
+            "policy" => match arg {
+                Some(policy) => {
+                    self.status = match self.project_session.set_policy_preset(policy) {
+                        Ok(()) => format!(
+                            "Host policy preset set to {}.",
+                            self.project_session.selected_policy_preset().unwrap_or("(none)")
+                        ),
+                        Err(message) => message,
+                    };
+                    Cmd::none()
+                }
+                None => {
+                    self.status = String::from("Usage: :policy <preset|default>");
+                    Cmd::none()
+                }
+            },
             "quit" => Cmd::quit(),
             "build" => self.execute_oxvba(OxVbaExecutionAction::Build),
             "run" => self.execute_oxvba(OxVbaExecutionAction::Run),
@@ -1023,7 +1129,12 @@ impl ShellModel {
             }
         };
 
-        let request = OxVbaExecutionRequest { action, target };
+        let request = OxVbaExecutionRequest {
+            action,
+            target,
+            runtime_profile: self.project_session.selected_runtime_profile().map(str::to_string),
+            policy_preset: self.project_session.selected_policy_preset().map(str::to_string),
+        };
 
         match self.oxvba_services.execute(&request) {
             Ok(result) => {
@@ -1276,6 +1387,29 @@ fn document_id_for_path(path: Option<&Path>) -> DocumentId {
     DocumentId::new(name)
 }
 
+fn is_known_runtime_profile(raw: &str) -> bool {
+    matches!(
+        raw.trim().to_ascii_lowercase().as_str(),
+        "windows-gui"
+            | "windows-headless"
+            | "linux-stdio"
+            | "wasm-wasi-local"
+            | "wasm-browser-sandbox"
+            | "null-floor"
+            | "macos-headless"
+    )
+}
+
+fn is_known_policy_preset(raw: &str) -> bool {
+    matches!(
+        raw.trim().to_ascii_lowercase().as_str(),
+        "strict-ci"
+            | "deterministic-runtime"
+            | "deterministic-compile-time"
+            | "interactive-dev"
+    )
+}
+
 fn project_error_to_io(error: oxvba_project::BasProjError) -> io::Error {
     io::Error::other(error.to_string())
 }
@@ -1359,6 +1493,14 @@ fn oxvba_cli_args_for_request(request: &OxVbaExecutionRequest) -> Vec<OsString> 
         (OxVbaExecutionAction::Run, OxVbaExecutionTarget::Project(path)) => {
             args.push(OsString::from("run-project"));
             args.push(path.as_os_str().to_os_string());
+            if let Some(profile) = &request.runtime_profile {
+                args.push(OsString::from("--profile"));
+                args.push(OsString::from(profile));
+            }
+            if let Some(policy) = &request.policy_preset {
+                args.push(OsString::from("--policy"));
+                args.push(OsString::from(policy));
+            }
         }
     }
 
@@ -1888,10 +2030,14 @@ End Sub\n"
         let build_request = OxVbaExecutionRequest {
             action: OxVbaExecutionAction::Build,
             target: OxVbaExecutionTarget::LooseFile(PathBuf::from("module.bas")),
+            runtime_profile: None,
+            policy_preset: None,
         };
         let run_request = OxVbaExecutionRequest {
             action: OxVbaExecutionAction::Run,
             target: OxVbaExecutionTarget::Project(PathBuf::from("demo.basproj")),
+            runtime_profile: Some(String::from("linux-stdio")),
+            policy_preset: Some(String::from("strict-ci")),
         };
 
         let build_args = oxvba_cli_args_for_request(&build_request);
@@ -1903,6 +2049,16 @@ End Sub\n"
 
         if run_args[5] != OsString::from("run-project") {
             return Err(String::from("project run should use run-project"));
+        }
+
+        if run_args[7] != OsString::from("--profile")
+            || run_args[8] != OsString::from("linux-stdio")
+            || run_args[9] != OsString::from("--policy")
+            || run_args[10] != OsString::from("strict-ci")
+        {
+            return Err(String::from(
+                "project run should forward runtime profile and policy selections",
+            ));
         }
 
         Ok(())
@@ -2492,6 +2648,81 @@ End Sub\n"
             ));
         }
         expect_project_request(&requests[0], OxVbaExecutionAction::Run, &project_path)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn profile_and_policy_commands_update_project_selection_surface() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-q2k-6-surface")?;
+        let project_path = workspace_dir.join("TargetSurface.basproj");
+        write_test_file(&workspace_dir.join("Module1.bas"), sample_module_text())?;
+        write_test_file(&project_path, sample_project_text())?;
+
+        let mut model = ShellModel::new(Some(project_path)).map_err(|error| error.to_string())?;
+
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "profile linux-stdio"),
+            "setting runtime profile",
+        )?;
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "policy strict-ci"),
+            "setting policy preset",
+        )?;
+
+        let surface = model.project_session.surface_text(&model.document_session);
+        if !surface.contains("Runtime Profile: linux-stdio")
+            || !surface.contains("Host Policy: strict-ci")
+        {
+            return Err(String::from(
+                "project surface should show the selected runtime profile and policy preset",
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn run_command_forwards_selected_profile_and_policy() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-q2k-6-run")?;
+        let project_path = workspace_dir.join("TargetSurface.basproj");
+        write_test_file(&workspace_dir.join("Module1.bas"), sample_module_text())?;
+        write_test_file(&project_path, &sample_project_text_for_output_type("Exe"))?;
+        let run_result = OxVbaExecutionResult {
+            action: OxVbaExecutionAction::Run,
+            target: OxVbaExecutionTarget::Project(project_path.clone()),
+            success: true,
+            exit_code: Some(0),
+            stdout: String::new(),
+            stderr: String::new(),
+        };
+        let (fake_services, state) = FakeOxVbaServices::queued(vec![Ok(run_result)]);
+        let mut model =
+            ShellModel::with_services(Some(project_path), Box::new(fake_services))
+                .map_err(|error| error.to_string())?;
+
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "profile linux-stdio"),
+            "setting runtime profile",
+        )?;
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "policy strict-ci"),
+            "setting host policy",
+        )?;
+        expect_none_cmd(enter_and_dispatch_command(&mut model, "run"), "run command")?;
+
+        let requests = state.requests.borrow();
+        let request = requests
+            .first()
+            .ok_or_else(|| String::from("expected a run request"))?;
+
+        if request.runtime_profile.as_deref() != Some("linux-stdio")
+            || request.policy_preset.as_deref() != Some("strict-ci")
+        {
+            return Err(String::from(
+                "run should forward the selected runtime profile and policy preset",
+            ));
+        }
 
         Ok(())
     }
