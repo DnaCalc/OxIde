@@ -2333,6 +2333,56 @@ End Sub\n"
     }
 
     #[test]
+    fn existing_basproj_loads_into_project_session_and_workspace_model() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-32y-load-project")?;
+        let project_path = workspace_dir.join("WorkspaceSurface.basproj");
+        let module1_path = workspace_dir.join("Module1.bas");
+        let module2_path = workspace_dir.join("Module2.bas");
+        write_test_file(&module1_path, sample_module_text())?;
+        write_test_file(&module2_path, sample_second_module_text())?;
+        write_test_file(&project_path, sample_workspace_project_text())?;
+
+        let model = ShellModel::new(Some(project_path.clone())).map_err(|error| error.to_string())?;
+
+        if model.project_session.display_name() != project_path.display().to_string() {
+            return Err(String::from(
+                "existing basproj should bind an active project session",
+            ));
+        }
+
+        let manifest = model
+            .project_session
+            .manifest()
+            .ok_or_else(|| String::from("loaded basproj should expose a project manifest"))?;
+        if manifest.project_name != "WorkspaceSurface" {
+            return Err(String::from(
+                "project session should load the real project identity from basproj",
+            ));
+        }
+
+        let module_entries = model.project_session.module_entries();
+        if module_entries.len() != 2 {
+            return Err(String::from(
+                "project session should load the module roster from the project",
+            ));
+        }
+
+        if module_entries[0].path != module1_path || module_entries[1].path != module2_path {
+            return Err(String::from(
+                "project session should resolve module paths relative to the basproj location",
+            ));
+        }
+
+        if model.language_workspace.document_count() != 2 {
+            return Err(String::from(
+                "loading a basproj should seed the in-memory workspace with project modules",
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
     fn project_new_command_can_create_and_save_basproj() -> Result<(), String> {
         let project_path = unique_test_dir("bd-q2k-2-new-project")?.join("NewProject.basproj");
         let mut model = ShellModel::new(None).map_err(|error| error.to_string())?;
