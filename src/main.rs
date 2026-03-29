@@ -537,6 +537,27 @@ impl ProjectSession {
         }
     }
 
+    fn sync_module_source_from_path(&mut self, path: &Path, source: &str) -> bool {
+        let module_entries = self.module_entries();
+        let Some((index, _)) = module_entries
+            .iter()
+            .enumerate()
+            .find(|(_, module)| module.path == path)
+        else {
+            return false;
+        };
+
+        let Some(loaded_project) = self.loaded_project.as_mut() else {
+            return false;
+        };
+        let Some(module) = loaded_project.manifest.modules.get_mut(index) else {
+            return false;
+        };
+
+        module.source = source.to_string();
+        true
+    }
+
     fn surface_text(&self, current_document: &DocumentSession) -> String {
         let Some(loaded_project) = &self.loaded_project else {
             return String::from("No project session.\n\nOpen a .basproj to show project/workspace state.");
@@ -906,6 +927,10 @@ impl ShellModel {
             Ok(status)
         } else {
             let status = self.document_session.save_as(path, current_text)?;
+            if let Some(saved_path) = self.document_session.path() {
+                self.project_session
+                    .sync_module_source_from_path(saved_path, current_text);
+            }
             self.sync_language_workspace(current_text);
             Ok(status)
         }
@@ -2503,6 +2528,50 @@ End Sub\n"
         )?;
         if model.document_session.display_name() != module1_path.display().to_string() {
             return Err(String::from("module-prev should wrap back to the previous module"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn saving_project_module_updates_loaded_project_source() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-1oa-save-module")?;
+        let project_path = workspace_dir.join("WorkspaceSurface.basproj");
+        let module1_path = workspace_dir.join("Module1.bas");
+        write_test_file(&module1_path, sample_module_text())?;
+        write_test_file(&workspace_dir.join("Module2.bas"), sample_second_module_text())?;
+        write_test_file(&project_path, sample_workspace_project_text())?;
+
+        let mut model = ShellModel::new(Some(project_path.clone())).map_err(|error| error.to_string())?;
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "module Module1"),
+            "opening a project module",
+        )?;
+
+        let updated_source = format!("{}\n' saved through project model", sample_module_text());
+        model.editor = crate::new_editor(&updated_source);
+        model.editor_state = RefCell::new(crate::TextAreaState::default());
+
+        expect_none_cmd(model.update(Msg::Save), "saving a project module")?;
+
+        let saved_module = fs::read_to_string(&module1_path).map_err(|error| error.to_string())?;
+        if saved_module != updated_source {
+            return Err(String::from("saving a project module should update the backing module file"));
+        }
+
+        let manifest = model
+            .project_session
+            .manifest()
+            .ok_or_else(|| String::from("project session should retain a loaded manifest"))?;
+        let module = manifest
+            .modules
+            .iter()
+            .find(|module| module.module_name == "Module1")
+            .ok_or_else(|| String::from("project manifest should still contain Module1"))?;
+        if module.source != updated_source {
+            return Err(String::from(
+                "saving a project module should round-trip edits back into the project model",
+            ));
         }
 
         Ok(())
