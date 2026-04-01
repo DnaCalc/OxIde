@@ -10,6 +10,7 @@ use std::process::Command;
 
 use ftui::layout::{Constraint, Flex, Rect};
 use ftui::prelude::{App, Cmd, Event, Frame, KeyCode, KeyEvent, Model, Modifiers, ScreenMode};
+use ftui::text::{CursorNavigator, Rope};
 use ftui::widgets::block::{Alignment, Block};
 use ftui::widgets::borders::Borders;
 use ftui::widgets::paragraph::Paragraph;
@@ -17,9 +18,10 @@ use ftui::widgets::textarea::{TextArea, TextAreaState};
 use ftui::widgets::{StatefulWidget, Widget};
 use oxvba_compiler::{ModuleKind, ProjectKind, ProjectManifest};
 use oxvba_languageservice::{
-    DiagnosticSeverity, DocumentId, DocumentSymbol, HostSessionError, HostWorkspaceSession,
-    SpannedDiagnostic,
+    CompletionItem, DiagnosticSeverity, DocumentId, DocumentSymbol, HostSessionError,
+    HostWorkspaceSession, HoverInfo, SpannedDiagnostic,
 };
+use oxvba_languageservice::service::Position;
 use oxvba_project::{
     ClassModuleMetadata, LoadedProject, NativeExportDescriptor, OutputType, RuntimeFlavor,
     generate_basproj_xml, load_basproj, load_basproj_from_str,
@@ -85,6 +87,8 @@ enum OutputMode {
     Execution,
     Diagnostics,
     Symbols,
+    Hover,
+    Completions,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -676,6 +680,36 @@ impl ProjectSession {
         }))
     }
 
+    fn current_hover(
+        &self,
+        current_document: &DocumentSession,
+        position: Position,
+    ) -> Result<Option<(DocumentId, Option<HoverInfo>)>, HostSessionError> {
+        let Some(document_id) = self.current_document_id(current_document) else {
+            return Ok(None);
+        };
+        let Some(host_session) = self.host_session.as_ref() else {
+            return Ok(None);
+        };
+        let hover = host_session.hover(&document_id, position)?;
+        Ok(Some((document_id, hover)))
+    }
+
+    fn current_completions(
+        &self,
+        current_document: &DocumentSession,
+        position: Position,
+    ) -> Result<Option<(DocumentId, Vec<CompletionItem>)>, HostSessionError> {
+        let Some(document_id) = self.current_document_id(current_document) else {
+            return Ok(None);
+        };
+        let Some(host_session) = self.host_session.as_ref() else {
+            return Ok(None);
+        };
+        let completions = host_session.completions(&document_id, position)?;
+        Ok(Some((document_id, completions)))
+    }
+
     fn surface_text(&self, current_document: &DocumentSession) -> String {
         let Some(loaded_project) = &self.loaded_project else {
             return String::from("No project session.\n\nOpen a .basproj to show project/workspace state.");
@@ -858,6 +892,8 @@ impl ShellModel {
          :workspace-reload\n\
          :diagnostics\n\
          :symbols\n\
+         :hover\n\
+         :complete\n\
          :profile <id|default>\n\
          :policy <preset|default>\n\
          :build\n\
@@ -873,7 +909,7 @@ impl ShellModel {
             format!(":{}", self.command_input.value)
         } else {
             String::from(
-                ": command mode  |  :open <path>  :write [path]  :project-new <path>  :module <name>  :module-next  :module-prev  :revert  :workspace-reload  :diagnostics  :symbols  :profile <id>  :policy <preset>  :build  :run  :quit",
+                ": command mode  |  :open <path>  :write [path]  :project-new <path>  :module <name>  :module-next  :module-prev  :revert  :workspace-reload  :diagnostics  :symbols  :hover  :complete  :profile <id>  :policy <preset>  :build  :run  :quit",
             )
         };
         format!(
@@ -892,6 +928,8 @@ impl ShellModel {
             OutputMode::Execution => "OxVba Output",
             OutputMode::Diagnostics => "Diagnostics",
             OutputMode::Symbols => "Symbols",
+            OutputMode::Hover => "Hover",
+            OutputMode::Completions => "Completions",
         }
     }
 
@@ -900,6 +938,8 @@ impl ShellModel {
             OutputMode::Execution => self.execution_output_text(),
             OutputMode::Diagnostics => self.diagnostics_output_text(),
             OutputMode::Symbols => self.symbols_output_text(),
+            OutputMode::Hover => self.hover_output_text(),
+            OutputMode::Completions => self.completions_output_text(),
         }
     }
 
@@ -953,6 +993,14 @@ impl ShellModel {
             Ok(None) => None,
             Err(error) => Some(format!("Language session error: {error}")),
         }
+    }
+
+    fn current_language_position(&self) -> Option<Position> {
+        let text = self.editor.text();
+        let rope = Rope::from_text(&text);
+        let navigator = CursorNavigator::new(&rope);
+        let byte_index = navigator.to_byte_index(self.editor.cursor());
+        u32::try_from(byte_index).ok()
     }
 
     fn execution_output_text(&self) -> String {
@@ -1015,6 +1063,42 @@ impl ShellModel {
         }
     }
 
+    fn hover_output_text(&self) -> String {
+        let Some(position) = self.current_language_position() else {
+            return String::from("Current cursor position is unavailable.");
+        };
+
+        match self
+            .project_session
+            .current_hover(&self.document_session, position)
+        {
+            Ok(Some((document_id, hover))) => format_hover_output(&document_id, position, hover),
+            Ok(None) => String::from(
+                "No active project-backed language document.\n\nOpen a project module to show hover details.",
+            ),
+            Err(error) => format!("Language session error: {error}"),
+        }
+    }
+
+    fn completions_output_text(&self) -> String {
+        let Some(position) = self.current_language_position() else {
+            return String::from("Current cursor position is unavailable.");
+        };
+
+        match self
+            .project_session
+            .current_completions(&self.document_session, position)
+        {
+            Ok(Some((document_id, completions))) => {
+                format_completions_output(&document_id, position, &completions)
+            }
+            Ok(None) => String::from(
+                "No active project-backed language document.\n\nOpen a project module to show completions.",
+            ),
+            Err(error) => format!("Language session error: {error}"),
+        }
+    }
+
     fn show_diagnostics(&mut self) -> Cmd<Msg> {
         self.output_mode = OutputMode::Diagnostics;
         self.status = String::from("Diagnostics view opened.");
@@ -1024,6 +1108,18 @@ impl ShellModel {
     fn show_symbols(&mut self) -> Cmd<Msg> {
         self.output_mode = OutputMode::Symbols;
         self.status = String::from("Symbols view opened.");
+        Cmd::none()
+    }
+
+    fn show_hover(&mut self) -> Cmd<Msg> {
+        self.output_mode = OutputMode::Hover;
+        self.status = String::from("Hover view opened.");
+        Cmd::none()
+    }
+
+    fn show_completions(&mut self) -> Cmd<Msg> {
+        self.output_mode = OutputMode::Completions;
+        self.status = String::from("Completions view opened.");
         Cmd::none()
     }
 
@@ -1219,6 +1315,8 @@ impl ShellModel {
             "workspace-reload" => self.reload_workspace(),
             "diagnostics" => self.show_diagnostics(),
             "symbols" => self.show_symbols(),
+            "hover" => self.show_hover(),
+            "complete" => self.show_completions(),
             "profile" => match arg {
                 Some(profile) => {
                     self.status = match self.project_session.set_runtime_profile(profile) {
@@ -1708,6 +1806,72 @@ fn format_symbols_output(status: &LanguageStatus) -> String {
     lines.join("\n")
 }
 
+fn format_hover_output(document_id: &DocumentId, position: Position, hover: Option<HoverInfo>) -> String {
+    let mut lines = vec![
+        format!("Document: {}", document_id.0),
+        format!("Cursor Byte Offset: {position}"),
+    ];
+
+    let Some(hover) = hover else {
+        lines.push(String::from("No hover information at the current cursor."));
+        return lines.join("\n");
+    };
+
+    lines.push(format!("Label: {}", hover.label));
+    if let Some(detail) = hover.detail {
+        lines.push(format!("Detail: {detail}"));
+    }
+    if let Some(provenance) = hover.provenance {
+        lines.push(format!(
+            "Provenance: {} ({:?})",
+            provenance.project_name.as_deref().unwrap_or("workspace"),
+            provenance.kind
+        ));
+    }
+    if let Some(symbol_identity) = hover.symbol_identity {
+        lines.push(format!(
+            "Symbol: {}::{}/{}",
+            symbol_identity.document_id, symbol_identity.normalized_name, symbol_identity.scope
+        ));
+    }
+
+    lines.join("\n")
+}
+
+fn format_completions_output(
+    document_id: &DocumentId,
+    position: Position,
+    completions: &[CompletionItem],
+) -> String {
+    let mut lines = vec![
+        format!("Document: {}", document_id.0),
+        format!("Cursor Byte Offset: {position}"),
+    ];
+
+    if completions.is_empty() {
+        lines.push(String::from("No completions at the current cursor."));
+        return lines.join("\n");
+    }
+
+    lines.push(format!("Completion Count: {}", completions.len()));
+    lines.push(String::new());
+    for item in completions.iter().take(24) {
+        let mut line = format!("- {} {:?}", item.label, item.kind);
+        if let Some(detail) = &item.detail {
+            line.push_str(&format!(" :: {detail}"));
+        }
+        if let Some(source_document) = &item.source_document {
+            line.push_str(&format!(" @ {}", source_document.0));
+        }
+        lines.push(line);
+    }
+    if completions.len() > 24 {
+        lines.push(format!("... {} more", completions.len() - 24));
+    }
+
+    lines.join("\n")
+}
+
 fn diagnostic_severity_label(severity: DiagnosticSeverity) -> &'static str {
     match severity {
         DiagnosticSeverity::Error => "error",
@@ -1899,6 +2063,7 @@ mod tests {
         startup_path_from_args,
     };
     use ftui::prelude::{Cmd, Event, KeyCode, KeyEvent, Model, Modifiers};
+    use ftui::text::{CursorNavigator, Rope};
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::env;
@@ -1967,6 +2132,19 @@ mod tests {
         if !matches!(cmd, Cmd::None) {
             return Err(format!("{context} should not request a side effect"));
         }
+        Ok(())
+    }
+
+    fn move_cursor_to_first(model: &mut ShellModel, needle: &str) -> Result<(), String> {
+        let text = model.editor.text();
+        let byte_index = text
+            .find(needle)
+            .ok_or_else(|| format!("expected to find `{needle}` in editor text"))?;
+        let rope = Rope::from_text(&text);
+        let navigator = CursorNavigator::new(&rope);
+        model
+            .editor
+            .set_cursor_position(navigator.from_byte_index(byte_index));
         Ok(())
     }
 
@@ -2414,6 +2592,69 @@ End Sub\n"
         if !output.contains("Symbol Count:") || !output.contains("Main") {
             return Err(String::from(
                 "symbols view should render document symbols from the direct host session",
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn hover_command_switches_output_to_cursor_hover() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-oxide-hover-view")?;
+        let project_path = workspace_dir.join("WorkspaceSurface.basproj");
+        write_test_file(&workspace_dir.join("Module1.bas"), sample_module_text())?;
+        write_test_file(&workspace_dir.join("Module2.bas"), sample_second_module_text())?;
+        write_test_file(&project_path, sample_workspace_project_text())?;
+
+        let mut model = ShellModel::new(Some(project_path)).map_err(|error| error.to_string())?;
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "module Module1"),
+            "opening project module for hover",
+        )?;
+        move_cursor_to_first(&mut model, "Main")?;
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "hover"),
+            "opening hover output",
+        )?;
+
+        let output = model.output_text();
+        if !output.contains("Label:") || !output.contains("Main") {
+            return Err(String::from(
+                "hover view should render hover information from the direct host session at the current cursor",
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn completion_command_switches_output_to_cursor_completions() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-oxide-completion-view")?;
+        let project_path = workspace_dir.join("WorkspaceSurface.basproj");
+        write_test_file(&workspace_dir.join("Module1.bas"), sample_module_text())?;
+        write_test_file(&workspace_dir.join("Module2.bas"), sample_second_module_text())?;
+        write_test_file(&project_path, sample_workspace_project_text())?;
+
+        let mut model = ShellModel::new(Some(project_path)).map_err(|error| error.to_string())?;
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "module Module1"),
+            "opening project module for completions",
+        )?;
+        move_cursor_to_first(&mut model, "answer =")?;
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "complete"),
+            "opening completions output",
+        )?;
+
+        let output = model.output_text();
+        if !output.contains("Completion Count:") {
+            return Err(String::from(
+                "completions view should render completion results from the direct host session at the current cursor",
+            ));
+        }
+        if !output.contains("answer") && !output.contains("Sub") {
+            return Err(String::from(
+                "completions view should include at least one semantic or keyword completion",
             ));
         }
 

@@ -31,7 +31,7 @@ What works now:
 - load a direct OxVba `HostWorkspaceSession` when a real `.basproj` is active
 - push unsaved editor text into the active OxVba host session for project-backed modules
 - surface diagnostics and document-symbol counts from the direct host session in the side panel
-- switch the main output pane between execution output, diagnostics, and symbols
+- switch the main output pane between execution output, diagnostics, symbols, hover, and completions
 - revert the current file or reload the active project workspace from disk
 - run `:build` and `:run` through `OxVbaServices`
 - view structured results in the `OxVba Output` pane
@@ -44,6 +44,8 @@ Current command surface:
 - `:build`
 - `:diagnostics`
 - `:symbols`
+- `:hover`
+- `:complete`
 - `:workspace-reload`
 - `:run`
 - `:quit`
@@ -54,9 +56,8 @@ Current limitations:
 - no explicit `ProjectSession` UI yet
 - project build/run currently works by making the `.basproj` file the active
   document before `:build` or `:run`
-- diagnostics and document-symbol summaries are wired for active project-backed
-  modules, but richer language-service surfaces such as hover and completions
-  are still to come
+- direct language-service views are currently output-pane oriented; there are no
+  inline popups, completion acceptance UX, or navigation surfaces yet
 
 ## Architecture Seams
 
