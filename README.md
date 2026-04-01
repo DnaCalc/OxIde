@@ -10,6 +10,10 @@ It is intended to be the focused interactive environment around:
 - target-aware build and run workflows
 - embedded and host-driven `OxVba` scenarios
 
+Current planning note:
+
+- see `UX_BRAINSTORM.md` for the active UX redesign brainstorming document
+
 Ownership of truth is split this way:
 
 - `OxVba` owns VBA semantics, canonical `.basproj` meaning, workspace loading/discovery policy, and the public host/service boundary
