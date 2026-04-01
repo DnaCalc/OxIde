@@ -10,6 +10,11 @@ It is intended to be the focused interactive environment around:
 - target-aware build and run workflows
 - embedded and host-driven `OxVba` scenarios
 
+Ownership of truth is split this way:
+
+- `OxVba` owns VBA semantics, canonical `.basproj` meaning, workspace loading/discovery policy, and the public host/service boundary
+- `OxIde` owns IDE behavior, shell flow, session orchestration, editor UX, command routing, and result presentation
+
 ## Current Thin Slice
 
 The current implementation is intentionally narrow. It proves the editor, shell,
@@ -144,3 +149,15 @@ The next layer after this thin slice is the explicit project/workspace surface:
 - add target-aware build and run surfaces
 - expose runtime profile and host policy selection
 - integrate `oxvba-languageservice` against host-provided document text
+
+That work is coupled to a parallel change in `OxVba`:
+
+- define the first typed `OxIde`-facing session facade
+- expand direct project helpers so `OxIde` does not invent project logic
+- replace CLI-shaped build/run seams with typed embedded results
+
+The intended ecosystem shape is:
+
+- `OxVba` = engine, semantics, project truth, transport
+- `OxIde` = first-class direct host and showcase
+- VS Code extension = alternate host over the same `OxVba` semantics

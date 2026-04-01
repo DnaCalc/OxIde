@@ -56,6 +56,8 @@ Not every target needs to be implemented in the first thin slice, but the archit
 
 `OxIde` is also a pathfinder project.
 
+It is not the owner of `OxVba` semantics. It is the first-class direct host and showcase for them.
+
 It should serve as a proving ground for:
 
 - console UI technology choices
@@ -67,6 +69,11 @@ It should serve as a proving ground for:
 - future external-editor integration paths such as an LSP
 
 Even when these areas are not fully factored into separate services yet, the design should make experimentation in those areas practical.
+
+The ownership rule is:
+
+- if it defines VBA meaning, project meaning, workspace policy, or canonical `.basproj` semantics, it belongs in `OxVba`
+- if it defines IDE behavior, workflow, or presentation, it belongs in `OxIde`
 
 ## Embedded IDE Direction
 
@@ -110,6 +117,22 @@ Its scope is centered on:
 - `OxVba` hosting and language services
 - development workflows that directly support the DnaCalc ecosystem
 
+That means `OxIde` should not become the place where project truth is reinvented. `OxVba` should remain the owner of:
+
+- the project model and canonical `.basproj` semantics
+- workspace loading and discovery policy
+- thin external-editor transport such as `oxvba-lsp`
+- docs that define the host boundary and public service interface
+
+`OxIde` should remain the owner of:
+
+- shell/UI/application flow
+- `ProjectSession` and `DocumentSession` orchestration
+- editor state, buffers, cursor/viewport, and dirty/save UX
+- command routing, panels, status surfaces, and keybindings
+- the choice of when to call `OxVba` services and how to present results
+- OxIde-specific workflows and showcase UX
+
 ## Working Principle
 
 Use `OxIde` as both a product and a laboratory:
@@ -142,3 +165,13 @@ The intended top-level seams are:
   - owns the OxVba-side project, language-service, build, and execution service boundaries consumed by OxIde
 
 This matters because `OxIde` is meant to grow without tangling file semantics, project semantics, editing behavior, and `OxVba` execution into one object model.
+
+The near-term architecture work should follow that split:
+
+- in `OxVba`, define the first typed `OxIde`-facing session facade, expand direct project helpers, return typed embedded build/run results, and continue clarifying the public host interface
+- in `OxIde`, replace the CLI-oriented seam with that direct API, wire diagnostics/symbols/completion/hover into the UI, and build project/module/reference management surfaces on top of `OxVba` helpers
+
+That also defines the external-editor lane:
+
+- `OxVba` keeps nearly all semantic and project logic
+- a VS Code extension should hold only packaging, commands, and editor-integration glue
