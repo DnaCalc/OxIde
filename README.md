@@ -28,6 +28,9 @@ What works now:
 - edit text in a single buffer
 - save with `Ctrl-S` or `:write`
 - open another file with `:open <path>`
+- load a direct OxVba `HostWorkspaceSession` when a real `.basproj` is active
+- push unsaved editor text into the active OxVba host session for project-backed modules
+- surface diagnostics and document-symbol counts from the direct host session in the side panel
 - run `:build` and `:run` through `OxVbaServices`
 - view structured results in the `OxVba Output` pane
 
@@ -45,7 +48,8 @@ Current limitations:
 - no explicit `ProjectSession` UI yet
 - project build/run currently works by making the `.basproj` file the active
   document before `:build` or `:run`
-- no language-service, module navigation, or target-selection surface yet
+- diagnostics and document-symbol summaries are wired for active project-backed
+  modules, but richer language-service surfaces are still to come
 
 ## Architecture Seams
 
@@ -68,11 +72,13 @@ The intended top-level seams are:
 Current implementation status against those seams:
 
 - `DocumentSession` is explicit and implemented
-- `OxVbaServices` is explicit and implemented behind a narrow execution seam
+- `ProjectSession` now owns the active direct `HostWorkspaceSession`
+- editor semantic updates now flow directly into the OxVba host session
+- `OxVbaServices` still owns the temporary CLI-shaped build/run seam
 - the current shell already separates command handling, buffer state, footer
   status, and output-pane rendering
-- `EditorSurface` and `ProjectSession` are still architectural seams more than
-  fully-factored runtime objects
+- `EditorSurface` is still an architectural seam more than a fully-factored
+  runtime object
 
 ## Technical Direction
 

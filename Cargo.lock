@@ -773,6 +773,7 @@ name = "oxvba-languageservice"
 version = "0.1.0"
 dependencies = [
  "oxvba-compiler",
+ "oxvba-project",
  "oxvba-syntax",
 ]
 
