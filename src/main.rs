@@ -30,6 +30,7 @@ struct ShellModel {
     command_input: CommandInput,
     project_session: ProjectSession,
     document_session: DocumentSession,
+    output_mode: OutputMode,
     oxvba_services: Box<dyn OxVbaServices>,
     last_execution: Option<OxVbaExecutionResult>,
     editor: TextArea,
@@ -77,6 +78,13 @@ struct LanguageStatus {
     document_id: Option<DocumentId>,
     diagnostics: Vec<SpannedDiagnostic>,
     symbols: Vec<DocumentSymbol>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OutputMode {
+    Execution,
+    Diagnostics,
+    Symbols,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -351,6 +359,24 @@ impl ProjectSession {
         fs::write(project_path, &canonical_xml)?;
         self.host_session = Some(load_host_workspace_session(project_path)?);
         Ok(format!("Saved {}.", project_path.display()))
+    }
+
+    fn reload_from_disk(&mut self) -> io::Result<()> {
+        let Some(project_path) = self.project_path.clone() else {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "no project is active",
+            ));
+        };
+        let selected_module_name = self.selected_module().map(|module| module.module_name);
+        let loaded_project = load_basproj(&project_path).map_err(project_error_to_io)?;
+        self.loaded_project = Some(loaded_project);
+        self.host_session = Some(load_host_workspace_session(&project_path)?);
+        self.selected_module_index = Some(0);
+        if let Some(selected_module_name) = selected_module_name {
+            let _ = self.select_module_by_name(&selected_module_name);
+        }
+        Ok(())
     }
 
     fn clear(&mut self) {
@@ -791,6 +817,7 @@ impl ShellModel {
             command_input: CommandInput::default(),
             project_session,
             document_session,
+            output_mode: OutputMode::Diagnostics,
             oxvba_services,
             last_execution: None,
             editor,
@@ -827,6 +854,10 @@ impl ShellModel {
          :module <name>\n\
          :module-next\n\
          :module-prev\n\
+         :revert\n\
+         :workspace-reload\n\
+         :diagnostics\n\
+         :symbols\n\
          :profile <id|default>\n\
          :policy <preset|default>\n\
          :build\n\
@@ -842,7 +873,7 @@ impl ShellModel {
             format!(":{}", self.command_input.value)
         } else {
             String::from(
-                ": command mode  |  :open <path>  :write [path]  :project-new <path>  :module <name>  :module-next  :module-prev  :profile <id>  :policy <preset>  :build  :run  :quit",
+                ": command mode  |  :open <path>  :write [path]  :project-new <path>  :module <name>  :module-next  :module-prev  :revert  :workspace-reload  :diagnostics  :symbols  :profile <id>  :policy <preset>  :build  :run  :quit",
             )
         };
         format!(
@@ -857,45 +888,19 @@ impl ShellModel {
     }
 
     fn output_title(&self) -> &'static str {
-        "OxVba Output"
+        match self.output_mode {
+            OutputMode::Execution => "OxVba Output",
+            OutputMode::Diagnostics => "Diagnostics",
+            OutputMode::Symbols => "Symbols",
+        }
     }
 
     fn output_text(&self) -> String {
-        let Some(result) = &self.last_execution else {
-            return String::from("No OxVba output yet.");
-        };
-
-        let action = match result.action {
-            OxVbaExecutionAction::Build => "Build",
-            OxVbaExecutionAction::Run => "Run",
-        };
-
-        let mut lines = vec![
-            format!("Action: {action}"),
-            format!("Target: {}", result.target.display_name()),
-            format!("Success: {}", if result.success { "yes" } else { "no" }),
-        ];
-
-        if let Some(code) = result.exit_code {
-            lines.push(format!("Exit code: {code}"));
+        match self.output_mode {
+            OutputMode::Execution => self.execution_output_text(),
+            OutputMode::Diagnostics => self.diagnostics_output_text(),
+            OutputMode::Symbols => self.symbols_output_text(),
         }
-
-        lines.push(String::new());
-        lines.push(String::from("Stdout:"));
-        lines.push(if result.stdout.is_empty() {
-            String::from("(empty)")
-        } else {
-            result.stdout.clone()
-        });
-        lines.push(String::new());
-        lines.push(String::from("Stderr:"));
-        lines.push(if result.stderr.is_empty() {
-            String::from("(empty)")
-        } else {
-            result.stderr.clone()
-        });
-
-        lines.join("\n")
     }
 
     fn buffer_title(&self) -> String {
@@ -948,6 +953,130 @@ impl ShellModel {
             Ok(None) => None,
             Err(error) => Some(format!("Language session error: {error}")),
         }
+    }
+
+    fn execution_output_text(&self) -> String {
+        let Some(result) = &self.last_execution else {
+            return String::from(
+                "No OxVba execution output yet.\n\nUse :diagnostics or :symbols for live language-service views.",
+            );
+        };
+
+        let action = match result.action {
+            OxVbaExecutionAction::Build => "Build",
+            OxVbaExecutionAction::Run => "Run",
+        };
+
+        let mut lines = vec![
+            format!("Action: {action}"),
+            format!("Target: {}", result.target.display_name()),
+            format!("Success: {}", if result.success { "yes" } else { "no" }),
+        ];
+
+        if let Some(code) = result.exit_code {
+            lines.push(format!("Exit code: {code}"));
+        }
+
+        lines.push(String::new());
+        lines.push(String::from("Stdout:"));
+        lines.push(if result.stdout.is_empty() {
+            String::from("(empty)")
+        } else {
+            result.stdout.clone()
+        });
+        lines.push(String::new());
+        lines.push(String::from("Stderr:"));
+        lines.push(if result.stderr.is_empty() {
+            String::from("(empty)")
+        } else {
+            result.stderr.clone()
+        });
+
+        lines.join("\n")
+    }
+
+    fn diagnostics_output_text(&self) -> String {
+        match self.current_language_status() {
+            Ok(Some(status)) => format_diagnostics_output(&status),
+            Ok(None) => String::from(
+                "No active project-backed language document.\n\nOpen a project module to show diagnostics.",
+            ),
+            Err(error) => format!("Language session error: {error}"),
+        }
+    }
+
+    fn symbols_output_text(&self) -> String {
+        match self.current_language_status() {
+            Ok(Some(status)) => format_symbols_output(&status),
+            Ok(None) => {
+                String::from("No active project-backed language document.\n\nOpen a project module to show symbols.")
+            }
+            Err(error) => format!("Language session error: {error}"),
+        }
+    }
+
+    fn show_diagnostics(&mut self) -> Cmd<Msg> {
+        self.output_mode = OutputMode::Diagnostics;
+        self.status = String::from("Diagnostics view opened.");
+        Cmd::none()
+    }
+
+    fn show_symbols(&mut self) -> Cmd<Msg> {
+        self.output_mode = OutputMode::Symbols;
+        self.status = String::from("Symbols view opened.");
+        Cmd::none()
+    }
+
+    fn revert_current_document(&mut self) -> Cmd<Msg> {
+        let Some(path) = self.document_session.path().cloned() else {
+            self.status = String::from("Revert requires a bound file path.");
+            return Cmd::none();
+        };
+        self.open_document(path)
+    }
+
+    fn reload_workspace(&mut self) -> Cmd<Msg> {
+        if self.is_dirty() {
+            self.status = String::from("Save or revert the current buffer before reloading the workspace.");
+            return Cmd::none();
+        }
+
+        if is_basproj_path(self.document_session.path().map_or_else(|| Path::new(""), |p| p)) {
+            if let Some(path) = self.document_session.path().cloned() {
+                return self.open_document(path);
+            }
+        }
+
+        let Some(current_path) = self.document_session.path().cloned() else {
+            self.status = String::from("Workspace reload requires a bound project or file path.");
+            return Cmd::none();
+        };
+
+        if !self.project_session.has_manifest() {
+            return self.open_document(current_path);
+        }
+
+        if let Err(error) = self.project_session.reload_from_disk() {
+            self.status = format!("Workspace reload failed: {error}");
+            return Cmd::none();
+        }
+
+        match DocumentSession::open(current_path.clone()) {
+            Ok((document_session, _)) => {
+                self.project_session.sync_selection_from_document_path(&current_path);
+                self.document_session = document_session;
+                self.editor = new_editor(self.document_session.saved_text());
+                self.editor_state = RefCell::new(TextAreaState::default());
+                let current_text = self.document_session.saved_text().to_string();
+                self.sync_language_session(&current_text);
+                self.status = format!("Reloaded workspace for {}.", self.project_session.display_name());
+            }
+            Err(error) => {
+                self.status = format!("Workspace reload failed: {error}");
+            }
+        }
+
+        Cmd::none()
     }
 
     fn save_current_file(&mut self) {
@@ -1086,6 +1215,10 @@ impl ShellModel {
             },
             "module-next" => self.cycle_project_module(1),
             "module-prev" => self.cycle_project_module(-1),
+            "revert" => self.revert_current_document(),
+            "workspace-reload" => self.reload_workspace(),
+            "diagnostics" => self.show_diagnostics(),
+            "symbols" => self.show_symbols(),
             "profile" => match arg {
                 Some(profile) => {
                     self.status = match self.project_session.set_runtime_profile(profile) {
@@ -1240,10 +1373,12 @@ impl ShellModel {
         match self.oxvba_services.execute(&request) {
             Ok(result) => {
                 self.status = result.status_summary();
+                self.output_mode = OutputMode::Execution;
                 self.last_execution = Some(result);
             }
             Err(error) => {
                 self.status = format!("OxVbaServices invocation failed: {error}");
+                self.output_mode = OutputMode::Execution;
                 self.last_execution = None;
             }
         }
@@ -1501,6 +1636,83 @@ fn format_language_summary(status: &LanguageStatus) -> String {
         warning_count,
         status.symbols.len()
     )
+}
+
+fn format_diagnostics_output(status: &LanguageStatus) -> String {
+    let mut lines = vec![format!(
+        "Document: {}",
+        status
+            .document_id
+            .as_ref()
+            .map(|id| id.0.as_str())
+            .unwrap_or("none")
+    )];
+
+    if status.diagnostics.is_empty() {
+        lines.push(String::from("No diagnostics."));
+        return lines.join("\n");
+    }
+
+    let error_count = status
+        .diagnostics
+        .iter()
+        .filter(|diag| diag.severity == DiagnosticSeverity::Error)
+        .count();
+    let warning_count = status
+        .diagnostics
+        .iter()
+        .filter(|diag| diag.severity == DiagnosticSeverity::Warning)
+        .count();
+    lines.push(format!(
+        "Summary: {} error(s), {} warning(s)",
+        error_count, warning_count
+    ));
+    lines.push(String::new());
+
+    for diagnostic in &status.diagnostics {
+        lines.push(format!(
+            "- {} [{}..{}] {}",
+            diagnostic_severity_label(diagnostic.severity),
+            diagnostic.span.start,
+            diagnostic.span.end,
+            diagnostic.message
+        ));
+    }
+
+    lines.join("\n")
+}
+
+fn format_symbols_output(status: &LanguageStatus) -> String {
+    let mut lines = vec![format!(
+        "Document: {}",
+        status
+            .document_id
+            .as_ref()
+            .map(|id| id.0.as_str())
+            .unwrap_or("none")
+    )];
+
+    if status.symbols.is_empty() {
+        lines.push(String::from("No document symbols."));
+        return lines.join("\n");
+    }
+
+    lines.push(format!("Symbol Count: {}", status.symbols.len()));
+    lines.push(String::new());
+    for symbol in &status.symbols {
+        lines.push(format!(
+            "- {} {:?} [{}..{}]",
+            symbol.name, symbol.kind, symbol.span.start, symbol.span.end
+        ));
+    }
+    lines.join("\n")
+}
+
+fn diagnostic_severity_label(severity: DiagnosticSeverity) -> &'static str {
+    match severity {
+        DiagnosticSeverity::Error => "error",
+        DiagnosticSeverity::Warning => "warning",
+    }
 }
 
 fn is_known_runtime_profile(raw: &str) -> bool {
@@ -2132,9 +2344,76 @@ End Sub\n"
     fn output_text_shows_placeholder_before_execution() -> Result<(), String> {
         let model = ShellModel::new(None).map_err(|error| error.to_string())?;
 
-        if model.output_text() != "No OxVba output yet." {
+        if !model
+            .output_text()
+            .contains("No active project-backed language document")
+        {
             return Err(String::from(
-                "placeholder output should be shown before execution",
+                "diagnostics view should be the default placeholder before execution",
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn diagnostics_command_switches_output_to_language_diagnostics() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-oxide-diagnostics-view")?;
+        let project_path = workspace_dir.join("WorkspaceSurface.basproj");
+        write_test_file(&workspace_dir.join("Module1.bas"), sample_module_text())?;
+        write_test_file(&workspace_dir.join("Module2.bas"), sample_second_module_text())?;
+        write_test_file(&project_path, sample_workspace_project_text())?;
+
+        let mut model = ShellModel::new(Some(project_path)).map_err(|error| error.to_string())?;
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "module Module1"),
+            "opening project module for diagnostics",
+        )?;
+
+        for ch in "\nSub Broken(\n".chars() {
+            expect_none_cmd(
+                model.update(Msg::Editor(Event::Key(KeyEvent::new(KeyCode::Char(ch))))),
+                "typing invalid text for diagnostics output",
+            )?;
+        }
+
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "diagnostics"),
+            "opening diagnostics output",
+        )?;
+
+        let output = model.output_text();
+        if !output.contains("Summary:") || !output.contains("error") {
+            return Err(String::from(
+                "diagnostics view should render live language-service diagnostics",
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn symbols_command_switches_output_to_document_symbols() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-oxide-symbols-view")?;
+        let project_path = workspace_dir.join("WorkspaceSurface.basproj");
+        write_test_file(&workspace_dir.join("Module1.bas"), sample_module_text())?;
+        write_test_file(&workspace_dir.join("Module2.bas"), sample_second_module_text())?;
+        write_test_file(&project_path, sample_workspace_project_text())?;
+
+        let mut model = ShellModel::new(Some(project_path)).map_err(|error| error.to_string())?;
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "module Module1"),
+            "opening project module for symbols",
+        )?;
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "symbols"),
+            "opening symbols output",
+        )?;
+
+        let output = model.output_text();
+        if !output.contains("Symbol Count:") || !output.contains("Main") {
+            return Err(String::from(
+                "symbols view should render document symbols from the direct host session",
             ));
         }
 
@@ -2690,6 +2969,74 @@ End Sub\n"
         if !language_surface.contains("Workspace Target:") {
             return Err(String::from(
                 "language surface should show the loaded host workspace session",
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn revert_command_restores_current_file_from_disk() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-oxide-revert")?;
+        let module_path = workspace_dir.join("Scratch.bas");
+        write_test_file(&module_path, sample_module_text())?;
+
+        let mut model = ShellModel::new(Some(module_path.clone())).map_err(|error| error.to_string())?;
+        expect_none_cmd(
+            model.update(Msg::Editor(Event::Key(KeyEvent::new(KeyCode::Char('\''))))),
+            "editing current file before revert",
+        )?;
+
+        if !model.is_dirty() {
+            return Err(String::from("edit before revert should make the buffer dirty"));
+        }
+
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "revert"),
+            "reverting current file",
+        )?;
+
+        if model.editor.text() != sample_module_text() || model.is_dirty() {
+            return Err(String::from(
+                "revert should restore the current file contents from disk and clear dirty state",
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn workspace_reload_refreshes_project_module_from_disk() -> Result<(), String> {
+        let workspace_dir = unique_test_dir("bd-oxide-workspace-reload")?;
+        let project_path = workspace_dir.join("WorkspaceSurface.basproj");
+        let module1_path = workspace_dir.join("Module1.bas");
+        write_test_file(&module1_path, sample_module_text())?;
+        write_test_file(&workspace_dir.join("Module2.bas"), sample_second_module_text())?;
+        write_test_file(&project_path, sample_workspace_project_text())?;
+
+        let mut model = ShellModel::new(Some(project_path)).map_err(|error| error.to_string())?;
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "module Module1"),
+            "opening module before workspace reload",
+        )?;
+
+        let reloaded_source = format!("{}\n' reloaded from disk", sample_module_text());
+        write_test_file(&module1_path, &reloaded_source)?;
+
+        expect_none_cmd(
+            enter_and_dispatch_command(&mut model, "workspace-reload"),
+            "reloading workspace",
+        )?;
+
+        if model.editor.text() != reloaded_source {
+            return Err(String::from(
+                "workspace-reload should refresh the active project-backed module from disk",
+            ));
+        }
+
+        if !model.status.contains("Reloaded workspace") {
+            return Err(String::from(
+                "workspace reload should report that the active project workspace was refreshed",
             ));
         }
 
