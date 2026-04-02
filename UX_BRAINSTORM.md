@@ -55,6 +55,7 @@ This pass is about:
 - modality strategy
 - default keybinding and compatibility strategy
 - screen-space strategy
+- tool-surface composition, including Immediate Panel behavior
 - interaction model for editing, running, debugging, and project management
 - visual language and terminal affordances
 - mouse policy
@@ -459,6 +460,7 @@ Everything important should have a place on screen.
 - one primary left-side project navigator
 - one lower utility surface
 - one right contextual inspector surface
+- one `Immediate Panel` available as a persistent or summonable tool surface
 
 #### Focus model
 
@@ -480,6 +482,164 @@ Inspect output/problems
 Enter debug when needed
 Return to editing without shell whiplash
 ```
+
+---
+
+## 7.6 Immediate Panel
+
+The shell should make room for an `Immediate Panel`.
+
+This should be treated as a first-class IDE surface, not an afterthought.
+
+### Product role
+
+The `Immediate Panel` is:
+- part REPL
+- part statement evaluator
+- part debug-time inspection surface
+
+It should exist:
+- outside debugging
+- during debugging
+- as a stable shell concept, not a temporary debug-only console
+
+### Ownership split
+
+`OxVba` should own:
+- execution/evaluation semantics
+- the typed request/response contract
+- debug-context-aware evaluation behavior
+
+`OxIde` should own:
+- panel presentation
+- history UX
+- layout placement
+- focus behavior
+- keyboard and mouse affordances
+- result rendering
+
+That means OxIde should plan the surface now even if the engine support lands later in OxVba.
+
+### What it is not
+
+It is not just:
+- stdout/stderr output
+- build log output
+- a shell command line
+- the debug trace stream
+
+It is also not identical to:
+- watches
+- locals
+- hover
+
+Those are related but different.
+
+### Distinction from nearby surfaces
+
+```text
+Output panel:
+  passive results from build/run
+
+Debug console:
+  runtime/debug event stream and control messages
+
+Immediate Panel:
+  active user-driven evaluation surface
+
+Watches:
+  pinned recurring expressions
+
+Hover:
+  quick contextual inspection
+```
+
+### Core user stories
+
+- evaluate an expression while editing
+- test a statement or small fragment quickly
+- inspect a value during a paused debug session
+- call helper routines interactively when that becomes supported
+- experiment without leaving the IDE shell
+- promote a one-off expression into a watch
+
+### Working UX model
+
+The panel should support:
+- input prompt
+- history
+- multiline input where needed
+- result list with rich rendering
+- keyboard recall of previous entries
+- copy/reuse into editor or watch list
+
+### Suggested layout role
+
+The `Immediate Panel` belongs in the lower tool-surface family alongside:
+- Output
+- Problems
+- Search
+- References
+- Debug Console
+
+But it should also be easy to pop out or maximize when actively used.
+
+### Baseline sketch
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Immediate                                                                   │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ > ?answer                                                                    │
+│   Integer = 42                                                               │
+│                                                                              │
+│ > Print ComputeTax(100)                                                      │
+│   21                                                                         │
+│                                                                              │
+│ >                                                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Debug-time sketch
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Debug • Immediate • Frame: Main                                             │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ > ?answer                                                                    │
+│   Integer = 41                                                               │
+│                                                                              │
+│ > ?items.Count                                                                │
+│   Long = 7                                                                   │
+│                                                                              │
+│ > Watches: Add `answer * 2`                                                  │
+│                                                                              │
+│ >                                                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Interaction model recommendation
+
+- `Ctrl+G` remains a strong candidate for focus/open if it does not conflict with better compatibility goals
+- the panel should be focusable like any other region
+- results should be navigable
+- pressing Enter should evaluate
+- history navigation should be fast and obvious
+
+### Presentation recommendation
+
+The panel should feel:
+- active
+- interactive
+- code-adjacent
+
+not:
+- like raw terminal output
+- like a generic shell subprocess
+
+### Strategic reason
+
+This surface helps OxIde feel like a true IDE rather than just an editor plus build/run panels.
 
 ---
 
@@ -559,7 +719,7 @@ The biggest TUI mistake would be to copy desktop pane count blindly.
 
 1. editor surface
 2. project structure
-3. problems / output / debug console
+3. problems / output / immediate / debug console
 4. contextual inspector
 
 ### Suggested persistent regions
@@ -575,7 +735,7 @@ The biggest TUI mistake would be to copy desktop pane count blindly.
 │ targets      │                                              │ hover        │
 │ actions      │                                              │ properties   │
 ├──────────────┴──────────────────────────────────────────────┴──────────────┤
-│ Bottom utility surface: output • terminal • problems • references • debug │
+│ Bottom utility surface: output • problems • references • immediate • debug │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │ Command/status strip                                                       │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -632,7 +792,7 @@ Use a small number of task-shaped layouts.
 │              │                                            │ runtime state │
 │              │                                            │ host status   │
 ├──────────────┴───────────────────────────────────────────┴───────────────┤
-│ Console / stdout / stderr / events                                        │
+│ Output / Immediate / stdout / stderr / events                             │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -649,7 +809,7 @@ Use a small number of task-shaped layouts.
 │              │                                             │ Locals        │
 │              │                                             │ answer: Int   │
 ├──────────────┼───────────────────────────────────────────┬─┴──────────────┤
-│ Breakpoints  │ Debug console / trace / evaluation                           │
+│ Breakpoints  │ Debug console / Immediate / trace / evaluation               │
 └──────────────┴──────────────────────────────────────────────────────────────┘
 ```
 
@@ -716,6 +876,7 @@ The bottom area is ideal for:
 - problem list
 - search results
 - references
+- immediate evaluation
 - debug console
 
 Because these are naturally:
@@ -927,6 +1088,10 @@ A palette or command strip should make advanced flows easy without making everyt
 Hover, completion, diagnostics, references, symbols, watches, project metadata:
 - these should feel integrated into one shell
 - not like separate command outputs pretending to be UX
+
+Immediate evaluation belongs in the same category:
+- it should feel like a native IDE interaction surface
+- not like a subprocess terminal pane
 
 ### 12.5 Great empty and small-screen states
 
@@ -1462,6 +1627,7 @@ This document should branch into follow-up design work:
 - diagnostics UX
 - references and definitions UX
 - symbol navigation UX
+- immediate evaluation surface UX
 
 ### Track 5: project/workspace management UX
 
@@ -1474,6 +1640,7 @@ This document should branch into follow-up design work:
 
 - run status model
 - output/console model
+- Immediate Panel model
 - debug layout
 - watch/locals/stack presentation
 
