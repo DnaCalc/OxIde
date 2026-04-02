@@ -13,6 +13,7 @@ It is intended to be the focused interactive environment around:
 Current planning note:
 
 - see `PRODUCT_DIRECTION.md` for the active UX and product-direction document
+- see `OPERATIONS.md` and `docs/WORKSET_REGISTER.md` for the current execution model and rewrite workset map
 
 Ownership of truth is split this way:
 
@@ -99,7 +100,7 @@ The repo is aligned around these decisions:
 - Rust application
 - `FrankenTui` as the shell/runtime foundation
 - `FrankenTui` editor path behind an `OxIde`-owned editor seam
-- `msedit` as a correctness/behavior reference and selective donor
+- the current repo is being rebuilt around FrankenTui-first editing and direct OxVba host integration
 - `OxVba` treated as the project/language-service/build/runtime substrate
 
 Planned `OxVba` target surface in scope:
