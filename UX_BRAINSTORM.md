@@ -54,6 +54,7 @@ This pass is about:
 - UX usage model
 - modality strategy
 - default keybinding and compatibility strategy
+- unified command model across palette, shortcuts, chords, and command aliases
 - screen-space strategy
 - tool-surface composition, including Immediate Panel behavior
 - interaction model for editing, running, debugging, and project management
@@ -293,7 +294,7 @@ Layer 2: mnemonic menu sequence
   Alt+I, M = Insert Module
   Alt+R, R = Run / Start
 
-Layer 3: command palette / command line
+Layer 3: command palette / command alias
   "Insert Module"
   "Run Project"
 ```
@@ -304,6 +305,22 @@ This is a strong TUI fit because it keeps:
 - power-user speed
 
 without demanding a giant visible menu system at all times.
+
+### Curation note
+
+Not every idea about command entry should become a primary UX path.
+
+In particular:
+- a unified command model is a strong idea
+- raw punctuation-triggered command entry from normal text editing is weaker
+
+The system should be shaped around:
+- actions
+- bindings
+- profiles
+- discoverability
+
+not around preserving every historical invocation detail literally.
 
 ### Keybinding policy recommendation
 
@@ -429,6 +446,10 @@ This kind of modality is healthy because it is:
 - visible
 - temporary
 - reversible
+
+Command aliases belong here too:
+- they are a transient invocation surface
+- they should feed the same action namespace as shortcuts and palette commands
 
 ---
 
@@ -1178,6 +1199,141 @@ Possible active styling:
 
 ---
 
+## 14.5 Unified Command Model
+
+This should be a real architectural UX decision.
+
+OxIde should have one command namespace.
+
+Everything should resolve through named actions.
+
+### Core idea
+
+```text
+Action
+  -> can appear in command palette
+  -> can have 0..N keyboard shortcuts
+  -> can have 0..N keyboard chords
+  -> can have 0..N mnemonic menu sequences
+  -> can have 0..N command aliases
+```
+
+Examples:
+
+```text
+Action: project.insert_module
+  Palette label: Insert Module
+  Shortcut: none
+  Chord: Alt+I, M
+  Alias: module-new
+  Alias: insert-module
+
+Action: debug.run
+  Palette label: Run
+  Shortcut: F5
+  Chord: Alt+R, R
+  Alias: run
+```
+
+### Why this is the right model
+
+It gives us:
+- consistency
+- configurability
+- discoverability
+- profile support
+- the ability to map different user traditions onto the same command surface
+
+It also prevents:
+- keyboard handling from becoming an ad hoc pile
+- palette-only commands drifting away from shortcut commands
+- colon aliases from becoming a second-class command universe
+
+### Command palette relationship
+
+The command palette should be a view over the action registry.
+
+That means:
+- every user-visible command should have a named action
+- palette filtering should search labels, aliases, and maybe bound keys
+- command metadata should be centralized
+
+### Keyboard shortcut relationship
+
+Shortcuts and chords should also bind to the same action registry.
+
+Important requirement:
+- one action may have more than one binding
+- one action may have both single-stroke and multi-stroke bindings
+
+### Alias relationship
+
+What we currently call “colon commands” should be reframed as command aliases over the same action namespace.
+
+That is a better long-term model than treating them as a special scripting island.
+
+### Recommended terminology
+
+Prefer:
+- `command aliases`
+- `action aliases`
+
+over making `colon commands` the primary conceptual layer.
+
+Reason:
+- some aliases may still be typed after a command-prefix gesture
+- but the underlying system should not depend on a literal colon forever
+
+### Likely bad default to avoid
+
+Do not make entering command mode from text editing as cheap as typing `:`.
+
+Why:
+- `:` is legitimate text in source editing
+- stealing raw punctuation from the editor is friction in a non-modal IDE
+- it overfits editor folklore more than OxIde’s actual product identity
+
+Better options:
+- explicit command key
+- palette key
+- menu mnemonic entry
+- optional expert binding profiles later
+
+### Recommended invocation split
+
+```text
+Palette:
+  primary discovery and broad access
+
+Shortcuts / chords:
+  primary fast-path for learned actions
+
+Mnemonic menu sequences:
+  compatibility path for VBA / VS / Windows IDE muscle memory
+
+Command alias entry:
+  expert textual invocation path
+```
+
+### Smart alias entry
+
+If textual command entry exists, it should not be a raw dumb prompt.
+
+It should support:
+- completion
+- fuzzy search
+- alias suggestions
+- recent commands
+- action descriptions
+
+So the user experience is closer to:
+- command palette with textual bias
+
+than:
+- primitive shell prompt
+
+---
+
 ## 15. Modal Questions: Specific Recommendations
 
 ### Recommendation 1
@@ -1224,14 +1380,18 @@ These are planning questions that need real decisions.
 ### Tension A: Command line vs command palette
 
 Options:
-- keep colon command line central
-- add palette and demote colon
+- keep textual alias entry central
+- add palette and demote textual alias entry
 - support both
 
 Working recommendation:
 - keep both
 - palette for discovery and broad command access
-- colon line for power-user exact commands and script-like flows
+- textual alias entry for power-user exact commands and script-like flows
+
+Important caution:
+- textual alias entry should not necessarily be entered by typing raw `:`
+- that is a candidate expert binding, not an obvious default for a non-modal IDE
 
 ### Tension B: Single editor vs tabs vs buffers list
 
@@ -1286,6 +1446,17 @@ Working recommendation:
 
 This needs its own design pass, but the default direction should be clear now.
 
+### Initial profiles
+
+- `VBA IDE Compatible`
+- `Visual Studio Compatible`
+- `VS Code Compatible`
+
+These should be:
+- real first-class profiles
+- not tiny partial presets
+- based on the same unified action registry
+
 ### Default profile
 
 `VBA IDE Compatible`
@@ -1320,6 +1491,31 @@ Exact mapping details still need research and finalization.
 The important planning decision is:
 - the default should optimize for familiarity to VBA IDE users
 - the command architecture should explicitly support mnemonic sequences
+- profile selection should swap bindings, not fork the command universe
+
+### Configurability requirement
+
+Users should be able to:
+- bind more than one shortcut to the same action
+- bind more than one chord to the same action
+- mix shortcuts and chords on the same action
+- override profile defaults locally
+- add or remove aliases
+
+### Example shape
+
+```text
+Action: project.insert_module
+  VBA profile:
+    Alt+I, M
+  Visual Studio profile:
+    Alt+P, A?   (illustrative only; exact mapping still needs research)
+  VS Code profile:
+    no default chord
+  User custom:
+    Ctrl+Shift+N, M
+    alias: insert-module
+```
 
 ### UX consequence
 
@@ -1614,11 +1810,16 @@ This document should branch into follow-up design work:
 
 ### Track 3: command model
 
-- command line vs palette
+- command alias entry vs palette
 - global commands vs focused commands
+- unified action registry
 - keybinding philosophy
+- shortcut and chord schema
 - VBA IDE shortcut research and mapping
+- Visual Studio shortcut research and mapping
+- VS Code shortcut research and mapping
 - mnemonic Alt-sequence model
+- alias/completion UX
 
 ### Track 4: editing intelligence UX
 
