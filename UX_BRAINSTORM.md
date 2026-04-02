@@ -479,6 +479,7 @@ Everything important should have a place on screen.
 #### Base behavior
 
 - one active workspace
+- many open buffers may exist even when not currently visible
 - one active document editor
 - one primary left-side project navigator
 - one lower utility surface
@@ -1358,6 +1359,115 @@ than:
 
 ---
 
+## 14.6 Buffers, Views, And Non-Visible Open Files
+
+OxIde should explicitly separate:
+- buffers
+- views
+- layouts
+
+### Working model
+
+```text
+Workspace
+  contains buffers
+
+Layout
+  contains visible views
+
+View
+  mounts one buffer
+```
+
+This means:
+- a file can be open without being visible
+- a view can switch which buffer it displays
+- a layout may show one, two, or more views
+- the same buffer may appear in more than one view if that proves useful
+
+### Recommendation
+
+Yes, OxIde should allow open-but-not-visible buffers.
+
+That is a better TUI model than:
+- forcing every open file into a visible tab strip
+- pretending non-visible state does not exist
+
+### What should the user be able to do?
+
+- keep multiple buffers open
+- move through recent buffers quickly
+- see that additional open buffers exist even if they are not visible
+- mount a non-visible buffer into the current focused view
+- split the layout and show another open buffer side by side
+
+### Suggested user-facing behaviors
+
+```text
+Ctrl+Tab
+  cycle recent buffers into the focused view
+
+Ctrl+Shift+Tab
+  cycle backward through recent buffers
+
+Show Buffers
+  open a roster / switcher of open buffers
+
+Split View
+  create another visible view and mount a selected buffer into it
+```
+
+### How should OxIde indicate open-but-not-visible buffers?
+
+Not with a primary browser-style tab row.
+
+Better TUI-friendly options:
+- a `Buffers` roster panel
+- a recent-buffers switcher overlay
+- a compact top-bar count and current/recent indicators
+- per-view title bars that show which buffer is mounted
+
+### Suggested compact indication
+
+```text
+Top bar:
+Workspace: Payroll.basproj   Views: 2   Buffers: 7 open   Focus: Module1.bas
+```
+
+### Buffer roster sketch
+
+```text
+┌──────────────────────────────────────────────┐
+│ Buffers                                      │
+├──────────────────────────────────────────────┤
+│ > Module1.bas                      visible   │
+│   Module2.bas                      visible   │
+│   Payroll.basproj                  hidden    │
+│   TaxHelpers.bas                   hidden    │
+│   References.txt                   hidden    │
+└──────────────────────────────────────────────┘
+```
+
+### Why this is better than tabs
+
+- tabs consume scarce horizontal space
+- tabs scale badly in text grids
+- tabs are weaker than split composition for side-by-side work
+- tabs are less important than fast switching and clear mounted-view titles
+
+### Design consequence
+
+The product should think in terms of:
+- buffer roster
+- recent buffer history
+- mounted views
+- split composition
+
+not:
+- tab strip first
+
+---
+
 ## 15. Modal Questions: Specific Recommendations
 
 ### Recommendation 1
@@ -1449,6 +1559,8 @@ This supports:
 - code plus project file
 - source plus alternate view of same source
 - debug source plus another source/document
+- open buffers that are currently not visible
+- recent-buffer cycling into the focused view
 
 ### Tension C: Explorer permanence
 
