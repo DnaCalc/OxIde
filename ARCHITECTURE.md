@@ -1,260 +1,281 @@
-# OxIde Architecture Note
+# OxIde Architecture
 
-## Decision
+## Status
 
-`OxIde` should be built on the Rust `FrankenTui` stack as its primary shell and runtime foundation, while treating modern `OxVba` as a first-class project/language-service/build/runtime substrate.
+This document is subordinate to `PRODUCT_DIRECTION.md`.
 
-The working architecture choice is:
+Use it to capture:
+- architectural seams
+- ownership boundaries
+- current integration shape
+- implementation direction implied by the current product direction
 
-- use `FrankenTui` for the console shell, layout, runtime, widgets, input handling, and presentation primitives
-- keep `OxIde` on one primary UI/runtime stack
-- use `FrankenTui`'s editor path as the initial implementation behind an `OxIde`-owned seam
-- treat `msedit` as a reference implementation and selective donor for editor behavior, algorithms, and tests
-- treat `.basproj`, `ProjectManifest`, language services, and target-aware build/runtime flows as first-class OxIde scope
+Do not treat this file as a competing product-vision document.
 
-`OxIde` should not start by growing the `msedit` shell outward into the IDE, and it should not invent a parallel VBA parser/project system when `OxVba` already has one.
+## Architectural Position
 
-## Why
+`OxIde` is a standalone terminal-native IDE for `OxVba`.
 
-The reason is architectural fit.
+The architecture should therefore optimize for:
+- a FrankenTui-based shell and editing environment
+- explicit project, document, and editor seams
+- direct embedding of OxVba host/session semantics
+- IDE behavior that is project-aware and stateful
+- terminal-honest UX rather than LSP-shaped or CLI-shaped indirection
 
-The Rust `FrankenTui` tree already provides:
+The core rule is:
 
-- a usable shell/runtime model
-- pane and layout infrastructure
-- focus and input handling
-- multi-surface widget support
-- a real editor path
+- `PRODUCT_DIRECTION.md` defines what OxIde is trying to be
+- `ARCHITECTURE.md` defines how the codebase should be divided to support that
 
-That makes it a better base for a future VBA IDE than `msedit`'s surrounding shell.
+## Current Stack Choice
 
-At the same time, current `OxVba` now provides much more than a compiler/runtime core:
+The stack direction is:
 
-- a canonical `.basproj` project format
-- a `ProjectManifest`-centered project/workspace model
-- a language-service crate with document/workspace snapshots
-- a lossless syntax tree and parser layer
-- build/runtime target surfaces beyond single-file execution
+- `FrankenTui` as the shell, layout, rendering, input, and editor foundation
+- `OxVba` as the owner of project truth, workspace loading, document identity, and semantic services
+- `OxIde` as the host shell that orchestrates editing, workspace interaction, and presentation
 
-That means OxIde should lean into `OxVba` as a semantic and tooling substrate rather than duplicating those concerns.
+Important clarification:
 
-The decision should stand on console-first IDE needs alone. Any future non-console target is optional upside, not a phase-1 driver.
+- do not treat `msedit` as an architectural reference point
+- do not plan around an embedded-host OxIde scenario
+- do not route editor semantics through LSP inside OxIde
 
-## Ownership Boundaries
+Those ideas influenced earlier notes, but they are not the current architectural direction.
 
-The split should be defined by ownership of truth.
+## Ownership Of Truth
 
-The good rule is:
+The ownership split should remain explicit.
 
-- if it defines VBA meaning, project meaning, or canonical `.basproj` semantics, it belongs in `OxVba`
-- if it defines IDE behavior, application flow, or presentation, it belongs in `OxIde`
+If it defines VBA or project meaning, it belongs in `OxVba`.
+If it defines IDE behavior or presentation, it belongs in `OxIde`.
 
-The intended ownership split is:
+### `OxVba` owns
 
-- `FrankenTui` owns shell/runtime primitives and rendering/input infrastructure
-- `OxVba` owns project model truth, canonical `.basproj` semantics, workspace loading/discovery policy, thin external-editor transport such as `oxvba-lsp`, and the public host/service boundary docs
-- `OxIde` owns shell/UI/application flow, `ProjectSession` and `DocumentSession` orchestration, command routing, panels, status surfaces, keybindings, and the decision of when to call `OxVba` services and how to present results
-- the editor subsystem owns text editing behavior
+- canonical `.basproj` semantics
+- workspace loading and discovery policy
+- project-backed document identity
+- semantic queries and analysis
+- diagnostics
+- document and workspace symbols
+- completions
+- hover
+- go-to-definition
+- references
+- semantic provenance
+- typed host-facing session APIs
+- typed build/run contracts when those are available
 
-More concretely:
+### `OxIde` owns
 
-- shell/runtime primitives
-  - app loop
-  - screen composition primitives
-  - pane and layout primitives
-  - focus model
-  - input dispatch
-  - terminal presentation
+- shell/UI/application flow
+- panel composition and layout behavior
+- focus routing
+- keybinding and command invocation policy
+- keyboard shortcut profiles, chords, mnemonic sequences, and command aliases
+- editor state and presentation
+- buffer/view/layout orchestration
+- dirty/save/reload/revert UX
+- when OxVba services are invoked
+- how OxVba results are surfaced in the UI
+- project-management and debugging surfaces as UX
 
-- editor subsystem
-  - text storage
-  - cursor movement
-  - selection
-  - scrolling and viewport
-  - undo/redo
-  - search/replace behavior
+## Core Seams
 
+The top-level seams should remain:
+
+- `OxIdeShell`
 - `ProjectSession`
-  - active `.basproj` identity
-  - module roster and module-to-document mapping
-  - project references and target configuration shown in the UI
-  - runtime profile, host policy, and target selections surfaced to the user
-  - coordination between editor state and `OxVba` project/language-service/build calls without redefining project semantics
-
 - `DocumentSession`
-  - current document identity
-  - file path binding
-  - dirty state
-  - open/save/reload semantics
-  - versioning and editor-facing source text
-  - byte-offset mapping support needed for OxVba spans and language-service queries
-
+- `EditorSurface`
 - `OxVbaServices`
-  - `.basproj` parsing/loading/generation and `ProjectManifest` workflows
-  - canonical project model and workspace discovery/loading policy
-  - syntax and semantic analysis
-  - diagnostics, symbols, completion, hover, and related language services
-  - build target selection and compilation workflows
-  - runtime and execution workflows
-  - typed host-facing service contracts for embedded consumers such as `OxIde`
 
-## Recommended Technical Direction
+These seams are useful because they keep project semantics, document lifecycle, editing behavior, and OxVba integration from collapsing into one object.
 
-Phase 1 should use `FrankenTui`'s editor path first. It should not attempt an immediate hard extraction of `msedit`.
+### `OxIdeShell`
 
-That means:
+Owns:
+- pane composition
+- focus movement
+- command routing
+- status surfaces
+- output surfaces
+- inspector/tool surfaces
+- stateful edit/run/debug presentation
 
-- start with the existing `FrankenTui` editor implementation path
-- adapt it behind an `OxIde`-owned `EditorSurface`
-- keep project/session and document/session ownership outside the editor widget
-- use `OxVba` language-service and project layers rather than building parallel OxIde-owned semantic infrastructure
-- borrow ideas from `msedit` only where `FrankenTui` is weak or incomplete
+### `ProjectSession`
 
-Concrete `FrankenTui` types are an implementation detail, not the architecture. Concrete `OxVba` syntax/language-service types should also stay behind OxIde-owned adapter boundaries rather than leaking through all UI code.
+Owns:
+- the active OxVba target path or loaded project context
+- project-backed document roster as presented to the shell
+- mapping between active OxIde documents and OxVba document identity
+- target/profile/policy state as presented to the user
+- the loaded direct OxVba host session for the active workspace
+- orchestration of semantic refreshes for project-backed documents
 
-That direction implies a specific next step in `OxVba`: define the first typed `OxIde`-facing session facade instead of keeping the seam shaped like CLI invocation.
+Important boundary:
+- `ProjectSession` does not invent project semantics
+- it hosts and coordinates OxVba project truth
 
-## What `msedit` Is For
+### `DocumentSession`
 
-`msedit` should be treated as:
+Owns:
+- open document path binding
+- dirty state
+- save/reload/revert lifecycle
+- editor-facing source text
+- current file identity as OxIde presents it
 
-- a correctness reference
-- a behavior reference
-- a source of useful editor design ideas
-- a possible source of selective algorithm and test borrowing
+Important boundary:
+- `DocumentSession` owns buffer lifecycle and file UX
+- `OxVba` owns project-backed semantic identity
 
-Useful areas to compare against `msedit` include:
+### `EditorSurface`
 
-- Unicode/grapheme cursor rules
-- visual vs logical position handling
-- scrolling and cursor-visibility behavior
-- selection semantics
-- word movement semantics
-- search/replace behavior
-- editing performance expectations
+Owns:
+- editing behavior
+- cursor movement
+- viewport behavior
+- selection behavior
+- scroll behavior
+- text presentation
+- editor-local interactions
 
-The default assumption should be:
+Important boundary:
+- `EditorSurface` should not own project semantics
+- `EditorSurface` should not call OxVba directly
 
-- keep `OxIde` on one primary UI/runtime stack
-- import concepts or small components from `msedit` only when there is clear payoff
+### `OxVbaServices`
+
+Owns the OxIde-side integration seam to OxVba.
+
+Today that means:
+- direct `HostWorkspaceSession` integration for semantic/project-backed editor flows
+- existing build/run path where OxVba still exposes CLI-shaped execution seams
+
+Over time that seam should become more typed, not more shell-shaped.
+
+## Current Direct Host Integration
+
+The current architectural center of gravity is the direct host session from `oxvba_languageservice`.
+
+The key API is:
+- `HostWorkspaceSession`
+
+Current intended flow:
+
+1. `ProjectSession` loads one `HostWorkspaceSession` for the active OxVba workspace.
+2. `ProjectSession` maps the active project-backed editor document to an OxVba `DocumentId`.
+3. `DocumentSession` provides the current editor text.
+4. `ProjectSession` pushes that text into the host session with `set_document_text(...)`.
+5. `OxIde` queries diagnostics, symbols, hover, completions, and related semantic data from the host session.
+6. `OxIdeShell` presents those results in editor-adjacent UX surfaces.
+
+This is the right direction because:
+- project truth stays in OxVba
+- semantic behavior stays in OxVba
+- OxIde stays responsible for host orchestration and UX
+- no CLI parsing is needed for language intelligence
+- no LSP detour is needed inside OxIde
+
+## Current Build/Run Position
+
+Build/run is still a mixed state.
+
+Current rule:
+- keep semantic/editor integration on the direct host session
+- allow build/run to remain on the older path until OxVba exposes typed direct host results for those workflows
+
+That means the architecture should tolerate:
+- direct host session for editing semantics
+- temporary legacy execution seam for build/run
+
+But it should not treat the CLI-shaped seam as the long-term model.
+
+## UX-Driven Architectural Constraints
+
+Because `PRODUCT_DIRECTION.md` is authoritative, the architecture has to support:
+
+- standalone IDE operation, not embedded-host-first design
+- non-modal default editing
+- stateful edit/run/debug workspace presentation
+- split-based multi-view composition rather than tab-centric assumptions
+- open buffers that may not currently be visible
+- multiple visible views onto the same buffer
+- unified action/command registry behind shortcuts, chords, mnemonics, palette entries, and command aliases
+- full mouse support without mouse dependency
+- console capability testing and setup guidance as a first-class product concern
+
+Those are not just UX notes; they have architectural implications for:
+- focus routing
+- buffer/view modeling
+- action dispatch
+- layout persistence
+- session restore
+
+## Buffer / View / Layout Model
+
+The architecture should preserve a three-part model:
+
+- buffers
+- views
+- layouts
+
+Meaning:
+- a buffer may be open without being visible
+- a view presents one buffer
+- multiple views may present the same buffer
+- a layout composes the currently visible views and tool surfaces
+
+This matters because OxIde is intentionally not adopting a tab-first shell model.
+
+## Action Model
+
+The command system should be unified architecturally.
+
+One action namespace should back:
+- keybindings
+- keyboard chords
+- mnemonic menu-like sequences
+- command palette entries
+- command aliases
+
+This should be reflected in the architecture rather than bolted on as parallel systems.
 
 ## What To Avoid
 
-Avoid these early mistakes:
+Avoid:
+- inventing an OxIde-owned project model
+- inventing an OxIde-owned semantic layer
+- sending editor semantic behavior through LSP
+- parsing CLI output for diagnostics or semantic queries
+- burying document lifecycle inside the editor widget
+- making the editor widget the owner of project/session state
+- designing around embedded-host assumptions
+- keeping stale `msedit` dependency assumptions alive in the architecture docs
 
-- trying to fuse two whole rendering/widget systems together
-- treating `msedit` as if it were already the right full IDE shell
-- letting concrete `FrankenTui` editor types leak into the `OxIde` application seam
-- burying file/document ownership inside the editor widget
-- inventing a duplicate OxIde-owned VBA parser or project system
-- inventing OxIde-owned workspace discovery or `.basproj` interpretation rules
-- assuming filesystem reloads are the authoritative path for IDE features when OxVba language services expect host-provided source text
-- optimizing phase 1 for speculative non-console targets
-- blocking progress on a perfect editor extraction before the first usable shell exists
+## Immediate Architectural Priorities
 
-## Proposed Seams
+The current priority areas are:
 
-The editor should sit behind an `OxIde`-owned seam, and project/document semantics should be explicit rather than implicit.
+- keep tightening the direct `HostWorkspaceSession` integration
+- expand project-management surfaces on top of OxVba-owned helpers
+- improve semantic editing surfaces during active editing
+- keep the buffer/view/layout model aligned with the product direction
+- prepare for typed direct build/run contracts when OxVba exposes them
+- support session restore and persistent shell state where OxIde should own it
 
-Conceptually:
+## Relationship To Other Docs
 
-- `OxIdeShell`
-  - owns panes, commands, status, focus routing, and workflow orchestration
+- `PRODUCT_DIRECTION.md`
+  - authoritative for product direction, UX model, scope, and design intent
 
-- `ProjectSession`
-  - owns active project/workspace state, `.basproj` identity, target selection, and the shell-facing project model
+- `ARCHITECTURE.md`
+  - authoritative for current seam boundaries and implementation direction
 
-- `DocumentSession`
-  - owns current document identity, path binding, dirty state, versioning, and open/save/reload semantics
+- `README.md`
+  - entry point and current-state summary
 
-- `EditorSurface`
-  - owns the active text editing model, viewport, and editing behavior
-
-- `OxVbaServices`
-  - owns OxVba-side project, language-service, build, and execution contracts consumed by OxIde
-
-The interaction model should be:
-
-- `OxIdeShell` talks to `ProjectSession` for project/workspace semantics
-- `ProjectSession` talks to `DocumentSession` for open module/document state
-- `OxIdeShell` talks to `EditorSurface` for editing operations
-- `ProjectSession` talks to `OxVbaServices` for project loading, language-service, build, and runtime operations
-- `EditorSurface` should not know about `OxVba`
-- `OxVbaServices` should not own UI/editor state
-
-The service seam should move toward a direct embedded host API:
-
-- `OxVba` should expose a typed session facade for host applications
-- `OxVba` should return typed build/run results rather than CLI-shaped payloads
-- `OxIde` should consume that direct API as the first-class host and showcase consumer
-- external editors such as VS Code should use the same semantic/project substrate, with only transport and editor-integration glue living outside `OxVba`
-
-That seam matters because it lets the project:
-
-- start with the current `FrankenTui` editor path
-- refine editor behavior over time
-- absorb `.basproj` and project/workspace concerns honestly
-- consume OxVba language services without tangling them into widget code
-- harden or replace internals later without rewriting the whole shell
-
-## Thin Slice And Near-Term Scope
-
-The first thin slice should still prove the shell, document, editor, and service seams, not the whole IDE.
-
-Recommended first slice:
-
-- launch `OxIde` as a Rust console app
-- show one editor surface
-- open one file at startup or create one bound new file
-- edit text in one buffer
-- save the current file with visible dirty-state feedback
-- expose a small command/status area
-- perform one real minimal `OxVba` action through a narrow service seam
-- report the result in a status or output region
-
-That slice is enough to prove:
-
-- `FrankenTui` can host the UI shape
-- the editor is viable as the central surface
-- document/file state is cleanly separated from editor behavior
-- OxVba integration can sit beside the editor rather than being tangled into it
-
-Immediately after that thin slice, the architecture should expand into explicit project/workspace scope:
-
-- `.basproj` project open/create/save flows
-- project/workspace session state in the shell
-- target-aware build and run workflows
-- runtime/profile/policy selections surfaced in the UI
-- language-service wiring against host-provided document text
-
-The next concrete split of work should be:
-
-- in `OxVba`
-  - define the first typed `OxIde`-facing session facade
-  - expand direct project helper coverage where `OxIde` would otherwise invent logic
-  - add typed embedded build/run results instead of CLI-shaped seams
-  - keep improving docs around the public host interface
-
-- in `OxIde`
-  - replace the current CLI-oriented `OxVbaServices` seam with the direct API
-  - wire diagnostics, symbols, completion, and hover into the UI
-  - build project/module/reference management surfaces on top of `OxVba` helpers
-  - use `OxIde` as the showcase consumer of the direct host API
-
-## Conclusion
-
-The current architecture choice is:
-
-- `FrankenTui`-first shell and runtime
-- `OxIde`-owned seams for shell, project/session, document/session, and editor concerns
-- `OxVbaServices` as the semantic/project/build/runtime substrate consumed by OxIde
-- `FrankenTui` editor path first for implementation
-- `msedit` as a reference and selective donor
-
-This gives the project the best balance of momentum, architectural fit, and future flexibility while bringing `.basproj`, project/workspace behavior, and OxVba target-aware workflows into explicit OxIde scope.
-
-The intended ecosystem shape is:
-
-- `OxVba` = engine, semantics, project truth, and transport
-- `OxIde` = first-class direct host and showcase
-- VS Code extension = alternate host over the same `OxVba` semantics
+- `VISION.md`
+  - retained only as a retired historical note
