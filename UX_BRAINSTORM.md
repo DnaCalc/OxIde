@@ -91,8 +91,10 @@ Architectural constraints:
 - `OxIde` should not route semantic UX through LSP
 
 Practical constraints:
-- must work acceptably at 80x25
+- should target a more realistic modern terminal baseline than 80x25
+- should work well around 120x35 as a practical everyday minimum
 - should shine at 120x40 and above
+- should become excellent around 160x45 and above
 - should degrade gracefully without becoming ugly or unusable
 - should work fully without mouse input
 - should support mouse well when available
@@ -801,6 +803,28 @@ Use a small number of task-shaped layouts.
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
+### 9.1b Split edit layout
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Workspace: Payroll.basproj   Views: 2   Mode: Edit                         │
+├──────────────┬──────────────────────────────┬───────────────────────────────┤
+│ Explorer     │ Module1.bas                  │ Module2.bas                   │
+│              │                              │                               │
+│ > Module1    │ Public Sub Main()            │ Public Sub Helper()           │
+│   Module2    │     answer = 40 + 2          │     Call Main                 │
+│   Project    │ End Sub                      │ End Sub                       │
+│   Refs       │                              │                               │
+├──────────────┴──────────────────────────────┴───────────────────────────────┤
+│ Problems / Immediate / Output                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+This is the TUI-friendly answer to “multiple files open at once”:
+- compose multiple views
+- do not rely on overlapping windows
+- do not rely on a thick tab strip as the primary buffer model
+
 ### 9.2 Run layout
 
 ```text
@@ -1397,13 +1421,34 @@ Important caution:
 
 Options:
 - one visible editor only
-- top tab strip
+- split / multi-view composition
 - hidden buffers with quick switch
+- lightweight buffer roster
 
 Working recommendation:
-- one visible editor
-- lightweight tab/buffer strip if needed
-- avoid browser-style tab overload
+- do not center the UX on tabs
+- use a buffer roster plus split/multi-view composition
+- allow multiple visible files or multiple views of the same file through non-overlapping panel composition
+- keep fast buffer switching available without requiring tabs
+
+Why:
+- tabs are a desktop/browser habit more than a TUI strength
+- split composition fits terminal space and focus rules better
+- multiple visible views are more useful than a long decorative tab row in a text grid
+
+Working mental model:
+
+```text
+Buffers exist in a roster.
+Views are composed into the layout.
+One buffer may appear in one or more views.
+```
+
+This supports:
+- two modules side by side
+- code plus project file
+- source plus alternate view of same source
+- debug source plus another source/document
 
 ### Tension C: Explorer permanence
 
@@ -1548,13 +1593,23 @@ This gives us:
 
 ## 17. Small, Medium, Large Terminal Strategies
 
-### Small: 80x25
+### Small: legacy fallback, not target baseline
+
+Examples:
+- 80x25
+- very zoomed-in terminal windows
+- constrained remote shells
 
 Goal:
 - one dominant editor
 - one compact explorer or none
 - one compact status line
 - one transient bottom panel only when needed
+
+This should be considered:
+- degraded support
+- useful to keep the product usable
+- not the design center
 
 Sketch:
 
@@ -1568,18 +1623,55 @@ Sketch:
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Medium: 120x35
+### Medium: practical modern baseline
+
+Examples:
+- 120x35
+- 120x40
+- similar visible cell counts after user zooming
 
 Goal:
 - full three-column editing shell
 - bottom utility panel available
 
-### Large: 160x50+
+This should be the primary design target for normal desktop use now.
+
+### Large: premium experience
+
+Examples:
+- 160x45
+- 160x50
+- ultrawide / full-height terminal layouts
 
 Goal:
 - stable full IDE composition
 - debug layouts become excellent
 - project management surfaces become comfortable
+
+### Zooming and reflow
+
+Users will zoom terminal text.
+
+OxIde should therefore think in terms of:
+- visible cell geometry
+- not pixels
+
+That means when the user zooms:
+- text gets bigger
+- visible columns/rows shrink
+- the shell should relayout from the new cell geometry
+
+Recommendation:
+- do not implement “zoom” inside OxIde as a separate scale system first
+- respond to terminal resize/reflow correctly
+- design breakpoints around cell counts
+
+Working rule:
+
+```text
+Terminal zoom changes viewport geometry.
+OxIde responds by relayout, not by trying to scale text itself.
+```
 
 ---
 
@@ -1807,6 +1899,8 @@ This document should branch into follow-up design work:
 - define layout presets
 - define narrow/medium/wide breakpoints
 - define inspector and bottom-surface roles
+- define split-view composition rules
+- define view creation, closing, and reassignment rules
 
 ### Track 3: command model
 
@@ -1833,6 +1927,7 @@ This document should branch into follow-up design work:
 ### Track 5: project/workspace management UX
 
 - project explorer model
+- buffer roster vs view composition model
 - module/reference management
 - target/profile/policy surfaces
 - workspace switching
@@ -1873,6 +1968,7 @@ with transient overlays for commands and semantic interactions,
 with explicit edit/run/debug workspace states,
 with VBA-IDE-compatible default keybindings,
 with full mouse support but zero mouse dependency,
+with split-based multi-view composition instead of tab-centric UX,
 and with a visually modern but terminal-honest design language plus an explicit console setup story.
 ```
 
