@@ -53,9 +53,12 @@ The emotional reference is somewhere between:
 This pass is about:
 - UX usage model
 - modality strategy
+- default keybinding and compatibility strategy
 - screen-space strategy
 - interaction model for editing, running, debugging, and project management
 - visual language and terminal affordances
+- mouse policy
+- terminal capability testing and setup UX
 - what should feel “editor-like” vs “IDE-like”
 
 This pass is not yet about:
@@ -89,6 +92,9 @@ Practical constraints:
 - must work acceptably at 80x25
 - should shine at 120x40 and above
 - should degrade gracefully without becoming ugly or unusable
+- should work fully without mouse input
+- should support mouse well when available
+- should help users diagnose weak terminal/font/configuration setups
 
 ---
 
@@ -209,6 +215,114 @@ a general editor that acquired an OxVba plugin
 
 ---
 
+## 5.5 VBA IDE Compatibility As A UX Principle
+
+This should be elevated from “nice to have” to a core adoption strategy.
+
+Many of the right early users for `OxIde` will not be terminal-first users.
+They will be:
+- VBA IDE users
+- Visual Studio users
+- users carrying old muscle memory from project-oriented Windows IDEs
+
+That means `OxIde` should deliberately reduce migration friction.
+
+### Recommendation
+
+Default to a VBA-IDE-compatible keybinding philosophy.
+
+Not because OxIde should imitate the VBA IDE shell literally, but because:
+- it lowers onboarding friction
+- it respects existing muscle memory
+- it reinforces the IDE-first identity
+- it keeps OxIde from feeling like “yet another editor that wants retraining”
+
+### Working rule
+
+```text
+When a well-known VBA IDE shortcut has a clear OxIde equivalent,
+that shortcut should work by default unless there is a strong reason not to.
+```
+
+### This should apply to:
+
+- text editing commands
+- build/run/debug commands
+- project/module management
+- navigation between code and tool surfaces
+- common project actions
+
+### Important nuance
+
+We do not need to emulate the literal VBA menu bar structure.
+
+We do want to preserve:
+- the command vocabulary
+- the mnemonic expectations
+- the keyboard sequencing style where it helps
+
+Example:
+
+```text
+Alt+I, M
+```
+
+should be a valid path for:
+- Insert
+- Module
+
+even if the visual structure is not a classic Windows menu bar.
+
+This suggests a command system that supports:
+- direct shortcuts
+- mnemonic menu sequences
+- palette commands
+
+all mapping to the same underlying actions.
+
+### Proposed command layering
+
+```text
+Layer 1: direct shortcut
+  F5 = Run
+  F8 = Step Into
+  Shift+F8 = Step Over
+
+Layer 2: mnemonic menu sequence
+  Alt+I, M = Insert Module
+  Alt+R, R = Run / Start
+
+Layer 3: command palette / command line
+  "Insert Module"
+  "Run Project"
+```
+
+This is a strong TUI fit because it keeps:
+- discoverability
+- memorability
+- power-user speed
+
+without demanding a giant visible menu system at all times.
+
+### Keybinding policy recommendation
+
+Ship with:
+- `VBA IDE Compatible` as the default keymap
+
+Later optionally support:
+- `OxIde Native`
+- `Visual Studio-ish`
+- maybe `Helix/Vim-inspired` only as an opt-in expert profile
+
+The default should not optimize for terminal purists first.
+
+It should optimize for:
+- OxVba users
+- VBA migrants
+- project-oriented IDE users
+
+---
+
 ## 6. Modality: Modal Or Non-Modal?
 
 There are really three different modality questions:
@@ -256,6 +370,10 @@ Recommendation:
 - do not make OxIde a Vim-like modal editor first
 - keep editing non-modal by default
 - use explicit focus regions and transient overlays instead of a hard modal editing religion
+
+Compatibility note:
+- the non-modal default aligns better with VBA IDE expectations
+- this is another reason not to make Vim-style editing the identity of OxIde
 
 ---
 
@@ -348,6 +466,7 @@ Everything important should have a place on screen.
 - active region is visually obvious
 - keyboard shortcuts route by focused region first
 - global commands stay global
+- mouse clicks should change focus predictably when mouse support exists
 
 #### Shell rhythm
 
@@ -360,6 +479,74 @@ Build or run
 Inspect output/problems
 Enter debug when needed
 Return to editing without shell whiplash
+```
+
+---
+
+## 7.5 Mouse Policy
+
+Mouse support should be full.
+
+Mouse dependence should be zero.
+
+That should be a hard UX rule.
+
+### Recommended principle
+
+```text
+Anything possible with the mouse must also be possible quickly with the keyboard.
+Nothing important should require the mouse.
+```
+
+### Mouse should support
+
+- focus changes
+- pane selection
+- cursor placement in editor
+- selection in editor
+- scroll in lists, editors, output panes, inspectors
+- clicking symbols/modules/references
+- resizing splitters if FrankenTui supports it reliably
+- clicking tabs or bottom-surface selectors
+- hover-like reveal interactions where terminals permit it cleanly
+
+### Mouse should not be required for
+
+- opening modules
+- creating modules
+- running or debugging
+- project management actions
+- completion acceptance
+- navigation between diagnostics/references
+- layout changes
+- command invocation
+
+### Why this matters
+
+The best TUI tools feel:
+- great with the mouse
+- never broken without it
+
+This also fits:
+- SSH / remote usage
+- tmux / nested terminal usage
+- accessibility of keyboard-only workflows
+
+### UX consequence
+
+Every mouse-visible affordance should have a visible keyboard counterpart.
+
+For example:
+
+```text
+Mouse click     module entry
+Keyboard        explorer focus + arrows + Enter
+
+Mouse click     problem item
+Keyboard        problems focus + arrows + Enter
+
+Mouse scroll    diagnostics list
+Keyboard        PgUp/PgDn, j/k, arrows, search
 ```
 
 ---
@@ -561,6 +748,56 @@ This is where “modern TUI” can feel polished rather than cramped.
 
 ---
 
+## 10.5 Hyprland / Helix Influence: What To Borrow, What Not To Borrow
+
+The desired feel is closer to:
+- Hyprland composure
+- Helix clarity
+- modern terminal instrument panels
+
+Not:
+- literal tiling-window-manager behavior inside the IDE
+- editor modal ideology as product identity
+
+### What to borrow from Hyprland-like aesthetics
+
+- sharp contrast between active and inactive regions
+- elegant dark surfaces
+- quiet but vivid accent colors
+- compositional confidence
+- strong sense that the workspace is arranged intentionally
+
+### What to borrow from Helix-like aesthetics
+
+- clear active panel emphasis
+- calm typography and spacing
+- modern text UI minimalism
+- strong selection/focus treatment
+- immediate, low-chrome editing feel
+
+### What not to borrow blindly
+
+- extreme modality
+- sparse feature discoverability
+- aesthetics that depend on perfect terminal support without fallback
+
+### Important practical note
+
+Many beautiful modern TUI screenshots rely on:
+- truecolor
+- Nerd Fonts or equivalent patched fonts
+- strong Unicode coverage
+- well-configured terminal emulators
+- high DPI and large terminal sizes
+
+OxIde should benefit from those conditions.
+OxIde should not assume them silently.
+
+That leads directly to a product requirement:
+- a console capability and setup experience must exist inside the product
+
+---
+
 ## 11. Visual Language
 
 The UI should not be monochrome-by-default unless the terminal forces it.
@@ -638,6 +875,18 @@ A “modern TUI” palette should use color for:
 Not for:
 - decorating every border
 - rainbow noise
+
+### Palette implementation note
+
+OxIde should separate:
+- design palette
+- terminal capability reality
+
+Meaning:
+- prefer full truecolor themes when available
+- degrade to 256-color safely
+- degrade further to minimal ANSI when necessary
+- keep layout, hierarchy, and focus legible even when color quality is poor
 
 ---
 
@@ -868,6 +1117,74 @@ Working recommendation:
 
 ---
 
+## 16.5 Keybinding Compatibility Strategy
+
+This needs its own design pass, but the default direction should be clear now.
+
+### Default profile
+
+`VBA IDE Compatible`
+
+### Scope of compatibility
+
+- editor movement and editing where mappings are sensible
+- run/build/debug actions
+- stepping actions
+- breakpoints
+- navigation to project/module/symbol actions
+- project insertion and management actions
+
+### Example compatibility targets
+
+```text
+F5          Run
+Ctrl+Break  Stop / interrupt if supported
+F8          Step Into
+Shift+F8    Step Over
+Ctrl+Shift+F8 or equivalent  Step Out if mapped in product
+F9          Toggle breakpoint
+Ctrl+G      Immediate / command console analogue if we keep one
+Alt+I, M    Insert Module
+Alt+F, ...  File-family actions where useful
+Alt+R, ...  Run-family actions where useful
+Alt+D, ...  Debug-family actions where useful
+```
+
+Exact mapping details still need research and finalization.
+
+The important planning decision is:
+- the default should optimize for familiarity to VBA IDE users
+- the command architecture should explicitly support mnemonic sequences
+
+### UX consequence
+
+OxIde should probably have a hidden or transient mnemonic menu model even if it does not draw a classic Windows menu bar permanently.
+
+Possible realization:
+
+```text
+Press Alt
+Top strip reveals mnemonic families
+
+F  File
+E  Edit
+V  View
+I  Insert
+R  Run
+D  Debug
+T  Tools
+H  Help
+
+Then second key narrows to action
+```
+
+This gives us:
+- VBA familiarity
+- zero requirement to copy old menu chrome literally
+- a TUI-native and keyboard-native solution
+
+---
+
 ## 17. Small, Medium, Large Terminal Strategies
 
 ### Small: 80x25
@@ -905,6 +1222,197 @@ Goal:
 
 ---
 
+## 17.5 Terminal Capability Testing And Setup
+
+This should be a first-class area or page in the product.
+
+Reason:
+- modern TUI quality depends heavily on terminal capabilities
+- users often blame the application for terminal, font, or emulator problems
+- Windows in particular benefits from guided setup
+
+OxIde should help the user answer:
+- does this terminal support truecolor well?
+- does Unicode render properly?
+- does box drawing align?
+- does the font support required glyphs?
+- does mouse reporting work?
+- does scrolling work in embedded panes?
+- is the terminal emulator a good fit?
+
+### Product requirement
+
+Provide a dedicated:
+- `Console Test`
+- `Terminal Diagnostics`
+- or `Display & Input Setup`
+
+surface in the product.
+
+This should not feel like a crash dump.
+It should feel like a polished setup lab.
+
+### Possible shell entry points
+
+- Help > Console Setup
+- Tools > Terminal Diagnostics
+- command palette: `Console Test`
+- mnemonic sequence such as `Alt+T, C`
+
+### What the screen should test
+
+#### 1. Geometry and borders
+
+```text
+This box should look perfectly square:
+
+┌──────────────┐
+│              │
+│              │
+│              │
+└──────────────┘
+```
+
+#### 2. Line drawing alignment
+
+```text
+These lines should connect cleanly:
+
+├────┬────┬────┤
+│    │    │    │
+└────┴────┴────┘
+```
+
+#### 3. Unicode sample rendering
+
+```text
+These should render correctly:
+
+Duck:      🦆
+Check:     ✓
+Cross:     ✗
+Arrow:     → ⇒
+Blocks:    ░▒▓█
+Braille:   ⠋⠗⠁⠝⠅⠑⠝
+Box draw:  ╭─╮ ╰─╯
+```
+
+#### 4. Width behavior
+
+```text
+These columns should align:
+
+ASCII     | hello |
+Accented  | café  |
+CJK-ish   | 表     |
+Emoji     | 🦆     |
+```
+
+#### 5. Color capability
+
+```text
+16-color
+256-color
+truecolor gradient
+severity colors
+selection colors
+```
+
+#### 6. Mouse support
+
+```text
+- click this list
+- drag selection in editor sample
+- scroll this panel with mouse wheel
+- verify focus follows click
+```
+
+#### 7. Keyboard capture
+
+```text
+Press:
+F5
+F8
+Shift+F8
+Alt+I, M
+Ctrl+S
+Alt
+
+The screen should report exactly what OxIde sees.
+```
+
+### Sample diagnostics page sketch
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Console Test • Terminal Diagnostics                                         │
+├──────────────────────────────┬───────────────────────────────────────────────┤
+│ Capability summary           │ Live test area                               │
+│                              │                                               │
+│ Emulator: Windows Terminal   │ square box test                              │
+│ Colors: truecolor            │ unicode duck test                            │
+│ Mouse: supported             │ border alignment test                        │
+│ Font: unknown / detected     │ scroll region test                           │
+│ Unicode width: warning       │ key capture test                             │
+│                              │                                               │
+├──────────────────────────────┴───────────────────────────────────────────────┤
+│ Guidance / fixes                                                           │
+│ - Install Windows Terminal                                                 │
+│ - Use Cascadia Mono / Cascadia Code / suitable Nerd Font                   │
+│ - Enable UTF-8 and truecolor-capable terminal settings                     │
+│ - If duck is missing, your font lacks glyph support                        │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Guidance philosophy
+
+Do not merely report failure.
+
+Report:
+- what OxIde expected
+- what likely failed
+- what the user should do next
+
+Example:
+
+```text
+Problem:
+The duck glyph did not render.
+
+Likely cause:
+Current terminal font lacks the glyph.
+
+Suggested fix:
+Use Windows Terminal with Cascadia Mono, Cascadia Code, or another font with broad Unicode coverage.
+```
+
+### Windows-specific setup guidance
+
+OxIde should explicitly recommend, where appropriate:
+- Windows Terminal over legacy console hosts
+- UTF-8 capable environment
+- fonts with strong Unicode coverage
+- truecolor-capable terminal settings
+- sensible line-height and font-size defaults
+
+This should be presented as:
+- a guided setup checklist
+- not a vague troubleshooting paragraph
+
+### Why this matters strategically
+
+If OxIde aims for a beautiful modern TUI identity, it must own part of the environment validation story.
+
+Otherwise:
+- users will see broken borders
+- bad glyph fallback
+- muddy colors
+- mouse weirdness
+
+and conclude that OxIde itself is poor.
+
+---
+
 ## 18. Anti-Goals
 
 Do not build:
@@ -913,11 +1421,13 @@ Do not build:
 - a Vim clone disguised as an IDE
 - a desktop-style property-sheet application awkwardly squeezed into text cells
 - a nostalgic fake-1980s UI unless intentionally themeable as an optional skin
+- a UX that assumes perfect terminal setup without helping the user verify it
 
 Do build:
 - something sharper
 - something more instrument-like
 - something confident about being terminal-native
+- something that welcomes VBA IDE users instead of forcing total relearning
 
 ---
 
@@ -942,6 +1452,8 @@ This document should branch into follow-up design work:
 - command line vs palette
 - global commands vs focused commands
 - keybinding philosophy
+- VBA IDE shortcut research and mapping
+- mnemonic Alt-sequence model
 
 ### Track 4: editing intelligence UX
 
@@ -973,6 +1485,13 @@ This document should branch into follow-up design work:
 - empty states
 - active/focus visuals
 
+### Track 8: console capability and setup experience
+
+- capability detection model
+- diagnostics/test page UX
+- Windows Terminal and font guidance
+- fallback behavior for weak terminals
+
 ---
 
 ## 20. Provisional Recommendation
@@ -984,7 +1503,9 @@ OxIde should become a project-first, non-modal, keyboard-native TUI IDE
 with a stable left/center/right/bottom shell,
 with transient overlays for commands and semantic interactions,
 with explicit edit/run/debug workspace states,
-and with a visually modern but terminal-honest design language.
+with VBA-IDE-compatible default keybindings,
+with full mouse support but zero mouse dependency,
+and with a visually modern but terminal-honest design language plus an explicit console setup story.
 ```
 
 That is the best fit for:
