@@ -13,16 +13,23 @@ around:
 - `.beads/` as the live execution-state surface
 
 ## 2. Precedence
-When local guidance conflicts, use this order:
+Distinguish between:
+1. repo guardrails, and
+2. plan and execution authority.
+
+Repo guardrails:
 1. `AGENTS.md`
-2. `PRODUCT_DIRECTION.md`
-3. `ARCHITECTURE.md`
-4. this file (`OPERATIONS.md`)
-5. `docs/WORKSET_REGISTER.md`
-6. `docs/BEADS.md`
-7. individual workset packets under `docs/worksets/`
+
+Plan and execution authority:
+1. `PRODUCT_DIRECTION.md`
+2. `ARCHITECTURE.md`
+3. this file (`OPERATIONS.md`)
+4. `docs/WORKSET_REGISTER.md`
+5. `docs/BEADS.md`
+6. individual workset packets under `docs/worksets/`
 
 Rule:
+- `AGENTS.md` governs repo safety, destructive-action limits, and session discipline
 - `PRODUCT_DIRECTION.md` is authoritative for what OxIde is trying to become
 - `ARCHITECTURE.md` is authoritative for how the code should be divided
 - `.beads/` is authoritative for live execution state
