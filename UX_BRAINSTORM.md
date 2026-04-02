@@ -1,12 +1,13 @@
 # OxIde UX Brainstorm
 
-Working document for planning the next UX direction of `OxIde`.
+Primary current-direction planning document for `OxIde`.
 
 Status:
-- exploratory
+- primary working UX/product-direction document
 - opinionated
 - intended to provoke decisions
-- not yet a locked product spec
+- not yet a locked implementation spec
+- supersedes the older `VISION.md` direction doc
 
 This document uses Unicode box drawing, layout sketches, and palette tokens on purpose.
 Yes, OxIde can use Unicode in docs and in the eventual product where terminal capabilities allow it.
@@ -14,7 +15,22 @@ Yes, OxIde can use richer modern color palettes, but the real product must still
 
 ---
 
-## 1. What Are We Building?
+## 1. Current Product Direction
+
+`OxIde` is being focused as a standalone terminal-native IDE for `OxVba`.
+
+This document is now the main place where the current product direction is captured.
+It starts from the original `VISION.md` intent, but updates it based on what we think now.
+
+That means:
+- the standalone IDE is the product focus
+- the project/workspace authoring environment is the center of gravity
+- debugging remains important, but does not define the product identity
+- embedded-host scenarios are not part of the current OxIde plan
+
+What belongs upstream in `OxVba` may still later support embedded hosting, but that is no longer a defining constraint for OxIde UX planning.
+
+## 2. What Are We Building?
 
 `OxIde` should not become “VS Code in a terminal”.
 
@@ -48,7 +64,7 @@ The emotional reference is somewhere between:
 
 ---
 
-## 2. Scope Of This Planning Pass
+## 3. Scope Of This Planning Pass
 
 This pass is about:
 - UX usage model
@@ -72,7 +88,7 @@ This pass is not yet about:
 
 ---
 
-## 3. Hard Constraints
+## 4. Hard Constraints
 
 The UX is constrained by:
 - terminal rendering
@@ -91,10 +107,9 @@ Architectural constraints:
 - `OxIde` should not route semantic UX through LSP
 
 Practical constraints:
-- should target a more realistic modern terminal baseline than 80x25
-- should work well around 120x35 as a practical everyday minimum
-- should shine at 120x40 and above
-- should become excellent around 160x45 and above
+- require at least `100x30`
+- optimize for `120x40` and above
+- become excellent around `160x45` and above
 - should degrade gracefully without becoming ugly or unusable
 - should work fully without mouse input
 - should support mouse well when available
@@ -102,7 +117,7 @@ Practical constraints:
 
 ---
 
-## 4. What Makes A TUI Different From A Web-Tech GUI?
+## 5. What Makes A TUI Different From A Web-Tech GUI?
 
 ### TUI strengths
 
@@ -145,7 +160,7 @@ Good TUI instinct:
 
 ---
 
-## 5. Editor-Style vs IDE-Style
+## 6. Editor-Style vs IDE-Style
 
 ### Editor-style approach
 
@@ -219,7 +234,7 @@ a general editor that acquired an OxVba plugin
 
 ---
 
-## 5.5 VBA IDE Compatibility As A UX Principle
+## 6.5 VBA IDE Compatibility As A UX Principle
 
 This should be elevated from “nice to have” to a core adoption strategy.
 
@@ -343,7 +358,7 @@ It should optimize for:
 
 ---
 
-## 6. Modality: Modal Or Non-Modal?
+## 7. Modality: Modal Or Non-Modal?
 
 There are really three different modality questions:
 
@@ -455,7 +470,7 @@ Command aliases belong here too:
 
 ---
 
-## 7. Recommended UX Usage Model
+## 8. Recommended UX Usage Model
 
 ## Working thesis
 
@@ -509,7 +524,7 @@ Return to editing without shell whiplash
 
 ---
 
-## 7.6 Immediate Panel
+## 8.4 Immediate Panel
 
 The shell should make room for an `Immediate Panel`.
 
@@ -667,7 +682,7 @@ This surface helps OxIde feel like a true IDE rather than just an editor plus bu
 
 ---
 
-## 7.5 Mouse Policy
+## 8.5 Mouse Policy
 
 Mouse support should be full.
 
@@ -735,7 +750,7 @@ Keyboard        PgUp/PgDn, j/k, arrows, search
 
 ---
 
-## 8. Screen Space Strategy
+## 9. Screen Space Strategy
 
 The biggest TUI mistake would be to copy desktop pane count blindly.
 
@@ -779,7 +794,7 @@ This maps very well to:
 
 ---
 
-## 9. Layout Presets
+## 10. Layout Presets
 
 Do not use one frozen layout for everything.
 
@@ -878,7 +893,7 @@ This is the TUI-friendly answer to “multiple files open at once”:
 
 ---
 
-## 10. What FrankenTui Affordances Should Be Used Best?
+## 11. What FrankenTui Affordances Should Be Used Best?
 
 We should treat FrankenTui as enabling:
 - hard-edged regions
@@ -955,7 +970,7 @@ This is where “modern TUI” can feel polished rather than cramped.
 
 ---
 
-## 10.5 Hyprland / Helix Influence: What To Borrow, What Not To Borrow
+## 11.5 Hyprland / Helix Influence: What To Borrow, What Not To Borrow
 
 The desired feel is closer to:
 - Hyprland composure
@@ -1005,7 +1020,7 @@ That leads directly to a product requirement:
 
 ---
 
-## 11. Visual Language
+## 12. Visual Language
 
 The UI should not be monochrome-by-default unless the terminal forces it.
 
@@ -1097,7 +1112,7 @@ Meaning:
 
 ---
 
-## 12. What Makes A Modern TUI IDE Feel Modern?
+## 13. What Makes A Modern TUI IDE Feel Modern?
 
 Not:
 - rounded fake buttons everywhere
@@ -1139,6 +1154,14 @@ Immediate evaluation belongs in the same category:
 - it should feel like a native IDE interaction surface
 - not like a subprocess terminal pane
 
+Diagnostics deserve special emphasis because they will be the most frequent semantic feedback during normal editing.
+
+The design should assume:
+- problems list and diagnostic navigation are first-class
+- inline diagnostics may be lighter than desktop-style red squiggles
+- gutter markers, line markers, span highlights, or on-demand overlays may be a better TUI fit
+- current-line diagnostic detail in status or inspector surfaces is likely valuable
+
 ### 12.5 Great empty and small-screen states
 
 A modern TUI looks good when:
@@ -1149,9 +1172,24 @@ A modern TUI looks good when:
 
 This matters more than in a desktop GUI.
 
+The empty state should be designed deliberately.
+
+It should communicate:
+- this is an IDE
+- you can start productively from here
+- the next actions are obvious
+
+Possible welcome-state ingredients:
+- recent projects
+- create project
+- open project
+- open file
+- terminal diagnostics / console setup
+- shortcut/help entry point
+
 ---
 
-## 13. Proposed Product Identity
+## 14. Proposed Product Identity
 
 From a UX perspective, OxIde should be:
 
@@ -1177,7 +1215,7 @@ mode-obscure
 
 ---
 
-## 14. Candidate Interaction Model
+## 15. Candidate Interaction Model
 
 ### Primary regions
 
@@ -1224,7 +1262,7 @@ Possible active styling:
 
 ---
 
-## 14.5 Unified Command Model
+## 15.5 Unified Command Model
 
 This should be a real architectural UX decision.
 
@@ -1293,7 +1331,7 @@ Important requirement:
 
 ### Alias relationship
 
-What we currently call “colon commands” should be reframed as command aliases over the same action namespace.
+What some tools call “colon commands” should be treated here as command aliases over the same action namespace.
 
 That is a better long-term model than treating them as a special scripting island.
 
@@ -1303,10 +1341,10 @@ Prefer:
 - `command aliases`
 - `action aliases`
 
-over making `colon commands` the primary conceptual layer.
+over making `colon-style commands` the primary conceptual layer.
 
 Reason:
-- some aliases may still be typed after a command-prefix gesture
+- some aliases may still be typed after a command-entry gesture
 - but the underlying system should not depend on a literal colon forever
 
 ### Likely bad default to avoid
@@ -1319,10 +1357,12 @@ Why:
 - it overfits editor folklore more than OxIde’s actual product identity
 
 Better options:
-- explicit command key
+- explicit command-entry key
 - palette key
 - menu mnemonic entry
-- optional expert binding profiles later
+
+Current direction:
+- do not support raw `:` as a default command-entry gesture
 
 ### Recommended invocation split
 
@@ -1359,7 +1399,7 @@ than:
 
 ---
 
-## 14.6 Buffers, Views, And Non-Visible Open Files
+## 15.6 Buffers, Views, And Non-Visible Open Files
 
 OxIde should explicitly separate:
 - buffers
@@ -1468,7 +1508,30 @@ not:
 
 ---
 
-## 15. Modal Questions: Specific Recommendations
+## 15.7 Session Restore And Persistence
+
+To feel like an IDE, OxIde should remember useful session state.
+
+This should likely include:
+- open buffers
+- mounted views and split composition
+- focused buffer/view
+- cursor positions
+- breakpoints
+- recent buffer history
+
+This should probably not attempt to restore:
+- a live debug session
+- transient completion popups
+- transient command-entry state
+
+Persistence should align with OxVba capabilities where semantic or debug state is involved, but the UX expectation should be clear now:
+- reopening OxIde should feel like returning to a workspace
+- not like starting from scratch every time
+
+---
+
+## 16. Modal Questions: Specific Recommendations
 
 ### Recommendation 1
 
@@ -1507,7 +1570,7 @@ should all become first-class.
 
 ---
 
-## 16. Specific UX Tensions To Decide
+## 17. Specific UX Tensions To Decide
 
 These are planning questions that need real decisions.
 
@@ -1524,8 +1587,8 @@ Working recommendation:
 - textual alias entry for power-user exact commands and script-like flows
 
 Important caution:
-- textual alias entry should not necessarily be entered by typing raw `:`
-- that is a candidate expert binding, not an obvious default for a non-modal IDE
+- textual alias entry should not be entered by typing raw `:` by default
+- that punctuation-first pattern is a poor fit for a non-modal IDE
 
 ### Tension B: Single editor vs tabs vs buffers list
 
@@ -1599,7 +1662,7 @@ Working recommendation:
 
 ---
 
-## 16.5 Keybinding Compatibility Strategy
+## 17.5 Keybinding Compatibility Strategy
 
 This needs its own design pass, but the default direction should be clear now.
 
@@ -1703,14 +1766,46 @@ This gives us:
 
 ---
 
-## 17. Small, Medium, Large Terminal Strategies
+## 17.6 Advanced Boundary Notes
 
-### Small: legacy fallback, not target baseline
+These are not first-read material, but they should be explicit somewhere in the planning document.
+
+### Watches
+
+Recommended split:
+- OxIde owns watch-list presentation, pinning workflow, and layout placement
+- OxVba owns evaluation semantics and any typed evaluation/debug contract
+
+### Project authoring actions
+
+Actions such as:
+- Add Module
+- Add Reference
+- Change Target
+
+should be understood as:
+- OxIde commands and UX flows
+- invoking typed OxVba helper APIs
+- not OxIde inventing project semantics locally
+
+### Target / profile / policy selection
+
+These should appear as shell-presented state, but the underlying truth should remain in OxVba-side project/runtime contracts.
+
+This is the pattern:
+- OxIde presents and orchestrates
+- OxVba defines meaning
+
+---
+
+## 18. Small, Medium, Large Terminal Strategies
+
+### Small: supported minimum
 
 Examples:
-- 80x25
-- very zoomed-in terminal windows
-- constrained remote shells
+- `100x30`
+- heavily zoomed desktop terminals that still meet product minimum
+- constrained but still modern terminal windows
 
 Goal:
 - one dominant editor
@@ -1719,8 +1814,8 @@ Goal:
 - one transient bottom panel only when needed
 
 This should be considered:
-- degraded support
-- useful to keep the product usable
+- minimum supported
+- intentionally reduced
 - not the design center
 
 Sketch:
@@ -1735,18 +1830,18 @@ Sketch:
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Medium: practical modern baseline
+### Medium: primary design center
 
 Examples:
-- 120x35
-- 120x40
+- `120x40`
+- `132x40`
 - similar visible cell counts after user zooming
 
 Goal:
 - full three-column editing shell
 - bottom utility panel available
 
-This should be the primary design target for normal desktop use now.
+This should be the primary design target for normal desktop use.
 
 ### Large: premium experience
 
@@ -1787,7 +1882,7 @@ OxIde responds by relayout, not by trying to scale text itself.
 
 ---
 
-## 17.5 Terminal Capability Testing And Setup
+## 18.5 Terminal Capability Testing And Setup
 
 This should be a first-class area or page in the product.
 
@@ -1802,7 +1897,7 @@ OxIde should help the user answer:
 - does box drawing align?
 - does the font support required glyphs?
 - does mouse reporting work?
-- does scrolling work in embedded panes?
+- does scrolling work correctly inside nested panes?
 - is the terminal emulator a good fit?
 
 ### Product requirement
@@ -1978,7 +2073,7 @@ and conclude that OxIde itself is poor.
 
 ---
 
-## 18. Anti-Goals
+## 19. Anti-Goals
 
 Do not build:
 - a terminal recreation of Electron chrome
@@ -1996,7 +2091,7 @@ Do build:
 
 ---
 
-## 19. Suggested Near-Term Planning Tracks
+## 20. Suggested Near-Term Planning Tracks
 
 This document should branch into follow-up design work:
 
@@ -2032,6 +2127,7 @@ This document should branch into follow-up design work:
 - hover UX
 - completion UX
 - diagnostics UX
+- inline diagnostic treatment
 - references and definitions UX
 - symbol navigation UX
 - immediate evaluation surface UX
@@ -2043,6 +2139,7 @@ This document should branch into follow-up design work:
 - module/reference management
 - target/profile/policy surfaces
 - workspace switching
+- session restore policy
 
 ### Track 6: run/debug UX
 
@@ -2069,7 +2166,7 @@ This document should branch into follow-up design work:
 
 ---
 
-## 20. Provisional Recommendation
+## 21. Provisional Recommendation
 
 If a single direction must be chosen now:
 
@@ -2092,7 +2189,7 @@ That is the best fit for:
 
 ---
 
-## 21. Sketches For Discussion
+## 22. Sketches For Discussion
 
 ### A. “Balanced IDE” shell
 
@@ -2152,20 +2249,20 @@ That is the best fit for:
 
 ---
 
-## 22. Open Questions For The Next Design Pass
+## 23. Open Questions For The Next Design Pass
 
 - Should the project explorer be tree-heavy or roster-heavy?
-- Should command palette become primary over colon commands?
-- Should tabs exist at all, or should buffer switching be list-driven?
+- Should command palette become primary over textual command-alias entry?
 - How much inline semantic UI is worth doing in a TUI versus inspector-driven detail?
 - How aggressively should the shell re-layout itself when entering debug?
 - Should there be a dedicated project-management layout or an inspector-first model?
 - How strong should the visual style be by default versus conservative?
-- What is the minimum acceptable 80x25 experience?
+- What exact inline diagnostic treatment best fits the TUI surface?
+- How much session state should be restored by default versus opt-in?
 
 ---
 
-## 23. Closing Position
+## 24. Closing Position
 
 The right future for `OxIde` is not “terminal VS Code”.
 

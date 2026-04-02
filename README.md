@@ -8,7 +8,7 @@ It is intended to be the focused interactive environment around:
 - `.basproj` project files and project/workspace management
 - `OxVba` language services
 - target-aware build and run workflows
-- embedded and host-driven `OxVba` scenarios
+- standalone `OxVba` project authoring, editing, and debugging workflows
 
 Current planning note:
 
@@ -172,7 +172,7 @@ That work is coupled to a parallel change in `OxVba`:
 
 - define the first typed `OxIde`-facing session facade
 - expand direct project helpers so `OxIde` does not invent project logic
-- replace CLI-shaped build/run seams with typed embedded results
+- replace CLI-shaped build/run seams with typed direct host results
 
 The intended ecosystem shape is:
 
