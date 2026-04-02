@@ -12,7 +12,7 @@ It is intended to be the focused interactive environment around:
 
 Current planning note:
 
-- see `UX_BRAINSTORM.md` for the active UX redesign brainstorming document
+- see `PRODUCT_DIRECTION.md` for the active UX and product-direction document
 
 Ownership of truth is split this way:
 

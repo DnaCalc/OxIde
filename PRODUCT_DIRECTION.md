@@ -1,4 +1,4 @@
-# OxIde UX Brainstorm
+# OxIde Product Direction
 
 Primary current-direction planning document for `OxIde`.
 
