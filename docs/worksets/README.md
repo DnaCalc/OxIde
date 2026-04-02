@@ -11,6 +11,8 @@ For live execution state use [.beads/issues.jsonl](/C:/Work/DnaCalc/OxIde/.beads
 1. Worksets are planning and provenance packets, not the owner of ready or blocked state.
 2. `.beads/` owns live execution truth.
 3. Worksets explain scope, dependency order, and rollout intent.
+4. Closed bootstrap/provenance worksets may remain listed here for context even
+   when active execution has moved on.
 
 ## Active Workset Set
 1. [W001_EXECUTION_DOCTRINE_AND_REWRITE_BOOTSTRAP.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W001_EXECUTION_DOCTRINE_AND_REWRITE_BOOTSTRAP.md)

@@ -1,6 +1,6 @@
 # W001 Execution Doctrine And Rewrite Bootstrap
 
-Status: `active`
+Status: `completed`
 Date: 2026-04-02
 
 ## 1. Purpose
@@ -36,3 +36,11 @@ This workset closes when:
 1. doctrine bootstrap
 2. register bootstrap
 3. rewrite-map rollout
+
+## 5. Current Role
+
+This workset is now closed bootstrap provenance.
+
+Active execution should proceed from:
+1. `W010` for implementation reset and salvage triage,
+2. then the rebuild worksets in register order.

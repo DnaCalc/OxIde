@@ -398,7 +398,7 @@ Recommended.
 
 Definition:
 - text entry is non-modal by default while focused in editor
-- command palette / shell command line / jump panels are transient modes
+- command palette / command strip / jump panels are transient modes
 - optional future “command cursor” editing layer may exist, but not as the product’s core identity
 
 Recommendation:
@@ -449,7 +449,8 @@ These are not mutually exclusive total modes. They are shell states with differe
 ### 6.3 Transient interaction modes
 
 These are good and necessary:
-- command line
+- command palette
+- command alias entry surface
 - palette
 - quick-open
 - symbol search
@@ -564,7 +565,7 @@ That means OxIde should plan the surface now even if the engine support lands la
 It is not just:
 - stdout/stderr output
 - build log output
-- a shell command line
+- a textual command-entry surface
 - the debug trace stream
 
 It is also not identical to:
@@ -1142,7 +1143,7 @@ Modern means:
 
 ### 12.3 Fast command access
 
-A palette or command strip should make advanced flows easy without making everything a memorized colon command forever.
+A palette or command strip should make advanced flows easy without making everything a memorized command-alias gesture.
 
 ### 12.4 Rich text-side intelligence
 

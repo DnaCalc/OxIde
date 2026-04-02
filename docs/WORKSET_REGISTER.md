@@ -64,6 +64,9 @@ Rollout mode values:
    doctrine bootstrap, workset register, initial rollout graph
 6. rollout_mode:
    `execution_target`
+7. current_state_note:
+   completed and now retained as bootstrap provenance; later execution should
+   start from `W010`
 
 ### W010 Implementation Reset And Salvage Triage
 1. purpose:

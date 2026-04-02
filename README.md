@@ -20,13 +20,16 @@ Ownership of truth is split this way:
 - `OxVba` owns VBA semantics, canonical `.basproj` meaning, workspace loading/discovery policy, and the public host/service boundary
 - `OxIde` owns IDE behavior, shell flow, session orchestration, editor UX, command routing, and result presentation
 
-## Current Thin Slice
+## Current Prototype Baseline
 
-The current implementation is intentionally narrow. It proves the editor, shell,
-document, and service seams without pretending that full project/workspace
- support already exists.
+The current implementation should be treated as a retained spike/reference, not
+as the intended product baseline.
 
-What works now:
+It is still useful because it proves some real integration seams, but the repo
+is now in an explicit rebuild phase driven by `PRODUCT_DIRECTION.md`,
+`ARCHITECTURE.md`, and the active workset register.
+
+What the retained spike currently demonstrates:
 
 - launch `OxIde` as a Rust console app
 - open one file at startup or create one bound new file
@@ -41,7 +44,7 @@ What works now:
 - run `:build` and `:run` through `OxVbaServices`
 - view structured results in the `OxVba Output` pane
 
-Current command surface:
+Current prototype command surface:
 
 - `:open <path>`
 - `:write [path]`
@@ -55,14 +58,14 @@ Current command surface:
 - `:run`
 - `:quit`
 
-Current limitations:
+Why it is not the forward implementation base:
 
-- one active `DocumentSession` at a time
-- no explicit `ProjectSession` UI yet
-- project build/run currently works by making the `.basproj` file the active
-  document before `:build` or `:run`
-- direct language-service views are currently output-pane oriented; there are no
-  inline popups, completion acceptance UX, or navigation surfaces yet
+- it is built around one active document/editor path at a time
+- it still uses raw `:` command entry as a primary interaction path
+- project and semantic surfaces are still shaped like a prototype shell
+- build/run still uses the temporary legacy execution seam
+- direct language-service views are still output-pane oriented rather than
+  rebuilt shell-native surfaces
 
 ## Architecture Seams
 
@@ -112,7 +115,7 @@ Planned `OxVba` target surface in scope:
 - `ComServer`
 - `ComExe`
 
-## Thin-Slice Workflow
+## Prototype Workflow
 
 Use the sample project in `examples/thin-slice/`:
 
@@ -134,10 +137,10 @@ shows the action, target, success flag, exit code, and captured stdout/stderr.
 For a fuller walkthrough, including a deliberate failing build to prove the
 output pane, see `examples/thin-slice/README.md`.
 
-## Smoke Verification
+## Prototype Verification
 
-The current thin slice has an in-repo smoke test that exercises the implemented
-flow:
+The retained spike has an in-repo smoke test that exercises the implemented
+prototype flow:
 
 - launch with a bound startup path
 - edit the buffer
@@ -159,21 +162,32 @@ Run the full unit test suite with:
 cargo test
 ```
 
-## Near-Term Direction
+Important note:
+- treat current tests as prototype/reference evidence, not as proof that the
+  rebuild is already structurally aligned
+- full `cargo test` may also be affected by upstream `OxVba` breakage while the
+  sibling repo is changing
 
-The next layer after this thin slice is the explicit project/workspace surface:
+## Current Rebuild Direction
 
-- define `ProjectSession` around `.basproj` and `ProjectManifest`
-- add project/workspace UI and module navigation
-- add target-aware build and run surfaces
-- expose runtime profile and host policy selection
-- integrate `oxvba-languageservice` against host-provided document text
+The repo is now following the rewrite/salvage workset map in
+`docs/WORKSET_REGISTER.md`.
 
-That work is coupled to a parallel change in `OxVba`:
+Immediate direction:
 
-- define the first typed `OxIde`-facing session facade
-- expand direct project helpers so `OxIde` does not invent project logic
-- replace CLI-shaped build/run seams with typed direct host results
+- classify the retained spike into retain / port / discard buckets
+- rebuild the shell and action system around the current product direction
+- implement the explicit buffer/view/layout model
+- rebuild the editor surface with correct undo/redo ownership
+- rebuild file/workspace/project management surfaces on top of the new shell
+- port the direct OxVba semantic editing integration into that rebuilt shell
+- deliver the early-use empty state and console setup surfaces
+
+That rebuild is still coupled to ongoing OxVba evolution:
+
+- expand typed direct host/build/run contracts where OxIde currently still has
+  temporary legacy seams
+- continue exposing project helpers so OxIde does not invent project logic
 
 The intended ecosystem shape is:
 
