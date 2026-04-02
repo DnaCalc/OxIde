@@ -230,6 +230,11 @@ Meaning:
 
 This matters because OxIde is intentionally not adopting a tab-first shell model.
 
+Undo/redo implications:
+- undo history should attach to buffers, not views
+- multiple views onto the same buffer must observe the same edit history
+- layout operations should not be part of text undo/redo
+
 ## Action Model
 
 The command system should be unified architecturally.
@@ -263,6 +268,7 @@ The current priority areas are:
 - expand project-management surfaces on top of OxVba-owned helpers
 - improve semantic editing surfaces during active editing
 - keep the buffer/view/layout model aligned with the product direction
+- make undo/redo ownership explicit in the editor and buffer architecture
 - prepare for typed direct build/run contracts when OxVba exposes them
 - support session restore and persistent shell state where OxIde should own it
 

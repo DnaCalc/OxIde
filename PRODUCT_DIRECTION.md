@@ -1531,6 +1531,81 @@ Persistence should align with OxVba capabilities where semantic or debug state i
 
 ---
 
+## 15.8 Undo And Redo
+
+Undo/redo should be treated as a first-class editor and IDE concern from early on.
+
+This matters because:
+- users expect trustworthy local editing recovery
+- project-oriented tools feel brittle if state-changing actions are easy to make and hard to reverse
+- the buffer/view/layout model becomes much harder to correct later if undo assumptions are left vague
+
+### Baseline requirement
+
+OxIde should support strong per-buffer text undo/redo.
+
+That means:
+- undo and redo are local to a buffer
+- multiple views onto the same buffer share the same undo history
+- undo should operate on editor changes, not on view focus changes or layout changes
+- save should not clear undo history for the current session
+
+### Initial recommendation
+
+Start with:
+- text-edit undo/redo per buffer
+- no global cross-buffer undo stack
+- no attempt to persist full undo history across application restarts initially
+
+This gives the right balance of:
+- reliability
+- clarity
+- implementation tractability
+
+### Project and workspace actions
+
+Project-management actions need separate treatment from text editing.
+
+Examples:
+- add module
+- remove reference
+- change target
+- rename project-backed artifact
+
+These should not be casually folded into the text-edit undo stack.
+
+Current direction:
+- treat project/workspace actions as a separate undo domain if and when undo is supported for them
+- do not blur semantic/project mutations into ordinary editor undo
+- destructive project actions should have explicit confirmation or recovery paths until a proper project-action undo model exists
+
+### Session restore relationship
+
+Session restore and undo history are related but should not be conflated.
+
+Current direction:
+- restore buffers, views, cursor positions, breakpoints, and shell state as appropriate
+- do not assume undo history must survive restart in the first implementation
+
+### OxVba interaction rule
+
+OxVba-owned semantic refreshes should not silently corrupt OxIde’s local undo model.
+
+That means:
+- host-session semantic updates should read from current buffer text
+- semantic queries should not mutate editor text as a side effect
+- if an OxVba-driven action does rewrite source text in future, that rewrite must enter the buffer history in a deliberate and understandable way
+
+### UX implication
+
+Undo/redo should feel boring in the best way:
+- predictable
+- local
+- trustworthy
+- clearly scoped
+
+---
+
 ## 16. Modal Questions: Specific Recommendations
 
 ### Recommendation 1
@@ -2108,6 +2183,7 @@ This document should branch into follow-up design work:
 - define inspector and bottom-surface roles
 - define split-view composition rules
 - define view creation, closing, and reassignment rules
+- define how view actions differ from buffer undo/redo
 
 ### Track 3: command model
 
@@ -2124,6 +2200,7 @@ This document should branch into follow-up design work:
 
 ### Track 4: editing intelligence UX
 
+- undo/redo interaction model
 - hover UX
 - completion UX
 - diagnostics UX
@@ -2259,6 +2336,7 @@ That is the best fit for:
 - How strong should the visual style be by default versus conservative?
 - What exact inline diagnostic treatment best fits the TUI surface?
 - How much session state should be restored by default versus opt-in?
+- Which project/workspace actions should eventually participate in their own undo/recovery model?
 
 ---
 
