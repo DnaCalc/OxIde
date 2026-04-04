@@ -5,8 +5,7 @@ This document defines the local execution model for OxIde.
 
 It is intentionally lightweight.
 
-Its job is to keep OxIde execution coherent while the repo is being reoriented
-around:
+Its job is to keep OxIde execution coherent around:
 - `PRODUCT_DIRECTION.md`
 - `ARCHITECTURE.md`
 - a workset-driven planning surface
@@ -35,8 +34,8 @@ Rule:
 - `.beads/` is authoritative for live execution state
 
 ## 3. Operating Principles
-1. Prefer a clean architecture over preserving prototype shape.
-2. Salvage real value; do not preserve accidental structure.
+1. Prefer a clean architecture over accidental structure.
+2. Keep plans aligned to the intended product and architecture, not to incidental implementation detail.
 3. Keep OxIde project/session/editor/UI ownership explicit.
 4. Keep OxVba as the owner of project truth and semantics.
 5. Prefer direct host/session integration over CLI- or LSP-shaped indirection for editor semantics.
@@ -44,7 +43,7 @@ Rule:
 7. Do not let workset packets become a second blocker tracker.
 8. Use worksets for scope and sequencing, beads for execution.
 9. Prefer reviewable vertical outcomes over broad speculative scaffolding.
-10. When prototype code conflicts with current direction, current direction wins.
+10. Keep execution anchored to the authoritative docs.
 
 ## 4. Execution Model
 Execution in OxIde is:
@@ -80,7 +79,7 @@ Agent rule:
 2. do not use `.beads/` files as an editable planning surface.
 
 ## 6. Workset Rule
-Worksets exist to make rewrite and salvage planning explicit.
+Worksets exist to make planned execution scope explicit.
 
 They should state:
 1. purpose,
@@ -95,13 +94,13 @@ They should not carry:
 3. duplicate bead status.
 
 ## 7. Current OxIde Execution Posture
-OxIde is in a re-foundation phase.
+OxIde execution starts from the authoritative product and architecture docs.
 
 That means:
-1. the existing implementation is treated as a spike/reference, not a fixed base,
-2. the shell/application structure is expected to be rebuilt,
-3. direct OxVba host-session integration and a subset of behavioral tests are expected salvage targets,
-4. stale prototype assumptions should be removed rather than preserved.
+1. work should be sequenced from the intended product shape,
+2. execution should follow explicit worksets when they exist,
+3. beads should track live work only,
+4. implementation details do not outrank the governing docs.
 
 ## 8. Closure Rule
 A bead closes only when:

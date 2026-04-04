@@ -38,11 +38,7 @@ The stack direction is:
 
 Important clarification:
 
-- do not treat `msedit` as an architectural reference point
-- do not plan around an embedded-host OxIde scenario
 - do not route editor semantics through LSP inside OxIde
-
-Those ideas influenced earlier notes, but they are not the current architectural direction.
 
 ## Ownership Of Truth
 
@@ -185,19 +181,19 @@ Build/run is still a mixed state.
 
 Current rule:
 - keep semantic/editor integration on the direct host session
-- allow build/run to remain on the older path until OxVba exposes typed direct host results for those workflows
+- allow build/run to use a typed OxIde-side service seam even while OxVba execution contracts continue to evolve
 
 That means the architecture should tolerate:
 - direct host session for editing semantics
-- temporary legacy execution seam for build/run
+- an execution seam that can adapt as OxVba exposes richer direct build/run contracts
 
-But it should not treat the CLI-shaped seam as the long-term model.
+But it should not treat CLI-shaped integration as the architectural center.
 
 ## UX-Driven Architectural Constraints
 
 Because `PRODUCT_DIRECTION.md` is authoritative, the architecture has to support:
 
-- standalone IDE operation, not embedded-host-first design
+- standalone IDE operation
 - non-modal default editing
 - stateful edit/run/debug workspace presentation
 - split-based multi-view composition rather than tab-centric assumptions
@@ -257,8 +253,6 @@ Avoid:
 - parsing CLI output for diagnostics or semantic queries
 - burying document lifecycle inside the editor widget
 - making the editor widget the owner of project/session state
-- designing around embedded-host assumptions
-- keeping stale `msedit` dependency assumptions alive in the architecture docs
 
 ## Immediate Architectural Priorities
 
@@ -282,6 +276,3 @@ The current priority areas are:
 
 - `README.md`
   - entry point and current-state summary
-
-- `VISION.md`
-  - retained only as a retired historical note

@@ -7,7 +7,6 @@ Status:
 - opinionated
 - intended to provoke decisions
 - not yet a locked implementation spec
-- supersedes the older `VISION.md` direction doc
 
 This document uses Unicode box drawing, layout sketches, and palette tokens on purpose.
 Yes, OxIde can use Unicode in docs and in the eventual product where terminal capabilities allow it.
@@ -15,20 +14,16 @@ Yes, OxIde can use richer modern color palettes, but the real product must still
 
 ---
 
-## 1. Current Product Direction
+## 1. Product Direction
 
-`OxIde` is being focused as a standalone terminal-native IDE for `OxVba`.
+`OxIde` is a standalone terminal-native IDE for `OxVba`.
 
-This document is now the main place where the current product direction is captured.
-It starts from the original `VISION.md` intent, but updates it based on what we think now.
+This document is the main place where OxIde product direction is captured.
 
 That means:
 - the standalone IDE is the product focus
 - the project/workspace authoring environment is the center of gravity
 - debugging remains important, but does not define the product identity
-- embedded-host scenarios are not part of the current OxIde plan
-
-What belongs upstream in `OxVba` may still later support embedded hosting, but that is no longer a defining constraint for OxIde UX planning.
 
 ## 2. What Are We Building?
 
@@ -1595,7 +1590,7 @@ OxVba-owned semantic refreshes should not silently corrupt OxIde’s local undo 
 That means:
 - host-session semantic updates should read from current buffer text
 - semantic queries should not mutate editor text as a side effect
-- if an OxVba-driven action does rewrite source text in future, that rewrite must enter the buffer history in a deliberate and understandable way
+- if an OxVba-driven action does change source text in future, that change must enter the buffer history in a deliberate and understandable way
 
 ### UX implication
 

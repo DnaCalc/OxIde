@@ -54,17 +54,14 @@ Every approved public post must begin with:
 
 ## 4. Current Repo Direction
 
-OxIde is currently being rebuilt as a standalone terminal-native IDE for OxVba.
+OxIde is a standalone terminal-native IDE for OxVba.
 
 Important current direction:
 - FrankenTui is the shell and editor foundation
 - OxIde owns UX, shell flow, buffers/views/layouts, and editor orchestration
 - OxVba owns project truth and semantic meaning
 - direct host/session integration is preferred over CLI- or LSP-shaped editor semantics
-- prototype structure is not sacred; current direction is authoritative
-
-Do not use older notes about embedded-host-first design or `msedit` as an
-architectural reference point.
+- current direction is authoritative
 
 ## 5. Development Rules
 
@@ -72,8 +69,8 @@ architectural reference point.
 - Primary console shell and editing foundation: FrankenTui.
 - This is not a general JS/TS repo. Introduce JS/TS only for a specific,
   documented need.
-- Prefer small, explicit edits over bulk rewrite scripts.
-- Do not run ad hoc codemods or large regex refactors.
+- Prefer small, explicit edits over bulk transformation scripts.
+- Do not run ad hoc codemods or large regex transformations.
 - Prefer a clean architecture over backward-compatibility shims.
 - Do not proliferate new files unless they represent a real architectural split.
 
@@ -117,5 +114,4 @@ Use:
 
 Do not treat:
 - workset docs as live blocker trackers,
-- old prototype code as architectural authority,
-- older retired docs as current direction
+- incidental implementation details as architectural authority
