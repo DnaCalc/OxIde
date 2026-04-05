@@ -7,6 +7,3 @@ publish = false
 
 [dependencies]
 ftui = { version = "0.2.1", default-features = false, features = ["crossterm"] }
-oxvba-compiler = { path = "../OxVba/crates/oxvba-compiler" }
-oxvba-languageservice = { path = "../OxVba/crates/oxvba-languageservice" }
-oxvba-project = { path = "../OxVba/crates/oxvba-project" }
