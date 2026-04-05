@@ -57,8 +57,10 @@ fn top_bar_text(state: &ShellState) -> String {
             state.runtime.focus.label()
         ),
         ShellScene::BuildRun => format!(
-            "{project} | {target} | {layout} | Focus {} | {cursor} | Output live",
-            state.runtime.focus.label()
+            "{project} | {target} | {layout} | Focus {} | {cursor} | {} / {}",
+            state.runtime.focus.label(),
+            state.runtime.execution.build_status,
+            state.runtime.execution.runtime_status
         ),
         ShellScene::Palette => format!(
             "{project} | {target} | Palette | Overlay focus | {}",
@@ -205,9 +207,12 @@ fn project_explorer_text(workspace: &WorkspaceState) -> String {
 fn launcher_text(state: &ShellState) -> String {
     let launcher = &state.runtime.content.launcher;
     let mut text = String::from("Recent\n");
-    for (index, project) in launcher.recent_projects.iter().enumerate() {
-        let marker = if index == 0 { ">" } else { " " };
-        text.push_str(&format!("{marker} {project}\n"));
+    if launcher.recent_projects.is_empty() {
+        text.push_str("  No discovered .basproj files\n");
+    } else {
+        for project in &launcher.recent_projects {
+            text.push_str(&format!("{project}\n"));
+        }
     }
 
     text.push_str("\nStart\n");

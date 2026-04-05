@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use ftui::{
     KeyEventKind,
     prelude::{Cmd, Event, Frame, KeyCode, KeyEvent, Model, Modifiers},
@@ -12,6 +14,9 @@ use super::view;
 pub enum Msg {
     Quit,
     NextFocus,
+    LauncherPrev,
+    LauncherNext,
+    OpenSelectedProject,
     FocusRegion(FocusRegion),
     NextEditorView,
     TogglePalette,
@@ -25,7 +30,10 @@ impl From<Event> for Msg {
         match event {
             Event::Key(key) if !is_actionable_key(key) => Msg::Noop,
             Event::Key(key) if is_quit_key(key) => Msg::Quit,
+            Event::Key(key) if is_open_project_key(key) => Msg::OpenSelectedProject,
             Event::Key(key) if is_toggle_palette_key(key) => Msg::TogglePalette,
+            Event::Key(key) if matches!(key.code, KeyCode::Up) => Msg::LauncherPrev,
+            Event::Key(key) if matches!(key.code, KeyCode::Down) => Msg::LauncherNext,
             Event::Key(key) if is_focus_region_key(key, '1') => {
                 Msg::FocusRegion(FocusRegion::Explorer)
             }
@@ -63,11 +71,15 @@ pub struct ShellModel {
 }
 
 impl ShellModel {
-    pub fn new() -> Self {
+    pub fn new(project_path: Option<PathBuf>) -> Self {
         let mut model = Self {
             shell: ShellState::default(),
         };
-        model.try_mount_example_workspace();
+        model.shell.apply_scene(ShellScene::Empty);
+        model.discover_recent_projects();
+        if let Some(project_path) = project_path {
+            model.try_mount_workspace(project_path);
+        }
         model
     }
 
@@ -133,10 +145,16 @@ impl ShellModel {
         }
     }
 
-    fn try_mount_example_workspace(&mut self) {
-        let project_path = "examples/thin-slice/ThinSliceHello.basproj";
-        if let Ok(session) = ProjectSession::load(project_path) {
+    fn discover_recent_projects(&mut self) {
+        let projects = ProjectSession::discover_projects(".").unwrap_or_default();
+        self.shell.set_recent_projects(projects);
+    }
+
+    fn try_mount_workspace(&mut self, project_path: impl Into<PathBuf>) {
+        if let Ok(session) = ProjectSession::load(project_path.into()) {
+            self.shell.set_execution(session.execution_state());
             self.shell.mount_workspace(session.workspace_state());
+            self.shell.apply_scene(ShellScene::Editing);
         }
     }
 }
@@ -149,6 +167,24 @@ impl Model for ShellModel {
             Msg::Quit => Cmd::quit(),
             Msg::NextFocus => {
                 self.shell.cycle_focus();
+                Cmd::none()
+            }
+            Msg::LauncherPrev => {
+                if self.shell.scene == ShellScene::Empty {
+                    self.shell.cycle_launcher_selection(-1);
+                }
+                Cmd::none()
+            }
+            Msg::LauncherNext => {
+                if self.shell.scene == ShellScene::Empty {
+                    self.shell.cycle_launcher_selection(1);
+                }
+                Cmd::none()
+            }
+            Msg::OpenSelectedProject => {
+                if let Some(path) = self.shell.selected_project_path().cloned() {
+                    self.try_mount_workspace(path);
+                }
                 Cmd::none()
             }
             Msg::FocusRegion(region) => {
@@ -183,6 +219,10 @@ impl Model for ShellModel {
 
 fn is_quit_key(key: KeyEvent) -> bool {
     key.is_char('q') && key.modifiers.contains(Modifiers::CTRL)
+}
+
+fn is_open_project_key(key: KeyEvent) -> bool {
+    key.is_char('o') && key.modifiers.contains(Modifiers::CTRL)
 }
 
 fn is_toggle_palette_key(key: KeyEvent) -> bool {
@@ -234,5 +274,35 @@ mod tests {
     fn maps_f6_to_palette_toggle() {
         let msg = Msg::from(Event::Key(KeyEvent::new(KeyCode::F(6))));
         assert_eq!(msg, Msg::TogglePalette);
+    }
+
+    #[test]
+    fn maps_ctrl_o_to_open_selected_project() {
+        let msg = Msg::from(Event::Key(
+            KeyEvent::new(KeyCode::Char('o')).with_modifiers(Modifiers::CTRL),
+        ));
+        assert_eq!(msg, Msg::OpenSelectedProject);
+    }
+
+    #[test]
+    fn starts_in_empty_scene_without_startup_project() {
+        let model = ShellModel::new(None);
+
+        assert_eq!(model.shell.scene, ShellScene::Empty);
+        assert!(!model.shell.runtime.recent_projects.is_empty());
+        assert!(model.shell.runtime.session_workspace.is_none());
+    }
+
+    #[test]
+    fn starts_in_editing_scene_when_given_startup_project() {
+        let model = ShellModel::new(Some(PathBuf::from(
+            "examples/thin-slice/ThinSliceHello.basproj",
+        )));
+
+        assert_eq!(model.shell.scene, ShellScene::Editing);
+        assert_eq!(
+            model.shell.runtime.workspace.project_name.as_deref(),
+            Some("ThinSliceHello")
+        );
     }
 }

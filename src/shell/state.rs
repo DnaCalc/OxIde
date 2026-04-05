@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShellScene {
     Empty,
@@ -291,7 +293,7 @@ pub struct PanelContentState {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LauncherContentState {
-    pub recent_projects: Vec<&'static str>,
+    pub recent_projects: Vec<String>,
     pub actions: Vec<&'static str>,
     pub capabilities: Vec<&'static str>,
     pub hint: &'static str,
@@ -317,6 +319,17 @@ pub struct ShellContentState {
     pub inspector: PanelContentState,
     pub lower_surface: PanelContentState,
     pub palette: PaletteContentState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExecutionState {
+    pub profile: String,
+    pub entry_point: String,
+    pub build_status: String,
+    pub runtime_status: String,
+    pub last_exit_code: Option<i32>,
+    pub output_lines: Vec<String>,
+    pub log_lines: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -374,6 +387,9 @@ pub struct ShellRuntimeState {
     pub layout: ShellLayoutPolicy,
     pub workspace: WorkspaceState,
     pub session_workspace: Option<WorkspaceState>,
+    pub execution: ExecutionState,
+    pub recent_projects: Vec<PathBuf>,
+    pub launcher_selection: usize,
     pub content: ShellContentState,
     pub previous_focus: FocusRegion,
     pub previous_scene: ShellScene,
@@ -390,6 +406,7 @@ impl Default for ShellState {
         let width_class = WidthClass::Standard;
         let scene = ShellScene::Editing;
         let workspace = workspace_for_scene(scene);
+        let execution = execution_for_workspace(&workspace);
         let mut state = Self {
             scene,
             runtime: ShellRuntimeState {
@@ -401,7 +418,10 @@ impl Default for ShellState {
                 layout: ShellLayoutPolicy::derive(scene, width_class),
                 workspace: workspace.clone(),
                 session_workspace: None,
-                content: content_for_scene(scene, &workspace),
+                execution: execution.clone(),
+                recent_projects: Vec::new(),
+                launcher_selection: 0,
+                content: content_for_scene(scene, &workspace, &execution, &[], 0),
                 previous_focus: FocusRegion::Editor,
                 previous_scene: scene,
             },
@@ -420,7 +440,7 @@ impl ShellState {
             (_, Some(workspace)) => workspace_for_scene_from_loaded(scene, workspace),
             (_, None) => workspace_for_scene(scene),
         };
-        self.runtime.content = content_for_scene(scene, &self.runtime.workspace);
+        self.refresh_content();
         if scene != ShellScene::Palette {
             self.runtime.previous_scene = scene;
         }
@@ -456,7 +476,43 @@ impl ShellState {
     pub fn mount_workspace(&mut self, workspace: WorkspaceState) {
         self.runtime.session_workspace = Some(workspace.clone());
         self.runtime.workspace = workspace_for_scene_from_loaded(self.scene, workspace);
-        self.runtime.content = content_for_scene(self.scene, &self.runtime.workspace);
+        self.refresh_content();
+    }
+
+    pub fn set_execution(&mut self, execution: ExecutionState) {
+        self.runtime.execution = execution;
+        self.refresh_content();
+    }
+
+    pub fn set_recent_projects(&mut self, recent_projects: Vec<PathBuf>) {
+        self.runtime.recent_projects = recent_projects;
+        if self.runtime.launcher_selection >= self.runtime.recent_projects.len() {
+            self.runtime.launcher_selection = 0;
+        }
+        self.refresh_content();
+    }
+
+    pub fn cycle_launcher_selection(&mut self, direction: i8) {
+        if self.runtime.recent_projects.is_empty() {
+            return;
+        }
+
+        let len = self.runtime.recent_projects.len();
+        let index = self.runtime.launcher_selection;
+        self.runtime.launcher_selection = if direction >= 0 {
+            (index + 1) % len
+        } else if index == 0 {
+            len - 1
+        } else {
+            index - 1
+        };
+        self.refresh_content();
+    }
+
+    pub fn selected_project_path(&self) -> Option<&PathBuf> {
+        self.runtime
+            .recent_projects
+            .get(self.runtime.launcher_selection)
     }
 
     pub fn update_size(&mut self, width: u16, height: u16) {
@@ -543,6 +599,16 @@ impl ShellState {
             regions.push(FocusRegion::LowerSurface);
         }
         regions
+    }
+
+    fn refresh_content(&mut self) {
+        self.runtime.content = content_for_scene(
+            self.scene,
+            &self.runtime.workspace,
+            &self.runtime.execution,
+            &self.runtime.recent_projects,
+            self.runtime.launcher_selection,
+        );
     }
 }
 
@@ -841,45 +907,255 @@ fn lines(input: &[&str]) -> Vec<String> {
     input.iter().map(|line| String::from(*line)).collect()
 }
 
-fn workspace_symbols(workspace: &WorkspaceState) -> Vec<String> {
-    let mut symbols = workspace
-        .active_buffer()
-        .map(|buffer| {
-            buffer
-                .lines
-                .iter()
-                .filter_map(|line| parse_symbol_name(line))
-                .collect::<Vec<_>>()
+fn execution_for_workspace(workspace: &WorkspaceState) -> ExecutionState {
+    let project_name = workspace.project_name.as_deref().unwrap_or("OxIde");
+    let entry_point = workspace
+        .buffers
+        .iter()
+        .flat_map(|buffer| {
+            buffer.lines.iter().filter_map(|line| {
+                parse_symbol_info(buffer.title.as_str(), line, 0).map(|symbol| {
+                    format!("{}.{}", buffer.title.trim_end_matches(".bas"), symbol.name)
+                })
+            })
         })
-        .unwrap_or_default();
+        .next()
+        .unwrap_or_else(|| String::from("No entry point"));
+
+    ExecutionState {
+        profile: execution_profile_for_target(workspace.target_name.as_str()),
+        entry_point,
+        build_status: String::from("ready"),
+        runtime_status: String::from("prepared"),
+        last_exit_code: Some(0),
+        output_lines: vec![
+            format!("[build] project {project_name}"),
+            format!("[build] target {}", workspace.target_name),
+            format!("[build] open buffers {}", workspace.open_buffer_count()),
+            String::from("[run] execution contract not attached yet"),
+        ],
+        log_lines: vec![
+            format!("active layout {}", workspace.layout.preset.label()),
+            format!("visible views {}", workspace.visible_view_count()),
+        ],
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SymbolInfo {
+    name: String,
+    signature: String,
+    buffer_title: String,
+    line: usize,
+    kind: &'static str,
+}
+
+fn workspace_symbol_infos(workspace: &WorkspaceState) -> Vec<SymbolInfo> {
+    workspace
+        .buffers
+        .iter()
+        .flat_map(|buffer| {
+            buffer.lines.iter().enumerate().filter_map(|(index, line)| {
+                parse_symbol_info(buffer.title.as_str(), line, index + 1)
+            })
+        })
+        .collect()
+}
+
+fn workspace_symbols(workspace: &WorkspaceState) -> Vec<String> {
+    let mut symbols = workspace_symbol_infos(workspace)
+        .into_iter()
+        .map(|symbol| symbol.name)
+        .collect::<Vec<_>>();
 
     if symbols.is_empty() {
-        symbols.push(String::from("Main"));
+        symbols.push(String::from("No symbols discovered"));
     }
 
     symbols
 }
 
-fn parse_symbol_name(line: &str) -> Option<String> {
-    let trimmed = line.trim();
-    for marker in [
-        "Public Sub ",
-        "Private Sub ",
-        "Public Function ",
-        "Private Function ",
+fn workspace_primary_symbol(workspace: &WorkspaceState) -> Option<SymbolInfo> {
+    let symbol_infos = workspace_symbol_infos(workspace);
+    let active_buffer = workspace.active_buffer()?;
+    let cursor_line = workspace
+        .active_view()
+        .map(|view| usize::from(view.surface.cursor.line))
+        .unwrap_or(1);
+
+    if let Some(source_line) = active_buffer.lines.get(cursor_line.saturating_sub(1)) {
+        if let Some(symbol) = symbol_infos
+            .iter()
+            .find(|symbol| line_contains_symbol_reference(source_line, symbol.name.as_str()))
+        {
+            return Some(symbol.clone());
+        }
+    }
+
+    symbol_infos
+        .iter()
+        .filter(|symbol| symbol.buffer_title == active_buffer.title && symbol.line <= cursor_line)
+        .next_back()
+        .cloned()
+        .or_else(|| {
+            symbol_infos
+                .iter()
+                .find(|symbol| symbol.buffer_title == active_buffer.title)
+                .cloned()
+        })
+        .or_else(|| symbol_infos.first().cloned())
+}
+
+fn workspace_hover_lines(workspace: &WorkspaceState) -> Vec<String> {
+    let Some(symbol) = workspace_primary_symbol(workspace) else {
+        return vec![String::from("No semantic target at the current cursor")];
+    };
+
+    vec![
+        symbol.signature,
+        format!("Defined in {}:{}", symbol.buffer_title, symbol.line),
+        format!("Kind: {}", symbol.kind),
+    ]
+}
+
+fn workspace_references(workspace: &WorkspaceState) -> Vec<String> {
+    let Some(symbol) = workspace_primary_symbol(workspace) else {
+        return vec![String::from("No references available")];
+    };
+
+    let mut references = workspace
+        .buffers
+        .iter()
+        .flat_map(|buffer| {
+            buffer.lines.iter().enumerate().filter_map(|(index, line)| {
+                if line_contains_symbol_reference(line, symbol.name.as_str()) {
+                    Some(format!(
+                        "{}:{} {}",
+                        buffer.title,
+                        index + 1,
+                        normalize_source_line(line)
+                    ))
+                } else {
+                    None
+                }
+            })
+        })
+        .collect::<Vec<_>>();
+
+    if references.is_empty() {
+        references.push(format!("No references found for {}", symbol.name));
+    }
+
+    references
+}
+
+fn workspace_diagnostics(workspace: &WorkspaceState) -> Vec<String> {
+    let mut diagnostics = workspace
+        .buffers
+        .iter()
+        .filter(|buffer| buffer.kind != BufferKind::Welcome)
+        .flat_map(|buffer| {
+            let has_option_explicit = buffer
+                .lines
+                .iter()
+                .any(|line| normalize_source_line(line).eq_ignore_ascii_case("Option Explicit"));
+
+            let mut lines = Vec::new();
+            if !has_option_explicit {
+                lines.push(format!(
+                    "warning: {} is missing Option Explicit",
+                    buffer.title
+                ));
+            }
+
+            let symbol_count = workspace_symbol_infos(&WorkspaceState {
+                project_name: workspace.project_name.clone(),
+                target_name: workspace.target_name.clone(),
+                buffers: vec![buffer.clone()],
+                recent_buffers: vec![buffer.id],
+                views: workspace
+                    .views
+                    .iter()
+                    .filter(|view| view.buffer_id == buffer.id)
+                    .cloned()
+                    .collect(),
+                layout: workspace.layout.clone(),
+            })
+            .len();
+            if symbol_count == 0 {
+                lines.push(format!(
+                    "info: {} does not expose a discoverable public symbol yet",
+                    buffer.title
+                ));
+            }
+
+            lines
+        })
+        .collect::<Vec<_>>();
+
+    if diagnostics.is_empty() {
+        diagnostics.push(String::from("No diagnostics in mounted workspace"));
+    }
+
+    diagnostics
+}
+
+fn parse_symbol_info(buffer_title: &str, line: &str, line_number: usize) -> Option<SymbolInfo> {
+    let normalized = normalize_source_line(line);
+    for (marker, kind) in [
+        ("Public Sub ", "Sub"),
+        ("Private Sub ", "Sub"),
+        ("Public Function ", "Function"),
+        ("Private Function ", "Function"),
+        ("Public Property Get ", "Property"),
+        ("Private Property Get ", "Property"),
     ] {
-        if let Some(rest) = trimmed.strip_prefix(marker) {
+        if let Some(rest) = normalized.strip_prefix(marker) {
             let name = rest
                 .split(['(', ' '])
                 .next()
                 .filter(|value| !value.is_empty())?;
-            return Some(String::from(name));
+            return Some(SymbolInfo {
+                name: String::from(name),
+                signature: normalized.to_string(),
+                buffer_title: String::from(buffer_title),
+                line: line_number,
+                kind,
+            });
         }
     }
+
     None
 }
 
-fn content_for_scene(scene: ShellScene, workspace: &WorkspaceState) -> ShellContentState {
+fn normalize_source_line(line: &str) -> &str {
+    line.trim_start_matches(|char: char| char.is_ascii_digit() || char == ' ' || char == '>')
+        .trim_start()
+}
+
+fn line_contains_symbol_reference(line: &str, symbol_name: &str) -> bool {
+    normalize_source_line(line)
+        .split(|char: char| !(char.is_ascii_alphanumeric() || char == '_'))
+        .any(|token| token.eq_ignore_ascii_case(symbol_name))
+}
+
+fn execution_profile_for_target(target_name: &str) -> String {
+    match target_name {
+        "Exe" => String::from("win-console"),
+        "Library" => String::from("library"),
+        "Addin" => String::from("addin"),
+        "ComServer" => String::from("com-server"),
+        _ => String::from("host"),
+    }
+}
+
+fn content_for_scene(
+    scene: ShellScene,
+    workspace: &WorkspaceState,
+    execution: &ExecutionState,
+    recent_projects: &[PathBuf],
+    launcher_selection: usize,
+) -> ShellContentState {
     let active_buffer_title = workspace
         .active_buffer()
         .map(|buffer| buffer.title.as_str())
@@ -909,6 +1185,10 @@ fn content_for_scene(scene: ShellScene, workspace: &WorkspaceState) -> ShellCont
         .find_map(|view| view.surface.selection.map(|_| "present"))
         .unwrap_or("none");
     let symbols = workspace_symbols(workspace);
+    let diagnostics = workspace_diagnostics(workspace);
+    let hover_lines = workspace_hover_lines(workspace);
+    let references = workspace_references(workspace);
+    let primary_symbol = workspace_primary_symbol(workspace);
     let hidden_buffer_note = if workspace.hidden_buffer_count() > 0 {
         String::from("Hidden buffers remain switchable without tabs")
     } else {
@@ -916,14 +1196,29 @@ fn content_for_scene(scene: ShellScene, workspace: &WorkspaceState) -> ShellCont
     };
 
     let launcher = LauncherContentState {
-        recent_projects: vec!["Payroll.basproj", "Ledger.basproj"],
+        recent_projects: recent_projects
+            .iter()
+            .enumerate()
+            .map(|(index, path)| {
+                let label = path
+                    .file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .unwrap_or("Unknown Project");
+                let marker = if index == launcher_selection {
+                    "> "
+                } else {
+                    "  "
+                };
+                format!("{marker}{label} ({})", path.display())
+            })
+            .collect(),
         actions: vec!["Open Project", "Create Project", "Browse Recent"],
         capabilities: vec![
             "Truecolor detected",
             "Unicode coverage good",
             "Keyboard routing ready",
         ],
-        hint: "F2 Empty  F3 Edit  F4 Semantic  F5 Run  F6 Palette",
+        hint: "Ctrl+O open selected  Up/Down select  F2 Empty  F3 Edit  F4 Semantic  F5 Run  F6 Palette",
     };
 
     let palette = PaletteContentState {
@@ -1034,7 +1329,7 @@ fn content_for_scene(scene: ShellScene, workspace: &WorkspaceState) -> ShellCont
                 sections: vec![
                     PanelSectionState {
                         title: "Diagnostics",
-                        lines: vec![String::from("0 errors"), String::from("1 warning")],
+                        lines: diagnostics.clone(),
                     },
                     PanelSectionState {
                         title: "Symbols",
@@ -1054,12 +1349,7 @@ fn content_for_scene(scene: ShellScene, workspace: &WorkspaceState) -> ShellCont
             lower_surface: PanelContentState {
                 sections: vec![PanelSectionState {
                     title: "Problems",
-                    lines: vec![
-                        String::from("warning: BuildReport is not yet called"),
-                        String::from(
-                            "hint: keep Problems compact until execution or semantic work needs the space",
-                        ),
-                    ],
+                    lines: diagnostics,
                 }],
             },
             palette,
@@ -1075,10 +1365,7 @@ fn content_for_scene(scene: ShellScene, workspace: &WorkspaceState) -> ShellCont
                 sections: vec![
                     PanelSectionState {
                         title: "Hover",
-                        lines: vec![
-                            String::from("ComputeAnswer() As Integer"),
-                            String::from("Returns the canonical answer used by the semantic pass."),
-                        ],
+                        lines: hover_lines,
                     },
                     PanelSectionState {
                         title: "Symbols",
@@ -1086,7 +1373,11 @@ fn content_for_scene(scene: ShellScene, workspace: &WorkspaceState) -> ShellCont
                             .iter()
                             .enumerate()
                             .map(|(index, symbol)| {
-                                if index == 0 {
+                                if primary_symbol
+                                    .as_ref()
+                                    .is_some_and(|current| current.name == *symbol)
+                                    || (primary_symbol.is_none() && index == 0)
+                                {
                                     format!("> {symbol}")
                                 } else {
                                     symbol.clone()
@@ -1109,14 +1400,11 @@ fn content_for_scene(scene: ShellScene, workspace: &WorkspaceState) -> ShellCont
                 sections: vec![
                     PanelSectionState {
                         title: "References",
-                        lines: vec![
-                            String::from("MainModule.bas:5 ComputeAnswer()"),
-                            String::from("Helpers.bas:12 ComputeAnswer()"),
-                        ],
+                        lines: references,
                     },
                     PanelSectionState {
-                        title: "Immediate",
-                        lines: vec![String::from("? ComputeAnswer()"), String::from("42")],
+                        title: "Problems",
+                        lines: workspace_diagnostics(workspace),
                     },
                 ],
             },
@@ -1132,16 +1420,23 @@ fn content_for_scene(scene: ShellScene, workspace: &WorkspaceState) -> ShellCont
                     PanelSectionState {
                         title: "Run Status",
                         lines: vec![
-                            String::from("Build: passing"),
-                            String::from("Runtime: active"),
-                            String::from("Profile: win-console"),
-                            String::from("Last exit: 0"),
+                            format!("Build: {}", execution.build_status),
+                            format!("Runtime: {}", execution.runtime_status),
+                            format!("Profile: {}", execution.profile),
+                            format!(
+                                "Last exit: {}",
+                                execution
+                                    .last_exit_code
+                                    .map(|code| code.to_string())
+                                    .unwrap_or_else(|| String::from("-"))
+                            ),
                         ],
                     },
                     PanelSectionState {
                         title: "Workspace",
                         lines: vec![
                             format!("Layout: {}", workspace.layout.preset.label()),
+                            format!("Entry: {}", execution.entry_point),
                             format!(
                                 "Active buffer: {}",
                                 workspace
@@ -1158,19 +1453,11 @@ fn content_for_scene(scene: ShellScene, workspace: &WorkspaceState) -> ShellCont
                 sections: vec![
                     PanelSectionState {
                         title: "Output",
-                        lines: vec![
-                            String::from("[build] compiling Payroll.basproj"),
-                            String::from("[run] launching Exe target"),
-                            String::from("stdout:"),
-                            String::from("42"),
-                        ],
+                        lines: execution.output_lines.clone(),
                     },
                     PanelSectionState {
                         title: "Build Log",
-                        lines: vec![
-                            String::from("bundle ready"),
-                            String::from("stdout attached"),
-                        ],
+                        lines: execution.log_lines.clone(),
                     },
                 ],
             },
@@ -1252,6 +1539,56 @@ mod tests {
                 .active_buffer()
                 .map(|buffer| buffer.lines.len()),
             Some(11)
+        );
+    }
+
+    #[test]
+    fn semantic_scene_marks_the_symbol_found_on_the_active_line() {
+        let mut state = ShellState::default();
+        state.apply_scene(ShellScene::Semantic);
+
+        let symbol_lines = &state.runtime.content.inspector.sections[1].lines;
+        assert!(symbol_lines.iter().any(|line| line == "> ComputeAnswer"));
+    }
+
+    #[test]
+    fn diagnostics_detect_missing_option_explicit() {
+        let mut state = ShellState::default();
+        state.runtime.workspace.buffers[0].lines.remove(0);
+        state.runtime.workspace.buffers[0].lines.remove(0);
+        state.refresh_content();
+
+        let diagnostics = &state.runtime.content.inspector.sections[0].lines;
+        assert!(
+            diagnostics
+                .iter()
+                .any(|line| line.contains("missing Option Explicit"))
+        );
+    }
+
+    #[test]
+    fn build_run_scene_uses_runtime_execution_state() {
+        let mut state = ShellState::default();
+        state.set_execution(ExecutionState {
+            profile: String::from("win-console"),
+            entry_point: String::from("Module1.Main"),
+            build_status: String::from("passing"),
+            runtime_status: String::from("prepared"),
+            last_exit_code: Some(0),
+            output_lines: vec![String::from("[run] entry Module1.Main")],
+            log_lines: vec![String::from("module Module1.bas ready")],
+        });
+        state.apply_scene(ShellScene::BuildRun);
+
+        assert_eq!(
+            state.runtime.content.inspector.sections[0].lines[1],
+            "Runtime: prepared"
+        );
+        assert!(
+            state.runtime.content.lower_surface.sections[0]
+                .lines
+                .iter()
+                .any(|line| line.contains("Module1.Main"))
         );
     }
 }

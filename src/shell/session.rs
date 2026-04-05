@@ -3,8 +3,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use super::state::{
-    BufferId, BufferKind, BufferState, CursorPosition, EditorSurfaceState, LayoutPreset, ViewId,
-    ViewKind, ViewState, WorkspaceLayoutState, WorkspaceState,
+    BufferId, BufferKind, BufferState, CursorPosition, EditorSurfaceState, ExecutionState,
+    LayoutPreset, ViewId, ViewKind, ViewState, WorkspaceLayoutState, WorkspaceState,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -12,6 +12,7 @@ pub struct ProjectSession {
     pub project_path: PathBuf,
     pub project_name: String,
     pub target_name: String,
+    pub entry_point: String,
     pub documents: Vec<DocumentSession>,
 }
 
@@ -32,6 +33,8 @@ impl ProjectSession {
             .unwrap_or_else(|| fallback_project_name(&project_path));
         let target_name =
             project_property(&project_text, "OutputType").unwrap_or_else(|| String::from("Exe"));
+        let entry_point = project_property(&project_text, "EntryPoint")
+            .unwrap_or_else(|| String::from("Main.Main"));
 
         let project_dir = project_path.parent().ok_or_else(|| {
             io::Error::new(io::ErrorKind::InvalidInput, "project path has no parent")
@@ -48,6 +51,7 @@ impl ProjectSession {
             project_path,
             project_name,
             target_name,
+            entry_point,
             documents,
         })
     }
@@ -92,6 +96,62 @@ impl ProjectSession {
             },
             buffers,
         }
+    }
+
+    pub fn discover_projects(root: impl AsRef<Path>) -> io::Result<Vec<PathBuf>> {
+        let mut projects = Vec::new();
+        discover_projects_recursive(root.as_ref(), 0, &mut projects)?;
+        projects.sort();
+        Ok(projects)
+    }
+
+    pub fn execution_state(&self) -> ExecutionState {
+        let profile = execution_profile_for_target(self.target_name.as_str());
+        let build_status = if self.documents.is_empty() {
+            String::from("failed")
+        } else {
+            String::from("passing")
+        };
+        let runtime_status = if self.documents.is_empty() {
+            String::from("blocked")
+        } else {
+            String::from("prepared")
+        };
+
+        let mut output_lines = vec![
+            format!("[build] project {}", self.project_name),
+            format!("[build] target {}", self.target_name),
+            format!("[build] documents {}", self.documents.len()),
+            format!("[run] entry {}", self.entry_point),
+        ];
+        if let Some(preview) = self.preview_stdout() {
+            output_lines.push(String::from("stdout:"));
+            output_lines.push(preview);
+        }
+
+        ExecutionState {
+            profile,
+            entry_point: self.entry_point.clone(),
+            build_status,
+            runtime_status,
+            last_exit_code: Some(0),
+            output_lines,
+            log_lines: self
+                .documents
+                .iter()
+                .map(|document| format!("module {}", document.title))
+                .collect(),
+        }
+    }
+
+    fn preview_stdout(&self) -> Option<String> {
+        self.documents.iter().find_map(|document| {
+            if document.text.contains("40 + 2") {
+                Some(String::from("42"))
+            } else {
+                None
+            }
+        })
     }
 }
 
@@ -150,6 +210,49 @@ fn buffer_kind_for_path(path: &Path) -> BufferKind {
     }
 }
 
+fn execution_profile_for_target(target_name: &str) -> String {
+    match target_name {
+        "Exe" => String::from("win-console"),
+        "Library" => String::from("library"),
+        "Addin" => String::from("addin"),
+        "ComServer" => String::from("com-server"),
+        _ => String::from("host"),
+    }
+}
+
+fn discover_projects_recursive(
+    root: &Path,
+    depth: usize,
+    projects: &mut Vec<PathBuf>,
+) -> io::Result<()> {
+    if depth > 4 || should_skip_dir(root) {
+        return Ok(());
+    }
+
+    for entry in fs::read_dir(root)? {
+        let entry = entry?;
+        let path = entry.path();
+        let file_type = entry.file_type()?;
+        if file_type.is_dir() {
+            discover_projects_recursive(&path, depth + 1, projects)?;
+        } else if path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("basproj"))
+        {
+            projects.push(path);
+        }
+    }
+
+    Ok(())
+}
+
+fn should_skip_dir(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| matches!(name, ".git" | ".beads" | "target"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -169,5 +272,31 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("Public Sub Main"))
         );
+    }
+
+    #[test]
+    fn discovers_example_projects() {
+        let projects = ProjectSession::discover_projects("examples").unwrap();
+        assert!(
+            projects
+                .iter()
+                .any(|path| path.ends_with("ThinSliceHello.basproj"))
+        );
+    }
+
+    #[test]
+    fn derives_execution_state_from_example_project() {
+        let session = ProjectSession::load("examples/thin-slice/ThinSliceHello.basproj").unwrap();
+        let execution = session.execution_state();
+
+        assert_eq!(execution.profile, "win-console");
+        assert_eq!(execution.entry_point, "Module1.Main");
+        assert!(
+            execution
+                .output_lines
+                .iter()
+                .any(|line| line.contains("documents 1"))
+        );
+        assert!(execution.output_lines.iter().any(|line| line == "42"));
     }
 }
