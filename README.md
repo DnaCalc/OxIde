@@ -13,6 +13,7 @@ It is intended to be the focused interactive environment around:
 Current planning note:
 
 - see `PRODUCT_DIRECTION.md` for the active UX and product-direction document
+- see `docs/DESIGN_TUI.md` for the current detailed TUI shell spec
 - see `OPERATIONS.md` and `docs/WORKSET_REGISTER.md` for the current execution model and workset state
 
 Ownership of truth is split this way:

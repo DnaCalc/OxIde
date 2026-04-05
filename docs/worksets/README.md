@@ -1,6 +1,7 @@
 # OxIde Worksets
 
-This folder is currently empty by design.
+This folder contains the ordered workset packets for the current green-field
+implementation sequence.
 
 It is not a live execution tracker.
 For ordered workset truth use [WORKSET_REGISTER.md](/C:/Work/DnaCalc/OxIde/docs/WORKSET_REGISTER.md).
@@ -13,8 +14,9 @@ For live execution state use [.beads/issues.jsonl](/C:/Work/DnaCalc/OxIde/.beads
 4. New workset packets should be added only when the next execution sequence has been defined.
 
 ## Current State
-1. No workset packets are currently present.
-2. The next workset set should be created from the updated design and architecture direction.
+1. `W010` is the active shell-mockup workset.
+2. `W020` and `W030` are stub follow-on packets.
+3. Live execution state still belongs only in `.beads/`.
 
 ## Use These Instead
 1. Use [PRODUCT_DIRECTION.md](/C:/Work/DnaCalc/OxIde/PRODUCT_DIRECTION.md) for product and UX authority.

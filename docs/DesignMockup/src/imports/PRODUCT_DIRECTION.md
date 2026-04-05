@@ -887,24 +887,6 @@ This is the TUI-friendly answer to “multiple files open at once”:
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 9.5 Translating the current design mockup into terminal reality
-
-The current design mockup in:
-
-- `docs/DESIGN_MOCKUP_WEB.md`
-- `docs/DesignMockup/`
-
-has now been translated into the detailed terminal-native shell specification
-in `docs/DESIGN_TUI.md`.
-
-That specification should be treated as the concrete realization of the current
-mockup direction for FrankenTui shell work.
-
-The guiding product rule remains:
-
-- preserve the shell idea
-- realize it in terminal-native region, focus, and surface behavior
-
 ---
 
 ## 11. What FrankenTui Affordances Should Be Used Best?
@@ -1097,25 +1079,6 @@ Warn            █  #FBBF24
 Error           █  #FB7185
 Success         █  #22C55E
 Selection       █  #1D4ED8
-```
-
-### Palette direction D: Mockup-derived instrument palette
-
-This is the most direct translation of the current mockup work and is a strong
-candidate for the first concrete OxIde theme.
-
-```text
-Background      █  #0A0E14
-Panel           █  #0D1117
-Panel Alt       █  #111827
-Border          █  #1F2937
-Text            █  #E6E6E8
-Muted           █  #6C7680
-Primary         █  #39BAE6
-Warn            █  #FFB454
-Error / Hot     █  #F97E72
-Success         █  #50FA7B
-Selection       █  #214D66
 ```
 
 ### UX note

@@ -1,15 +1,15 @@
 # OxIde Workset Register
 
-Status: `empty_after_reset`
-Date: 2026-04-04
+Status: `active`
+Date: 2026-04-05
 
 ## 1. Purpose
 This is the live ordered workset register for OxIde.
 
-At the moment it records a clean reset state:
-1. no active worksets exist,
-2. no ordered execution sequence is currently defined,
-3. new worksets should be created only after the next design update is explicit.
+At the moment it records the first green-field implementation sequence:
+1. active worksets now exist,
+2. the ordered execution sequence is defined below,
+3. live execution state remains in `.beads/`.
 
 This file is not an execution-status board.
 It owns workset truth, not bead state.
@@ -23,16 +23,24 @@ Planning and execution truth in OxIde is split as follows:
 5. `.beads/` owns epics, beads, readiness, blockers, in-progress state, and closure.
 
 ## 3. Current State
-There are currently no active worksets.
+The current ordered workset sequence is:
 
-The previous workset packets have been removed.
-The next workset set should be authored from the updated design.
+1. `W010` - shell mockup scaffold and design proof in FrankenTui
+2. `W020` - runtime shell foundation on top of the proven mockup
+3. `W030` - project/document/OxVba service integration into the new shell
 
-## 4. Use Rule
+The active execution entry point is `W010`.
+
+## 4. Active Worksets
+
+1. [W010_shell_mockup_scaffold.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W010_shell_mockup_scaffold.md)
+2. [W020_runtime_shell_foundation.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W020_runtime_shell_foundation.md)
+3. [W030_service_integration.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W030_service_integration.md)
+## 5. Use Rule
 Use this document as:
 1. the repo-local workset authority,
 2. the place that records whether active worksets exist,
-3. the starting point for the next workset set once design is ready.
+3. the starting point for the current execution sequence.
 
 Do not use this document as:
 1. a blocker tracker,
