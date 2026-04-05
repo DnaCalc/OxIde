@@ -15,8 +15,8 @@ This sample is the smallest workflow that fits the current `OxIde` thin slice:
 
 ## Preconditions
 
-- `../OxVba` exists relative to this repo, or `OXVBA_DIR` points at an
-  `OxVba` checkout
+- `../OxVba` exists relative to this repo so `OxIde` can link directly against
+  the live OxVba crates
 - `cargo` is available
 
 ## Happy Path

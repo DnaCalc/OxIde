@@ -59,6 +59,7 @@ The repo is aligned around these decisions:
 - `FrankenTui` editor path behind an `OxIde`-owned editor seam
 - direct OxVba host integration for project and semantic workflows
 - `OxVba` treated as the project/language-service/build/runtime substrate
+- current runtime service integration links directly against the sibling `../OxVba` workspace crates
 
 Planned `OxVba` target surface in scope:
 

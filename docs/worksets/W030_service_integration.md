@@ -1,6 +1,6 @@
 # W030 - Service Integration
 
-Status: `stub`
+Status: `implemented`
 Sequence: `3`
 Depends on: `W020`
 

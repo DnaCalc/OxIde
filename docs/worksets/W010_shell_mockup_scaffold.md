@@ -1,6 +1,6 @@
 # W010 - Shell Mockup Scaffold
 
-Status: `active`
+Status: `implemented`
 Sequence: `1`
 Depends on: none
 

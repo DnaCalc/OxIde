@@ -1,6 +1,6 @@
 # W020 - Runtime Shell Foundation
 
-Status: `stub`
+Status: `implemented`
 Sequence: `2`
 Depends on: `W010`
 

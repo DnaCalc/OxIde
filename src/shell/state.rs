@@ -217,6 +217,15 @@ pub struct WorkspaceState {
     pub recent_buffers: Vec<BufferId>,
     pub views: Vec<ViewState>,
     pub layout: WorkspaceLayoutState,
+    pub semantic: Option<WorkspaceSemanticState>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceSemanticState {
+    pub diagnostics: Vec<String>,
+    pub symbols: Vec<String>,
+    pub hover_lines: Vec<String>,
+    pub references: Vec<String>,
 }
 
 impl WorkspaceState {
@@ -658,6 +667,7 @@ fn workspace_for_scene(scene: ShellScene) -> WorkspaceState {
                 visible_views: vec![VIEW_WELCOME],
                 active_view: VIEW_WELCOME,
             },
+            semantic: None,
         },
         ShellScene::Editing | ShellScene::Palette => WorkspaceState {
             project_name: Some(String::from("Payroll.basproj")),
@@ -727,6 +737,7 @@ fn workspace_for_scene(scene: ShellScene) -> WorkspaceState {
                 visible_views: vec![VIEW_MAIN],
                 active_view: VIEW_MAIN,
             },
+            semantic: None,
         },
         ShellScene::Semantic => WorkspaceState {
             project_name: Some(String::from("Payroll.basproj")),
@@ -811,6 +822,7 @@ fn workspace_for_scene(scene: ShellScene) -> WorkspaceState {
                 visible_views: vec![VIEW_MAIN, VIEW_SPLIT],
                 active_view: VIEW_MAIN,
             },
+            semantic: None,
         },
         ShellScene::BuildRun => WorkspaceState {
             project_name: Some(String::from("Payroll.basproj")),
@@ -880,6 +892,7 @@ fn workspace_for_scene(scene: ShellScene) -> WorkspaceState {
                 visible_views: vec![VIEW_MAIN],
                 active_view: VIEW_MAIN,
             },
+            semantic: None,
         },
     }
 }
@@ -963,6 +976,12 @@ fn workspace_symbol_infos(workspace: &WorkspaceState) -> Vec<SymbolInfo> {
 }
 
 fn workspace_symbols(workspace: &WorkspaceState) -> Vec<String> {
+    if let Some(semantic) = &workspace.semantic {
+        if !semantic.symbols.is_empty() {
+            return semantic.symbols.clone();
+        }
+    }
+
     let mut symbols = workspace_symbol_infos(workspace)
         .into_iter()
         .map(|symbol| symbol.name)
@@ -1007,6 +1026,12 @@ fn workspace_primary_symbol(workspace: &WorkspaceState) -> Option<SymbolInfo> {
 }
 
 fn workspace_hover_lines(workspace: &WorkspaceState) -> Vec<String> {
+    if let Some(semantic) = &workspace.semantic {
+        if !semantic.hover_lines.is_empty() {
+            return semantic.hover_lines.clone();
+        }
+    }
+
     let Some(symbol) = workspace_primary_symbol(workspace) else {
         return vec![String::from("No semantic target at the current cursor")];
     };
@@ -1019,6 +1044,12 @@ fn workspace_hover_lines(workspace: &WorkspaceState) -> Vec<String> {
 }
 
 fn workspace_references(workspace: &WorkspaceState) -> Vec<String> {
+    if let Some(semantic) = &workspace.semantic {
+        if !semantic.references.is_empty() {
+            return semantic.references.clone();
+        }
+    }
+
     let Some(symbol) = workspace_primary_symbol(workspace) else {
         return vec![String::from("No references available")];
     };
@@ -1050,6 +1081,12 @@ fn workspace_references(workspace: &WorkspaceState) -> Vec<String> {
 }
 
 fn workspace_diagnostics(workspace: &WorkspaceState) -> Vec<String> {
+    if let Some(semantic) = &workspace.semantic {
+        if !semantic.diagnostics.is_empty() {
+            return semantic.diagnostics.clone();
+        }
+    }
+
     let mut diagnostics = workspace
         .buffers
         .iter()
@@ -1080,6 +1117,7 @@ fn workspace_diagnostics(workspace: &WorkspaceState) -> Vec<String> {
                     .cloned()
                     .collect(),
                 layout: workspace.layout.clone(),
+                semantic: None,
             })
             .len();
             if symbol_count == 0 {
@@ -1590,5 +1628,23 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("Module1.Main"))
         );
+    }
+
+    #[test]
+    fn mounted_workspace_semantics_override_fallback_shell_content() {
+        let mut state = ShellState::default();
+        state.runtime.workspace.semantic = Some(WorkspaceSemanticState {
+            diagnostics: vec![String::from("warning: Module1 implicit variant use")],
+            symbols: vec![String::from("Main"), String::from("ComputeAnswer")],
+            hover_lines: vec![String::from("Public Sub Main()")],
+            references: vec![String::from("Module1:3 Public Sub Main()")],
+        });
+        state.refresh_content();
+
+        assert_eq!(
+            state.runtime.content.inspector.sections[0].lines[0],
+            "warning: Module1 implicit variant use"
+        );
+        assert_eq!(state.runtime.content.inspector.sections[1].lines[0], "Main");
     }
 }

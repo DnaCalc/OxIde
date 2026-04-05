@@ -29,8 +29,6 @@ The current ordered workset sequence is:
 2. `W020` - runtime shell foundation on top of the proven mockup
 3. `W030` - project/document/OxVba service integration into the new shell
 
-The active execution entry point is `W010`.
-
 ## 4. Active Worksets
 
 1. [W010_shell_mockup_scaffold.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W010_shell_mockup_scaffold.md)

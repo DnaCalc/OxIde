@@ -2,6 +2,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use super::oxvba::{load_execution_state, load_semantic_state};
 use super::state::{
     BufferId, BufferKind, BufferState, CursorPosition, EditorSurfaceState, ExecutionState,
     LayoutPreset, ViewId, ViewKind, ViewState, WorkspaceLayoutState, WorkspaceState,
@@ -74,6 +75,15 @@ impl ProjectSession {
             .first()
             .map(|buffer| buffer.id)
             .unwrap_or(BufferId(1));
+        let default_cursor = CursorPosition::new(1, 1);
+        let semantic = buffers.first().and_then(|buffer| {
+            load_semantic_state(
+                &self.project_path,
+                Some(buffer.title.as_str()),
+                &buffer.lines,
+                default_cursor,
+            )
+        });
 
         WorkspaceState {
             project_name: Some(self.project_name.clone()),
@@ -84,7 +94,7 @@ impl ProjectSession {
                 buffer_id: active_buffer_id,
                 kind: ViewKind::Primary,
                 surface: EditorSurfaceState {
-                    cursor: CursorPosition::new(1, 1),
+                    cursor: default_cursor,
                     selection: None,
                     scroll_top: 0,
                 },
@@ -95,6 +105,7 @@ impl ProjectSession {
                 active_view: ViewId(1),
             },
             buffers,
+            semantic,
         }
     }
 
@@ -106,52 +117,11 @@ impl ProjectSession {
     }
 
     pub fn execution_state(&self) -> ExecutionState {
-        let profile = execution_profile_for_target(self.target_name.as_str());
-        let build_status = if self.documents.is_empty() {
-            String::from("failed")
-        } else {
-            String::from("passing")
-        };
-        let runtime_status = if self.documents.is_empty() {
-            String::from("blocked")
-        } else {
-            String::from("prepared")
-        };
-
-        let mut output_lines = vec![
-            format!("[build] project {}", self.project_name),
-            format!("[build] target {}", self.target_name),
-            format!("[build] documents {}", self.documents.len()),
-            format!("[run] entry {}", self.entry_point),
-        ];
-        if let Some(preview) = self.preview_stdout() {
-            output_lines.push(String::from("stdout:"));
-            output_lines.push(preview);
-        }
-
-        ExecutionState {
-            profile,
-            entry_point: self.entry_point.clone(),
-            build_status,
-            runtime_status,
-            last_exit_code: Some(0),
-            output_lines,
-            log_lines: self
-                .documents
-                .iter()
-                .map(|document| format!("module {}", document.title))
-                .collect(),
-        }
-    }
-
-    fn preview_stdout(&self) -> Option<String> {
-        self.documents.iter().find_map(|document| {
-            if document.text.contains("40 + 2") {
-                Some(String::from("42"))
-            } else {
-                None
-            }
-        })
+        load_execution_state(
+            &self.project_path,
+            execution_profile_for_target(self.target_name.as_str()),
+            self.entry_point.clone(),
+        )
     }
 }
 
@@ -266,11 +236,18 @@ mod tests {
         assert_eq!(workspace.target_name, "Exe");
         assert_eq!(workspace.buffers.len(), 1);
         assert_eq!(workspace.buffers[0].title, "Module1.bas");
+        assert!(workspace.semantic.is_some());
         assert!(
             workspace.buffers[0]
                 .lines
                 .iter()
                 .any(|line| line.contains("Public Sub Main"))
+        );
+        assert!(
+            workspace
+                .semantic
+                .as_ref()
+                .is_some_and(|semantic| semantic.symbols.iter().any(|symbol| symbol == "Main"))
         );
     }
 
@@ -291,12 +268,19 @@ mod tests {
 
         assert_eq!(execution.profile, "win-console");
         assert_eq!(execution.entry_point, "Module1.Main");
+        assert_eq!(execution.build_status, "passing");
+        assert_eq!(execution.runtime_status, "prepared");
         assert!(
             execution
                 .output_lines
                 .iter()
-                .any(|line| line.contains("documents 1"))
+                .any(|line| line.contains("runtime reset to a fresh prepared session"))
         );
-        assert!(execution.output_lines.iter().any(|line| line == "42"));
+        assert!(
+            execution
+                .log_lines
+                .iter()
+                .any(|line| line.contains("workspace loaded"))
+        );
     }
 }

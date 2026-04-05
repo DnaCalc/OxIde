@@ -6,6 +6,7 @@ use ftui::{
 };
 
 use super::mock_data::{ShellPanels, shell_panels};
+use super::oxvba::run_project_state;
 use super::session::ProjectSession;
 use super::state::{FocusRegion, LowerSurfaceMode, ShellScene, ShellState, WidthClass};
 use super::view;
@@ -17,6 +18,7 @@ pub enum Msg {
     LauncherPrev,
     LauncherNext,
     OpenSelectedProject,
+    RunProject,
     FocusRegion(FocusRegion),
     NextEditorView,
     TogglePalette,
@@ -31,6 +33,7 @@ impl From<Event> for Msg {
             Event::Key(key) if !is_actionable_key(key) => Msg::Noop,
             Event::Key(key) if is_quit_key(key) => Msg::Quit,
             Event::Key(key) if is_open_project_key(key) => Msg::OpenSelectedProject,
+            Event::Key(key) if matches!(key.code, KeyCode::F(5)) => Msg::RunProject,
             Event::Key(key) if is_toggle_palette_key(key) => Msg::TogglePalette,
             Event::Key(key) if matches!(key.code, KeyCode::Up) => Msg::LauncherPrev,
             Event::Key(key) if matches!(key.code, KeyCode::Down) => Msg::LauncherNext,
@@ -57,9 +60,6 @@ impl From<Event> for Msg {
             Event::Key(key) if matches!(key.code, KeyCode::F(4)) => {
                 Msg::SetScene(ShellScene::Semantic)
             }
-            Event::Key(key) if matches!(key.code, KeyCode::F(5)) => {
-                Msg::SetScene(ShellScene::BuildRun)
-            }
             Event::Resize { width, height } => Msg::Resized(width, height),
             _ => Msg::Noop,
         }
@@ -68,12 +68,14 @@ impl From<Event> for Msg {
 
 pub struct ShellModel {
     shell: ShellState,
+    project_path: Option<PathBuf>,
 }
 
 impl ShellModel {
     pub fn new(project_path: Option<PathBuf>) -> Self {
         let mut model = Self {
             shell: ShellState::default(),
+            project_path: None,
         };
         model.shell.apply_scene(ShellScene::Empty);
         model.discover_recent_projects();
@@ -151,11 +153,27 @@ impl ShellModel {
     }
 
     fn try_mount_workspace(&mut self, project_path: impl Into<PathBuf>) {
-        if let Ok(session) = ProjectSession::load(project_path.into()) {
+        let project_path = project_path.into();
+        if let Ok(session) = ProjectSession::load(&project_path) {
             self.shell.set_execution(session.execution_state());
             self.shell.mount_workspace(session.workspace_state());
             self.shell.apply_scene(ShellScene::Editing);
+            self.project_path = Some(project_path);
         }
+    }
+
+    fn run_project(&mut self) {
+        self.shell.apply_scene(ShellScene::BuildRun);
+        let Some(project_path) = self.project_path.clone() else {
+            return;
+        };
+
+        let execution = run_project_state(
+            &project_path,
+            self.shell.runtime.execution.profile.clone(),
+            self.shell.runtime.execution.entry_point.clone(),
+        );
+        self.shell.set_execution(execution);
     }
 }
 
@@ -185,6 +203,10 @@ impl Model for ShellModel {
                 if let Some(path) = self.shell.selected_project_path().cloned() {
                     self.try_mount_workspace(path);
                 }
+                Cmd::none()
+            }
+            Msg::RunProject => {
+                self.run_project();
                 Cmd::none()
             }
             Msg::FocusRegion(region) => {
@@ -285,6 +307,12 @@ mod tests {
     }
 
     #[test]
+    fn maps_f5_to_run_project() {
+        let msg = Msg::from(Event::Key(KeyEvent::new(KeyCode::F(5))));
+        assert_eq!(msg, Msg::RunProject);
+    }
+
+    #[test]
     fn starts_in_empty_scene_without_startup_project() {
         let model = ShellModel::new(None);
 
@@ -303,6 +331,27 @@ mod tests {
         assert_eq!(
             model.shell.runtime.workspace.project_name.as_deref(),
             Some("ThinSliceHello")
+        );
+    }
+
+    #[test]
+    fn run_project_transitions_to_build_run_scene_and_updates_output() {
+        let mut model = ShellModel::new(Some(PathBuf::from(
+            "examples/thin-slice/ThinSliceHello.basproj",
+        )));
+
+        model.update(Msg::RunProject);
+
+        assert_eq!(model.shell.scene, ShellScene::BuildRun);
+        assert_eq!(model.shell.runtime.execution.runtime_status, "completed");
+        assert!(
+            model
+                .shell
+                .runtime
+                .execution
+                .output_lines
+                .iter()
+                .any(|line| line.contains("project run completed"))
         );
     }
 }
