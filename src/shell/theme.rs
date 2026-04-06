@@ -32,10 +32,6 @@ pub enum PanelTone {
     Overlay,
 }
 
-pub fn background() -> PackedRgba {
-    PackedRgba::rgb(0x0A, 0x0E, 0x14)
-}
-
 pub fn panel() -> PackedRgba {
     PackedRgba::rgb(0x0D, 0x11, 0x17)
 }
@@ -68,33 +64,28 @@ pub fn selection() -> PackedRgba {
     PackedRgba::rgb(0x21, 0x4D, 0x66)
 }
 
-pub fn panel_style(tone: PanelTone, active: bool) -> Style {
-    let bg = match (tone, active) {
+fn panel_background(tone: PanelTone, active: bool) -> PackedRgba {
+    match (tone, active) {
         (PanelTone::TopBar, true) => panel_alt(),
         (PanelTone::TopBar, false) => panel(),
         (PanelTone::Overlay, _) => panel_alt(),
         (PanelTone::Editor, _) => panel(),
         (_, true) => panel_alt(),
-        (_, false) => background(),
-    };
+        (_, false) => panel(),
+    }
+}
 
-    Style::new().bg(bg).fg(text())
+pub fn panel_style(tone: PanelTone, active: bool) -> Style {
+    Style::new().bg(panel_background(tone, active)).fg(text())
 }
 
 pub fn content_style(tone: PanelTone, active: bool) -> Style {
-    let style = Style::new().bg(match (tone, active) {
-        (PanelTone::TopBar, true) => panel_alt(),
-        (PanelTone::TopBar, false) => panel(),
-        (PanelTone::Overlay, _) => panel_alt(),
-        (PanelTone::Editor, _) => panel(),
-        (_, true) => panel_alt(),
-        (_, false) => background(),
-    });
+    let style = Style::new().bg(panel_background(tone, active));
 
     if active {
         style.fg(text())
     } else {
-        style.fg(muted()).dim()
+        style.fg(muted())
     }
 }
 
@@ -107,6 +98,6 @@ pub fn border_style(tone: PanelTone, active: bool) -> Style {
         };
         Style::new().fg(accent).bg(panel_alt()).bold()
     } else {
-        Style::new().fg(border()).bg(background())
+        Style::new().fg(border()).bg(panel_background(tone, active))
     }
 }

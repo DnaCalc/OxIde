@@ -4,21 +4,39 @@ use ftui::{
     KeyEventKind,
     prelude::{Cmd, Event, Frame, KeyCode, KeyEvent, Model, Modifiers},
 };
+use oxvba_project::ComSelectionCandidate;
 
 use super::mock_data::{ShellPanels, shell_panels};
 use super::oxvba::run_project_state;
+use super::project_actions::{
+    ComReferenceDiscovery, add_com_reference_candidate, add_scaffolded_module, cycle_output_type,
+    discover_com_reference_candidates, next_module_name,
+};
 use super::session::ProjectSession;
-use super::state::{FocusRegion, LowerSurfaceMode, ShellScene, ShellState, WidthClass};
+use super::state::{
+    ComReferenceHelperState, ComReferenceSearchMode, CursorPosition, FocusRegion, LowerSurfaceMode,
+    ShellScene, ShellState, WidthClass, WorkspaceProjectModuleKind, WorkspaceProjectState,
+};
 use super::view;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Msg {
     Quit,
     NextFocus,
-    LauncherPrev,
-    LauncherNext,
+    MoveEditorLeft,
+    MoveEditorRight,
+    MoveEditorUp,
+    MoveEditorDown,
+    InsertEditorChar(char),
+    InsertEditorNewline,
+    BackspaceEditorChar,
     OpenSelectedProject,
     RunProject,
+    AddProjectModule,
+    AddProjectClass,
+    OpenComReferenceHelper,
+    CloseOverlay,
+    CycleProjectTarget,
     FocusRegion(FocusRegion),
     NextEditorView,
     TogglePalette,
@@ -32,11 +50,20 @@ impl From<Event> for Msg {
         match event {
             Event::Key(key) if !is_actionable_key(key) => Msg::Noop,
             Event::Key(key) if is_quit_key(key) => Msg::Quit,
+            Event::Key(key) if matches!(key.code, KeyCode::Escape) => Msg::CloseOverlay,
             Event::Key(key) if is_open_project_key(key) => Msg::OpenSelectedProject,
             Event::Key(key) if matches!(key.code, KeyCode::F(5)) => Msg::RunProject,
             Event::Key(key) if is_toggle_palette_key(key) => Msg::TogglePalette,
-            Event::Key(key) if matches!(key.code, KeyCode::Up) => Msg::LauncherPrev,
-            Event::Key(key) if matches!(key.code, KeyCode::Down) => Msg::LauncherNext,
+            Event::Key(key) if is_add_project_module_key(key) => Msg::AddProjectModule,
+            Event::Key(key) if is_add_project_class_key(key) => Msg::AddProjectClass,
+            Event::Key(key) if is_open_com_reference_helper_key(key) => Msg::OpenComReferenceHelper,
+            Event::Key(key) if is_cycle_project_target_key(key) => Msg::CycleProjectTarget,
+            Event::Key(key) if matches!(key.code, KeyCode::Left) => Msg::MoveEditorLeft,
+            Event::Key(key) if matches!(key.code, KeyCode::Right) => Msg::MoveEditorRight,
+            Event::Key(key) if matches!(key.code, KeyCode::Up) => Msg::MoveEditorUp,
+            Event::Key(key) if matches!(key.code, KeyCode::Down) => Msg::MoveEditorDown,
+            Event::Key(key) if matches!(key.code, KeyCode::Enter) => Msg::InsertEditorNewline,
+            Event::Key(key) if matches!(key.code, KeyCode::Backspace) => Msg::BackspaceEditorChar,
             Event::Key(key) if is_focus_region_key(key, '1') => {
                 Msg::FocusRegion(FocusRegion::Explorer)
             }
@@ -60,6 +87,9 @@ impl From<Event> for Msg {
             Event::Key(key) if matches!(key.code, KeyCode::F(4)) => {
                 Msg::SetScene(ShellScene::Semantic)
             }
+            Event::Key(key) if editor_input_char(key).is_some() => {
+                Msg::InsertEditorChar(editor_input_char(key).expect("checked above"))
+            }
             Event::Resize { width, height } => Msg::Resized(width, height),
             _ => Msg::Noop,
         }
@@ -69,6 +99,7 @@ impl From<Event> for Msg {
 pub struct ShellModel {
     shell: ShellState,
     project_path: Option<PathBuf>,
+    com_reference_candidates: Vec<ComSelectionCandidate>,
 }
 
 impl ShellModel {
@@ -76,6 +107,7 @@ impl ShellModel {
         let mut model = Self {
             shell: ShellState::default(),
             project_path: None,
+            com_reference_candidates: Vec::new(),
         };
         model.shell.apply_scene(ShellScene::Empty);
         model.discover_recent_projects();
@@ -91,6 +123,10 @@ impl ShellModel {
 
     pub fn palette_active(&self) -> bool {
         self.shell.palette_active()
+    }
+
+    pub fn com_reference_helper_active(&self) -> bool {
+        self.shell.com_reference_helper_active()
     }
 
     pub fn scene(&self) -> ShellScene {
@@ -125,6 +161,22 @@ impl ShellModel {
         self.shell.runtime.width_class
     }
 
+    pub fn active_editor_cursor(&self) -> Option<CursorPosition> {
+        self.shell
+            .runtime
+            .workspace
+            .active_view()
+            .map(|view| view.surface.cursor)
+    }
+
+    pub fn active_editor_scroll_top(&self) -> Option<u16> {
+        self.shell
+            .runtime
+            .workspace
+            .active_view()
+            .map(|view| view.surface.scroll_top)
+    }
+
     pub fn explorer_title(&self) -> &'static str {
         match self.shell.scene {
             ShellScene::Empty => "Launcher",
@@ -144,6 +196,18 @@ impl ShellModel {
         match mode {
             LowerSurfaceMode::Launcher => String::from("Lower Surface Launcher"),
             _ => format!("Lower Surface {}", mode.label()),
+        }
+    }
+
+    pub fn overlay_active(&self) -> bool {
+        self.shell.overlay_active()
+    }
+
+    pub fn overlay_title(&self) -> &'static str {
+        match self.shell.scene {
+            ShellScene::Palette => "Palette",
+            ShellScene::ComReference => "COM Reference Helper",
+            _ => "",
         }
     }
 
@@ -175,6 +239,158 @@ impl ShellModel {
         );
         self.shell.set_execution(execution);
     }
+
+    fn open_com_reference_helper(&mut self) {
+        self.shell.open_com_reference_helper();
+        self.refresh_com_reference_helper();
+    }
+
+    fn apply_project_action(
+        &mut self,
+        action: impl FnOnce(&PathBuf, &WorkspaceProjectState) -> std::io::Result<()>,
+    ) {
+        if self
+            .shell
+            .runtime
+            .workspace
+            .buffers
+            .iter()
+            .any(|buffer| buffer.dirty)
+        {
+            return;
+        }
+
+        let Some(project_path) = self.project_path.clone() else {
+            return;
+        };
+        let Some(project) = self.shell.runtime.workspace.project.as_ref() else {
+            return;
+        };
+
+        if action(&project_path, project).is_ok() {
+            self.try_mount_workspace(project_path);
+        }
+    }
+
+    fn refresh_com_reference_helper(&mut self) {
+        let helper = self.shell.runtime.com_reference_helper.clone();
+        let Some(project_path) = self.project_path.clone() else {
+            self.com_reference_candidates.clear();
+            self.shell
+                .set_com_reference_helper(ComReferenceHelperState {
+                    status_lines: vec![String::from("Open a project before adding COM references")],
+                    ..helper
+                });
+            return;
+        };
+
+        match discover_com_reference_candidates(
+            &project_path,
+            helper.mode,
+            helper.query.as_str(),
+            helper.selection,
+        ) {
+            Ok(ComReferenceDiscovery { candidates, helper }) => {
+                self.com_reference_candidates = candidates;
+                self.shell.set_com_reference_helper(helper);
+            }
+            Err(error) => {
+                self.com_reference_candidates.clear();
+                self.shell
+                    .set_com_reference_helper(ComReferenceHelperState {
+                        status_lines: vec![error.to_string()],
+                        ..helper
+                    });
+            }
+        }
+    }
+
+    fn cycle_com_reference_mode(&mut self) {
+        let helper = &mut self.shell.runtime.com_reference_helper;
+        helper.mode = match helper.mode {
+            ComReferenceSearchMode::Search => ComReferenceSearchMode::File,
+            ComReferenceSearchMode::File => ComReferenceSearchMode::Search,
+        };
+        helper.selection = 0;
+        self.refresh_com_reference_helper();
+    }
+
+    fn move_com_reference_selection(&mut self, direction: i8) {
+        let helper = &mut self.shell.runtime.com_reference_helper;
+        if helper.candidates.is_empty() {
+            return;
+        }
+
+        let len = helper.candidates.len();
+        let index = helper.selection;
+        helper.selection = if direction >= 0 {
+            (index + 1) % len
+        } else if index == 0 {
+            len - 1
+        } else {
+            index - 1
+        };
+        self.refresh_com_reference_helper();
+    }
+
+    fn edit_com_reference_query(&mut self, ch: Option<char>, backspace: bool) {
+        let helper = &mut self.shell.runtime.com_reference_helper;
+        if backspace {
+            helper.query.pop();
+        } else if let Some(ch) = ch {
+            helper.query.push(ch);
+        }
+        helper.selection = 0;
+        self.refresh_com_reference_helper();
+    }
+
+    fn apply_selected_com_reference(&mut self) {
+        if self
+            .shell
+            .runtime
+            .workspace
+            .buffers
+            .iter()
+            .any(|buffer| buffer.dirty)
+        {
+            let mut helper = self.shell.runtime.com_reference_helper.clone();
+            helper.status_lines.push(String::from(
+                "Save or reload dirty buffers before mutating project references",
+            ));
+            self.shell.set_com_reference_helper(helper);
+            return;
+        }
+
+        let Some(project_path) = self.project_path.clone() else {
+            return;
+        };
+        let Some(candidate) = self
+            .com_reference_candidates
+            .get(self.shell.runtime.com_reference_helper.selection)
+            .cloned()
+        else {
+            return;
+        };
+
+        match add_com_reference_candidate(&project_path, &candidate) {
+            Ok(()) => {
+                self.shell.close_overlay();
+                self.try_mount_workspace(project_path);
+            }
+            Err(error) => {
+                let mut helper = self.shell.runtime.com_reference_helper.clone();
+                helper.status_lines.push(error.to_string());
+                self.shell.set_com_reference_helper(helper);
+            }
+        }
+    }
+
+    fn editor_accepts_input(&self) -> bool {
+        !matches!(
+            self.shell.scene,
+            ShellScene::Empty | ShellScene::Palette | ShellScene::ComReference
+        ) && self.shell.runtime.focus == FocusRegion::Editor
+    }
 }
 
 impl Model for ShellModel {
@@ -184,18 +400,66 @@ impl Model for ShellModel {
         match msg {
             Msg::Quit => Cmd::quit(),
             Msg::NextFocus => {
-                self.shell.cycle_focus();
-                Cmd::none()
-            }
-            Msg::LauncherPrev => {
-                if self.shell.scene == ShellScene::Empty {
-                    self.shell.cycle_launcher_selection(-1);
+                if self.com_reference_helper_active() {
+                    self.cycle_com_reference_mode();
+                } else {
+                    self.shell.cycle_focus();
                 }
                 Cmd::none()
             }
-            Msg::LauncherNext => {
+            Msg::MoveEditorLeft => {
+                if self.editor_accepts_input() {
+                    self.shell.move_editor_cursor_left();
+                }
+                Cmd::none()
+            }
+            Msg::MoveEditorRight => {
+                if self.editor_accepts_input() {
+                    self.shell.move_editor_cursor_right();
+                }
+                Cmd::none()
+            }
+            Msg::MoveEditorUp => {
+                if self.shell.scene == ShellScene::Empty {
+                    self.shell.cycle_launcher_selection(-1);
+                } else if self.com_reference_helper_active() {
+                    self.move_com_reference_selection(-1);
+                } else if self.editor_accepts_input() {
+                    self.shell.move_editor_cursor_up();
+                }
+                Cmd::none()
+            }
+            Msg::MoveEditorDown => {
                 if self.shell.scene == ShellScene::Empty {
                     self.shell.cycle_launcher_selection(1);
+                } else if self.com_reference_helper_active() {
+                    self.move_com_reference_selection(1);
+                } else if self.editor_accepts_input() {
+                    self.shell.move_editor_cursor_down();
+                }
+                Cmd::none()
+            }
+            Msg::InsertEditorChar(ch) => {
+                if self.com_reference_helper_active() {
+                    self.edit_com_reference_query(Some(ch), false);
+                } else if self.editor_accepts_input() {
+                    self.shell.insert_editor_char(ch);
+                }
+                Cmd::none()
+            }
+            Msg::InsertEditorNewline => {
+                if self.com_reference_helper_active() {
+                    self.apply_selected_com_reference();
+                } else if self.editor_accepts_input() {
+                    self.shell.insert_editor_newline();
+                }
+                Cmd::none()
+            }
+            Msg::BackspaceEditorChar => {
+                if self.com_reference_helper_active() {
+                    self.edit_com_reference_query(None, true);
+                } else if self.editor_accepts_input() {
+                    self.shell.backspace_editor_char();
                 }
                 Cmd::none()
             }
@@ -207,6 +471,43 @@ impl Model for ShellModel {
             }
             Msg::RunProject => {
                 self.run_project();
+                Cmd::none()
+            }
+            Msg::OpenComReferenceHelper => {
+                self.open_com_reference_helper();
+                Cmd::none()
+            }
+            Msg::CloseOverlay => {
+                self.shell.close_overlay();
+                Cmd::none()
+            }
+            Msg::AddProjectModule => {
+                self.apply_project_action(|project_path, project| {
+                    let logical_name =
+                        next_module_name(project, WorkspaceProjectModuleKind::Module);
+                    add_scaffolded_module(
+                        project_path,
+                        WorkspaceProjectModuleKind::Module,
+                        logical_name.as_str(),
+                    )
+                });
+                Cmd::none()
+            }
+            Msg::AddProjectClass => {
+                self.apply_project_action(|project_path, project| {
+                    let logical_name = next_module_name(project, WorkspaceProjectModuleKind::Class);
+                    add_scaffolded_module(
+                        project_path,
+                        WorkspaceProjectModuleKind::Class,
+                        logical_name.as_str(),
+                    )
+                });
+                Cmd::none()
+            }
+            Msg::CycleProjectTarget => {
+                self.apply_project_action(|project_path, _| {
+                    cycle_output_type(project_path).map(|_| ())
+                });
                 Cmd::none()
             }
             Msg::FocusRegion(region) => {
@@ -251,6 +552,22 @@ fn is_toggle_palette_key(key: KeyEvent) -> bool {
     matches!(key.code, KeyCode::F(6))
 }
 
+fn is_add_project_module_key(key: KeyEvent) -> bool {
+    key.is_char('m') && key.modifiers.contains(Modifiers::CTRL | Modifiers::SHIFT)
+}
+
+fn is_add_project_class_key(key: KeyEvent) -> bool {
+    key.is_char('c') && key.modifiers.contains(Modifiers::CTRL | Modifiers::SHIFT)
+}
+
+fn is_open_com_reference_helper_key(key: KeyEvent) -> bool {
+    key.is_char('r') && key.modifiers.contains(Modifiers::CTRL | Modifiers::SHIFT)
+}
+
+fn is_cycle_project_target_key(key: KeyEvent) -> bool {
+    key.is_char('t') && key.modifiers.contains(Modifiers::CTRL | Modifiers::SHIFT)
+}
+
 fn is_focus_region_key(key: KeyEvent, digit: char) -> bool {
     matches!(key.code, KeyCode::Char(value) if value == digit)
         && key.modifiers.contains(Modifiers::ALT)
@@ -258,6 +575,17 @@ fn is_focus_region_key(key: KeyEvent, digit: char) -> bool {
 
 fn is_cycle_editor_view_key(key: KeyEvent) -> bool {
     matches!(key.code, KeyCode::Tab) && key.modifiers.contains(Modifiers::CTRL)
+}
+
+fn editor_input_char(key: KeyEvent) -> Option<char> {
+    if key.modifiers.contains(Modifiers::CTRL) || key.modifiers.contains(Modifiers::ALT) {
+        return None;
+    }
+
+    match key.code {
+        KeyCode::Char(ch) => Some(ch),
+        _ => None,
+    }
 }
 
 fn is_actionable_key(key: KeyEvent) -> bool {
@@ -313,6 +641,28 @@ mod tests {
     }
 
     #[test]
+    fn maps_ctrl_shift_m_to_add_project_module() {
+        let msg = Msg::from(Event::Key(
+            KeyEvent::new(KeyCode::Char('m')).with_modifiers(Modifiers::CTRL | Modifiers::SHIFT),
+        ));
+        assert_eq!(msg, Msg::AddProjectModule);
+    }
+
+    #[test]
+    fn maps_ctrl_shift_r_to_open_com_reference_helper() {
+        let msg = Msg::from(Event::Key(
+            KeyEvent::new(KeyCode::Char('r')).with_modifiers(Modifiers::CTRL | Modifiers::SHIFT),
+        ));
+        assert_eq!(msg, Msg::OpenComReferenceHelper);
+    }
+
+    #[test]
+    fn maps_plain_char_to_editor_input() {
+        let msg = Msg::from(Event::Key(KeyEvent::new(KeyCode::Char('x'))));
+        assert_eq!(msg, Msg::InsertEditorChar('x'));
+    }
+
+    #[test]
     fn starts_in_empty_scene_without_startup_project() {
         let model = ShellModel::new(None);
 
@@ -353,5 +703,107 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("project run completed"))
         );
+    }
+
+    #[test]
+    fn editor_input_mutates_the_active_buffer_when_editor_is_focused() {
+        let mut model = ShellModel::new(Some(PathBuf::from(
+            "examples/thin-slice/ThinSliceHello.basproj",
+        )));
+        model.shell.focus_region(FocusRegion::Editor);
+
+        model.update(Msg::InsertEditorChar('X'));
+
+        let buffer = model
+            .shell
+            .runtime
+            .workspace
+            .active_buffer()
+            .expect("buffer");
+        assert!(buffer.dirty);
+        assert!(buffer.lines[0].contains('X'));
+    }
+
+    #[test]
+    fn add_project_module_reloads_workspace_with_new_module() {
+        let fixture = seed_project_fixture("model-add-module");
+        let mut model = ShellModel::new(Some(fixture));
+
+        model.update(Msg::AddProjectModule);
+
+        assert!(
+            model
+                .shell
+                .runtime
+                .workspace
+                .project
+                .as_ref()
+                .is_some_and(|project| project
+                    .modules
+                    .iter()
+                    .any(|module| module.include == "Module2.bas"))
+        );
+    }
+
+    #[test]
+    fn cycle_project_target_reloads_workspace_with_new_output_type() {
+        let fixture = seed_project_fixture("model-cycle-target");
+        let mut model = ShellModel::new(Some(fixture));
+
+        model.update(Msg::CycleProjectTarget);
+
+        assert_eq!(model.shell.runtime.workspace.target_name, "Library");
+    }
+
+    #[test]
+    fn com_reference_helper_opens_and_discovers_prog_id_candidate() {
+        let fixture = seed_project_fixture("model-com-helper");
+        let mut model = ShellModel::new(Some(fixture));
+
+        model.update(Msg::OpenComReferenceHelper);
+        for ch in "OxVba.TestDispatch".chars() {
+            model.update(Msg::InsertEditorChar(ch));
+        }
+
+        assert!(model.com_reference_helper_active());
+        assert!(
+            model
+                .shell
+                .runtime
+                .com_reference_helper
+                .candidates
+                .iter()
+                .any(|candidate| candidate.title == "OxVba.TestDispatch")
+        );
+    }
+
+    fn seed_project_fixture(name: &str) -> PathBuf {
+        let root = PathBuf::from("target")
+            .join("test-workspaces")
+            .join("model")
+            .join(name);
+        std::fs::create_dir_all(&root).unwrap();
+        let basproj = root.join("FixtureApp.basproj");
+        std::fs::write(
+            &basproj,
+            r#"<Project Sdk="OxVba.Sdk/0.1.0">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <ProjectName>FixtureApp</ProjectName>
+    <EntryPoint>Module1.Main</EntryPoint>
+  </PropertyGroup>
+  <ItemGroup>
+    <Module Include="Module1.bas" />
+  </ItemGroup>
+</Project>
+"#,
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("Module1.bas"),
+            "Option Explicit\n\nPublic Sub Main()\nEnd Sub\n",
+        )
+        .unwrap();
+        basproj
     }
 }

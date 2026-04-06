@@ -2,10 +2,17 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use oxvba_project::{
+    BasProjModuleKind, HostProjectModuleInfo, HostProjectReferenceInfo, HostProjectReferenceKind,
+    HostProjectSurface, HostWorkspaceTargetKind, inspect_workspace_target, load_basproj,
+};
+
 use super::oxvba::{load_execution_state, load_semantic_state};
 use super::state::{
     BufferId, BufferKind, BufferState, CursorPosition, EditorSurfaceState, ExecutionState,
-    LayoutPreset, ViewId, ViewKind, ViewState, WorkspaceLayoutState, WorkspaceState,
+    LayoutPreset, ViewId, ViewKind, ViewState, WorkspaceLayoutState, WorkspaceProjectModuleKind,
+    WorkspaceProjectModuleState, WorkspaceProjectReferenceKind, WorkspaceProjectReferenceState,
+    WorkspaceProjectState, WorkspaceProjectTargetKind, WorkspaceState,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -14,6 +21,7 @@ pub struct ProjectSession {
     pub project_name: String,
     pub target_name: String,
     pub entry_point: String,
+    pub project: WorkspaceProjectState,
     pub documents: Vec<DocumentSession>,
 }
 
@@ -29,21 +37,20 @@ pub struct DocumentSession {
 impl ProjectSession {
     pub fn load(project_path: impl AsRef<Path>) -> io::Result<Self> {
         let project_path = project_path.as_ref().to_path_buf();
-        let project_text = fs::read_to_string(&project_path)?;
-        let project_name = project_property(&project_text, "ProjectName")
-            .unwrap_or_else(|| fallback_project_name(&project_path));
-        let target_name =
-            project_property(&project_text, "OutputType").unwrap_or_else(|| String::from("Exe"));
-        let entry_point = project_property(&project_text, "EntryPoint")
+        let surface = inspect_workspace_target(&project_path)
+            .map_err(|source| io::Error::other(source.to_string()))?;
+        let loaded =
+            load_basproj(&project_path).map_err(|source| io::Error::other(source.to_string()))?;
+        let project_name = surface.project_name.clone();
+        let target_name = output_type_label(surface.output_type);
+        let entry_point = loaded
+            .entry_point
             .unwrap_or_else(|| String::from("Main.Main"));
 
-        let project_dir = project_path.parent().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::InvalidInput, "project path has no parent")
-        })?;
-
-        let mut documents = module_includes(&project_text)
-            .into_iter()
-            .map(|relative_path| DocumentSession::load(project_dir.join(relative_path)))
+        let mut documents = surface
+            .modules
+            .iter()
+            .map(DocumentSession::load_from_module)
             .collect::<io::Result<Vec<_>>>()?;
 
         documents.sort_by(|left, right| left.title.cmp(&right.title));
@@ -53,6 +60,7 @@ impl ProjectSession {
             project_name,
             target_name,
             entry_point,
+            project: map_project_surface(surface),
             documents,
         })
     }
@@ -88,6 +96,7 @@ impl ProjectSession {
         WorkspaceState {
             project_name: Some(self.project_name.clone()),
             target_name: self.target_name.clone(),
+            project: Some(self.project.clone()),
             recent_buffers: buffers.iter().map(|buffer| buffer.id).collect(),
             views: vec![ViewState {
                 id: ViewId(1),
@@ -142,34 +151,12 @@ impl DocumentSession {
             title,
         })
     }
-}
 
-fn project_property(project_text: &str, property_name: &str) -> Option<String> {
-    let open = format!("<{property_name}>");
-    let close = format!("</{property_name}>");
-    let start = project_text.find(&open)? + open.len();
-    let end = project_text[start..].find(&close)? + start;
-    Some(project_text[start..end].trim().to_string())
-}
-
-fn module_includes(project_text: &str) -> Vec<String> {
-    project_text
-        .lines()
-        .filter_map(|line| {
-            let include_key = "Include=\"";
-            let start = line.find(include_key)? + include_key.len();
-            let end = line[start..].find('"')? + start;
-            Some(line[start..end].to_string())
-        })
-        .collect()
-}
-
-fn fallback_project_name(project_path: &Path) -> String {
-    project_path
-        .file_stem()
-        .and_then(|stem| stem.to_str())
-        .map(String::from)
-        .unwrap_or_else(|| String::from("OxIde Project"))
+    fn load_from_module(module: &HostProjectModuleInfo) -> io::Result<Self> {
+        let mut document = Self::load(module.source_path.clone())?;
+        document.kind = buffer_kind_for_module_kind(module.kind);
+        Ok(document)
+    }
 }
 
 fn buffer_kind_for_path(path: &Path) -> BufferKind {
@@ -177,6 +164,83 @@ fn buffer_kind_for_path(path: &Path) -> BufferKind {
         Some("cls") => BufferKind::Class,
         Some("bas") => BufferKind::Source,
         _ => BufferKind::Source,
+    }
+}
+
+fn buffer_kind_for_module_kind(kind: BasProjModuleKind) -> BufferKind {
+    match kind {
+        BasProjModuleKind::Module => BufferKind::Source,
+        BasProjModuleKind::ClassModule | BasProjModuleKind::DocumentModule => BufferKind::Class,
+    }
+}
+
+fn map_project_surface(surface: HostProjectSurface) -> WorkspaceProjectState {
+    WorkspaceProjectState {
+        workspace_kind: map_workspace_target_kind(surface.workspace_kind),
+        workspace_target: surface.workspace_target,
+        project_file: surface.project_file,
+        project_dir: surface.project_dir,
+        output_type: output_type_label(surface.output_type),
+        modules: surface
+            .modules
+            .into_iter()
+            .map(map_project_module)
+            .collect(),
+        references: surface
+            .references
+            .into_iter()
+            .map(map_project_reference)
+            .collect(),
+    }
+}
+
+fn map_workspace_target_kind(kind: HostWorkspaceTargetKind) -> WorkspaceProjectTargetKind {
+    match kind {
+        HostWorkspaceTargetKind::BasProj => WorkspaceProjectTargetKind::BasProj,
+        HostWorkspaceTargetKind::Vbp => WorkspaceProjectTargetKind::Vbp,
+        HostWorkspaceTargetKind::ConventionDirectory => {
+            WorkspaceProjectTargetKind::ConventionDirectory
+        }
+    }
+}
+
+fn map_project_module(module: HostProjectModuleInfo) -> WorkspaceProjectModuleState {
+    WorkspaceProjectModuleState {
+        kind: match module.kind {
+            BasProjModuleKind::Module => WorkspaceProjectModuleKind::Module,
+            BasProjModuleKind::ClassModule => WorkspaceProjectModuleKind::Class,
+            BasProjModuleKind::DocumentModule => WorkspaceProjectModuleKind::Document,
+        },
+        include: module.include,
+        source_path: module.source_path,
+        logical_name: module.identity.effective_name,
+        declared_name: module.identity.declared_vb_name,
+    }
+}
+
+fn map_project_reference(reference: HostProjectReferenceInfo) -> WorkspaceProjectReferenceState {
+    WorkspaceProjectReferenceState {
+        kind: match reference.kind {
+            HostProjectReferenceKind::Project => WorkspaceProjectReferenceKind::Project,
+            HostProjectReferenceKind::Com => WorkspaceProjectReferenceKind::Com,
+            HostProjectReferenceKind::Native => WorkspaceProjectReferenceKind::Native,
+        },
+        include: reference.include,
+        referenced_project_name: reference.referenced_project_name,
+        path: reference.path,
+        guid: reference.guid,
+        import_lib: reference.import_lib,
+    }
+}
+
+fn output_type_label(output_type: oxvba_project::OutputType) -> String {
+    match output_type {
+        oxvba_project::OutputType::HostModule => String::from("HostModule"),
+        oxvba_project::OutputType::Library => String::from("Library"),
+        oxvba_project::OutputType::Exe => String::from("Exe"),
+        oxvba_project::OutputType::Addin => String::from("Addin"),
+        oxvba_project::OutputType::ComServer => String::from("ComServer"),
+        oxvba_project::OutputType::ComExe => String::from("ComExe"),
     }
 }
 
@@ -234,6 +298,27 @@ mod tests {
 
         assert_eq!(workspace.project_name.as_deref(), Some("ThinSliceHello"));
         assert_eq!(workspace.target_name, "Exe");
+        assert_eq!(
+            workspace
+                .project
+                .as_ref()
+                .map(|project| project.workspace_kind),
+            Some(WorkspaceProjectTargetKind::BasProj)
+        );
+        assert_eq!(
+            workspace
+                .project
+                .as_ref()
+                .map(|project| project.modules.len()),
+            Some(1)
+        );
+        assert_eq!(
+            workspace
+                .project
+                .as_ref()
+                .map(|project| project.modules[0].include.as_str()),
+            Some("Module1.bas")
+        );
         assert_eq!(workspace.buffers.len(), 1);
         assert_eq!(workspace.buffers[0].title, "Module1.bas");
         assert!(workspace.semantic.is_some());

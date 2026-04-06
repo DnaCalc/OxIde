@@ -59,7 +59,7 @@ The repo is aligned around these decisions:
 - `FrankenTui` editor path behind an `OxIde`-owned editor seam
 - direct OxVba host integration for project and semantic workflows
 - `OxVba` treated as the project/language-service/build/runtime substrate
-- current runtime service integration links directly against the sibling `../OxVba` workspace crates
+- current runtime service integration links against a local frozen OxVba workspace mirror at `.external/oxvba-frozen`
 
 Planned `OxVba` target surface in scope:
 
@@ -109,7 +109,7 @@ cargo test
 ```
 
 Important note:
-- full `cargo test` also depends on the state of the sibling `OxVba` workspace
+- full `cargo test` depends on the local frozen OxVba mirror being present at `.external/oxvba-frozen`
 
 ## Current Direction
 

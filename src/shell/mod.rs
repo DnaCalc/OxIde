@@ -1,6 +1,7 @@
 mod mock_data;
 mod model;
 mod oxvba;
+mod project_actions;
 mod session;
 mod state;
 mod theme;

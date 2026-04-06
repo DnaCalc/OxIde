@@ -28,12 +28,20 @@ The current ordered workset sequence is:
 1. `W010` - shell mockup scaffold and design proof in FrankenTui
 2. `W020` - runtime shell foundation on top of the proven mockup
 3. `W030` - project/document/OxVba service integration into the new shell
+4. `W040` - project and workspace management shell over OxVba-owned truth
+5. `W050` - file and document lifecycle services in the TUI shell
+6. `W060` - full language-service UX over direct OxVba semantics
+7. `W070` - run/debug/immediate shell surfaces over OxVba execution contracts
 
 ## 4. Active Worksets
 
 1. [W010_shell_mockup_scaffold.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W010_shell_mockup_scaffold.md)
 2. [W020_runtime_shell_foundation.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W020_runtime_shell_foundation.md)
 3. [W030_service_integration.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W030_service_integration.md)
+4. [W040_project_workspace_management.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W040_project_workspace_management.md)
+5. [W050_file_document_services.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W050_file_document_services.md)
+6. [W060_full_language_service_ux.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W060_full_language_service_ux.md)
+7. [W070_run_debug_immediate_surfaces.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W070_run_debug_immediate_surfaces.md)
 ## 5. Use Rule
 Use this document as:
 1. the repo-local workset authority,

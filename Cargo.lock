@@ -725,14 +725,16 @@ name = "ox-ide"
 version = "0.1.0"
 dependencies = [
  "ftui",
+ "oxvba-com",
  "oxvba-languageservice",
+ "oxvba-project",
  "oxvba-web-host",
  "oxvba-web-shell",
 ]
 
 [[package]]
 name = "oxvba-com"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "libc",
  "libffi",
@@ -743,7 +745,7 @@ dependencies = [
 
 [[package]]
 name = "oxvba-compiler"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "oxvba-com",
  "oxvba-ir",
@@ -755,7 +757,7 @@ dependencies = [
 
 [[package]]
 name = "oxvba-hal"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "oxvba-com",
  "oxvba-runtime",
@@ -767,7 +769,7 @@ dependencies = [
 
 [[package]]
 name = "oxvba-host"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "oxvba-com",
  "oxvba-compiler",
@@ -780,7 +782,7 @@ dependencies = [
 
 [[package]]
 name = "oxvba-ir"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "oxvba-runtime",
  "oxvba-syntax",
@@ -789,7 +791,7 @@ dependencies = [
 
 [[package]]
 name = "oxvba-jit"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "cranelift-codegen",
  "cranelift-frontend",
@@ -806,7 +808,7 @@ dependencies = [
 
 [[package]]
 name = "oxvba-languageservice"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "oxvba-compiler",
  "oxvba-host",
@@ -816,7 +818,7 @@ dependencies = [
 
 [[package]]
 name = "oxvba-project"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "oxvba-com",
  "oxvba-compiler",
@@ -827,7 +829,7 @@ dependencies = [
 
 [[package]]
 name = "oxvba-runtime"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "rkyv",
  "serde",
@@ -837,14 +839,14 @@ dependencies = [
 
 [[package]]
 name = "oxvba-syntax"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "oxvba-vm"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "oxvba-com",
  "oxvba-compiler",
@@ -855,7 +857,7 @@ dependencies = [
 
 [[package]]
 name = "oxvba-web-host"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "oxvba-host",
  "oxvba-languageservice",
@@ -867,7 +869,7 @@ dependencies = [
 
 [[package]]
 name = "oxvba-web-shell"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "oxvba-host",
  "oxvba-languageservice",

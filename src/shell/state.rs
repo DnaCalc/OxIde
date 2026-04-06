@@ -7,6 +7,7 @@ pub enum ShellScene {
     Semantic,
     BuildRun,
     Palette,
+    ComReference,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -209,10 +210,92 @@ pub struct WorkspaceLayoutState {
     pub active_view: ViewId,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkspaceProjectTargetKind {
+    BasProj,
+    Vbp,
+    ConventionDirectory,
+}
+
+impl WorkspaceProjectTargetKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::BasProj => "BasProj",
+            Self::Vbp => "Vbp",
+            Self::ConventionDirectory => "Convention",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkspaceProjectModuleKind {
+    Module,
+    Class,
+    Document,
+}
+
+impl WorkspaceProjectModuleKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Module => "Module",
+            Self::Class => "Class",
+            Self::Document => "Document",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceProjectModuleState {
+    pub kind: WorkspaceProjectModuleKind,
+    pub include: String,
+    pub source_path: PathBuf,
+    pub logical_name: String,
+    pub declared_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkspaceProjectReferenceKind {
+    Project,
+    Com,
+    Native,
+}
+
+impl WorkspaceProjectReferenceKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Project => "Project",
+            Self::Com => "COM",
+            Self::Native => "Native",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceProjectReferenceState {
+    pub kind: WorkspaceProjectReferenceKind,
+    pub include: String,
+    pub referenced_project_name: Option<String>,
+    pub path: Option<String>,
+    pub guid: Option<String>,
+    pub import_lib: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceProjectState {
+    pub workspace_kind: WorkspaceProjectTargetKind,
+    pub workspace_target: PathBuf,
+    pub project_file: Option<PathBuf>,
+    pub project_dir: PathBuf,
+    pub output_type: String,
+    pub modules: Vec<WorkspaceProjectModuleState>,
+    pub references: Vec<WorkspaceProjectReferenceState>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkspaceState {
     pub project_name: Option<String>,
     pub target_name: String,
+    pub project: Option<WorkspaceProjectState>,
     pub buffers: Vec<BufferState>,
     pub recent_buffers: Vec<BufferId>,
     pub views: Vec<ViewState>,
@@ -235,6 +318,11 @@ impl WorkspaceState {
             .find(|view| view.id == self.layout.active_view)
     }
 
+    fn active_view_mut(&mut self) -> Option<&mut ViewState> {
+        let active_view = self.layout.active_view;
+        self.views.iter_mut().find(|view| view.id == active_view)
+    }
+
     pub fn visible_views(&self) -> Vec<&ViewState> {
         self.layout
             .visible_views
@@ -250,6 +338,10 @@ impl WorkspaceState {
     pub fn active_buffer(&self) -> Option<&BufferState> {
         self.active_view()
             .and_then(|view| self.buffer(view.buffer_id))
+    }
+
+    fn buffer_mut(&mut self, id: BufferId) -> Option<&mut BufferState> {
+        self.buffers.iter_mut().find(|buffer| buffer.id == id)
     }
 
     pub fn open_buffer_count(&self) -> usize {
@@ -287,6 +379,264 @@ impl WorkspaceState {
         self.layout.active_view =
             self.layout.visible_views[(index + 1) % self.layout.visible_views.len()];
     }
+
+    pub fn move_cursor_left(&mut self) {
+        let Some(buffer_id) = self.active_view().map(|view| view.buffer_id) else {
+            return;
+        };
+        let cursor = self
+            .active_view()
+            .map(|view| view.surface.cursor)
+            .unwrap_or(CursorPosition::new(1, 1));
+
+        if cursor.column > 1 {
+            if let Some(view) = self.active_view_mut() {
+                view.surface.cursor.column -= 1;
+            }
+            return;
+        }
+
+        if cursor.line <= 1 {
+            return;
+        }
+
+        let previous_line = cursor.line - 1;
+        let previous_line_len = self
+            .buffer(buffer_id)
+            .and_then(|buffer| {
+                buffer
+                    .lines
+                    .get(usize::from(previous_line.saturating_sub(1)))
+                    .map(|line| line.chars().count())
+            })
+            .unwrap_or(0);
+
+        if let Some(view) = self.active_view_mut() {
+            view.surface.cursor.line = previous_line;
+            view.surface.cursor.column = saturating_editor_column(previous_line_len);
+        }
+    }
+
+    pub fn move_cursor_right(&mut self) {
+        let Some(buffer_id) = self.active_view().map(|view| view.buffer_id) else {
+            return;
+        };
+        let current = self
+            .active_view()
+            .map(|view| view.surface.cursor)
+            .unwrap_or(CursorPosition::new(1, 1));
+        let line_len = self
+            .buffer(buffer_id)
+            .and_then(|buffer| {
+                buffer
+                    .lines
+                    .get(usize::from(current.line.saturating_sub(1)))
+                    .map(|line| line.chars().count())
+            })
+            .unwrap_or(0);
+        let max_column = saturating_editor_column(line_len);
+        if current.column < max_column {
+            if let Some(view) = self.active_view_mut() {
+                view.surface.cursor.column += 1;
+            }
+            return;
+        }
+
+        let total_lines = self
+            .buffer(buffer_id)
+            .map(|buffer| buffer.lines.len())
+            .unwrap_or(0);
+        if usize::from(current.line) >= total_lines {
+            return;
+        }
+
+        if let Some(view) = self.active_view_mut() {
+            view.surface.cursor.line += 1;
+            view.surface.cursor.column = 1;
+        }
+    }
+
+    pub fn move_cursor_up(&mut self) {
+        let Some(buffer_id) = self.active_view().map(|view| view.buffer_id) else {
+            return;
+        };
+        let cursor = self
+            .active_view()
+            .map(|view| view.surface.cursor)
+            .unwrap_or(CursorPosition::new(1, 1));
+
+        if cursor.line <= 1 {
+            return;
+        }
+
+        let target_line = cursor.line - 1;
+        let target_line_len = self
+            .buffer(buffer_id)
+            .and_then(|buffer| {
+                buffer
+                    .lines
+                    .get(usize::from(target_line.saturating_sub(1)))
+                    .map(|line| line.chars().count())
+            })
+            .unwrap_or(0);
+
+        if let Some(view) = self.active_view_mut() {
+            view.surface.cursor.line = target_line;
+            view.surface.cursor.column =
+                cursor.column.min(saturating_editor_column(target_line_len));
+        }
+    }
+
+    pub fn move_cursor_down(&mut self) {
+        let Some(buffer_id) = self.active_view().map(|view| view.buffer_id) else {
+            return;
+        };
+        let cursor = self
+            .active_view()
+            .map(|view| view.surface.cursor)
+            .unwrap_or(CursorPosition::new(1, 1));
+        let total_lines = self
+            .buffer(buffer_id)
+            .map(|buffer| buffer.lines.len())
+            .unwrap_or(0);
+        if usize::from(cursor.line) >= total_lines {
+            return;
+        }
+
+        let target_line = cursor.line + 1;
+        let target_line_len = self
+            .buffer(buffer_id)
+            .and_then(|buffer| {
+                buffer
+                    .lines
+                    .get(usize::from(target_line.saturating_sub(1)))
+                    .map(|line| line.chars().count())
+            })
+            .unwrap_or(0);
+
+        if let Some(view) = self.active_view_mut() {
+            view.surface.cursor.line = target_line;
+            view.surface.cursor.column =
+                cursor.column.min(saturating_editor_column(target_line_len));
+        }
+    }
+
+    pub fn insert_char(&mut self, ch: char) {
+        let Some(buffer_id) = self.active_view().map(|view| view.buffer_id) else {
+            return;
+        };
+        let cursor = self
+            .active_view()
+            .map(|view| view.surface.cursor)
+            .unwrap_or(CursorPosition::new(1, 1));
+
+        if let Some(buffer) = self.buffer_mut(buffer_id) {
+            ensure_buffer_line(buffer, cursor.line);
+            let line_index = usize::from(cursor.line.saturating_sub(1));
+            let column_index = column_to_byte_index(&buffer.lines[line_index], cursor.column);
+            buffer.lines[line_index].insert(column_index, ch);
+            buffer.dirty = true;
+        }
+
+        if let Some(view) = self.active_view_mut() {
+            view.surface.cursor.column += 1;
+        }
+        self.semantic = None;
+    }
+
+    pub fn insert_newline(&mut self) {
+        let Some(buffer_id) = self.active_view().map(|view| view.buffer_id) else {
+            return;
+        };
+        let cursor = self
+            .active_view()
+            .map(|view| view.surface.cursor)
+            .unwrap_or(CursorPosition::new(1, 1));
+
+        if let Some(buffer) = self.buffer_mut(buffer_id) {
+            ensure_buffer_line(buffer, cursor.line);
+            let line_index = usize::from(cursor.line.saturating_sub(1));
+            let column_index = column_to_byte_index(&buffer.lines[line_index], cursor.column);
+            let remainder = buffer.lines[line_index].split_off(column_index);
+            buffer.lines.insert(line_index + 1, remainder);
+            buffer.dirty = true;
+        }
+
+        if let Some(view) = self.active_view_mut() {
+            view.surface.cursor.line += 1;
+            view.surface.cursor.column = 1;
+        }
+        self.semantic = None;
+    }
+
+    pub fn backspace(&mut self) {
+        let Some(buffer_id) = self.active_view().map(|view| view.buffer_id) else {
+            return;
+        };
+        let cursor = self
+            .active_view()
+            .map(|view| view.surface.cursor)
+            .unwrap_or(CursorPosition::new(1, 1));
+
+        if cursor.column > 1 {
+            if let Some(buffer) = self.buffer_mut(buffer_id) {
+                ensure_buffer_line(buffer, cursor.line);
+                let line_index = usize::from(cursor.line.saturating_sub(1));
+                let start = column_to_byte_index(
+                    &buffer.lines[line_index],
+                    CursorPosition::new(cursor.line, cursor.column - 1).column,
+                );
+                let end = column_to_byte_index(&buffer.lines[line_index], cursor.column);
+                buffer.lines[line_index].replace_range(start..end, "");
+                buffer.dirty = true;
+            }
+            if let Some(view) = self.active_view_mut() {
+                view.surface.cursor.column -= 1;
+            }
+            self.semantic = None;
+            return;
+        }
+
+        if cursor.line <= 1 {
+            return;
+        }
+
+        if let Some(buffer) = self.buffer_mut(buffer_id) {
+            let line_index = usize::from(cursor.line.saturating_sub(1));
+            if line_index >= buffer.lines.len() {
+                return;
+            }
+            let removed = buffer.lines.remove(line_index);
+            let previous_len = buffer.lines[line_index - 1].chars().count();
+            buffer.lines[line_index - 1].push_str(&removed);
+            buffer.dirty = true;
+
+            if let Some(view) = self.active_view_mut() {
+                view.surface.cursor.line -= 1;
+                view.surface.cursor.column = saturating_editor_column(previous_len);
+            }
+        }
+        self.semantic = None;
+    }
+}
+
+fn ensure_buffer_line(buffer: &mut BufferState, line: u16) {
+    let index = usize::from(line.saturating_sub(1));
+    while buffer.lines.len() <= index {
+        buffer.lines.push(String::new());
+    }
+}
+
+fn column_to_byte_index(line: &str, column: u16) -> usize {
+    let char_index = usize::from(column.saturating_sub(1));
+    line.char_indices()
+        .nth(char_index)
+        .map(|(index, _)| index)
+        .unwrap_or(line.len())
+}
+
+fn saturating_editor_column(char_len: usize) -> u16 {
+    u16::try_from(char_len.saturating_add(1)).unwrap_or(u16::MAX)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -319,6 +669,52 @@ pub struct PaletteContentState {
     pub filter_hint: &'static str,
     pub commands: Vec<PaletteCommandState>,
     pub state_commands: Vec<PaletteCommandState>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComReferenceSearchMode {
+    Search,
+    File,
+}
+
+impl ComReferenceSearchMode {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Search => "Search",
+            Self::File => "File",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ComReferenceCandidateState {
+    pub title: String,
+    pub detail_lines: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ComReferenceHelperState {
+    pub mode: ComReferenceSearchMode,
+    pub query: String,
+    pub selection: usize,
+    pub candidates: Vec<ComReferenceCandidateState>,
+    pub active_reference_lines: Vec<String>,
+    pub status_lines: Vec<String>,
+}
+
+impl Default for ComReferenceHelperState {
+    fn default() -> Self {
+        Self {
+            mode: ComReferenceSearchMode::Search,
+            query: String::new(),
+            selection: 0,
+            candidates: Vec::new(),
+            active_reference_lines: Vec::new(),
+            status_lines: vec![String::from(
+                "Type an exact library name or ProgID; file mode accepts absolute .tlb/.dll/.xll paths",
+            )],
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -380,7 +776,8 @@ impl ShellLayoutPolicy {
             explorer_width_percent,
             editor_width_percent,
             lower_surface_height,
-            inspector_collapsed: width_class == WidthClass::Narrow && scene != ShellScene::Palette,
+            inspector_collapsed: width_class == WidthClass::Narrow
+                && !matches!(scene, ShellScene::Palette | ShellScene::ComReference),
             shows_lower_surface,
         }
     }
@@ -400,6 +797,7 @@ pub struct ShellRuntimeState {
     pub recent_projects: Vec<PathBuf>,
     pub launcher_selection: usize,
     pub content: ShellContentState,
+    pub com_reference_helper: ComReferenceHelperState,
     pub previous_focus: FocusRegion,
     pub previous_scene: ShellScene,
 }
@@ -431,6 +829,7 @@ impl Default for ShellState {
                 recent_projects: Vec::new(),
                 launcher_selection: 0,
                 content: content_for_scene(scene, &workspace, &execution, &[], 0),
+                com_reference_helper: ComReferenceHelperState::default(),
                 previous_focus: FocusRegion::Editor,
                 previous_scene: scene,
             },
@@ -450,7 +849,7 @@ impl ShellState {
             (_, None) => workspace_for_scene(scene),
         };
         self.refresh_content();
-        if scene != ShellScene::Palette {
+        if !matches!(scene, ShellScene::Palette | ShellScene::ComReference) {
             self.runtime.previous_scene = scene;
         }
         match scene {
@@ -475,6 +874,11 @@ impl ShellState {
                 self.runtime.focus = FocusRegion::LowerSurface;
             }
             ShellScene::Palette => {
+                self.runtime.inspector_mode = InspectorMode::Symbols;
+                self.runtime.lower_mode = LowerSurfaceMode::Problems;
+                self.runtime.focus = FocusRegion::Palette;
+            }
+            ShellScene::ComReference => {
                 self.runtime.inspector_mode = InspectorMode::Symbols;
                 self.runtime.lower_mode = LowerSurfaceMode::Problems;
                 self.runtime.focus = FocusRegion::Palette;
@@ -553,22 +957,86 @@ impl ShellState {
 
     pub fn toggle_palette(&mut self) {
         if self.palette_active() {
-            self.apply_scene(self.runtime.previous_scene);
-            self.focus_region(self.runtime.previous_focus);
+            self.close_overlay();
+        } else {
+            self.runtime.previous_scene = self.scene;
+            self.runtime.previous_focus = self.runtime.focus;
+            self.apply_scene(ShellScene::Palette);
+        }
+    }
+
+    pub fn open_com_reference_helper(&mut self) {
+        if self.com_reference_helper_active() {
             return;
         }
 
         self.runtime.previous_scene = self.scene;
         self.runtime.previous_focus = self.runtime.focus;
-        self.apply_scene(ShellScene::Palette);
+        self.apply_scene(ShellScene::ComReference);
+    }
+
+    pub fn close_overlay(&mut self) {
+        if !self.overlay_active() {
+            return;
+        }
+
+        self.apply_scene(self.runtime.previous_scene);
+        self.focus_region(self.runtime.previous_focus);
     }
 
     pub fn cycle_active_editor_view(&mut self) {
         self.runtime.workspace.cycle_active_view();
     }
 
+    pub fn move_editor_cursor_left(&mut self) {
+        self.runtime.workspace.move_cursor_left();
+        self.refresh_content();
+    }
+
+    pub fn move_editor_cursor_right(&mut self) {
+        self.runtime.workspace.move_cursor_right();
+        self.refresh_content();
+    }
+
+    pub fn move_editor_cursor_up(&mut self) {
+        self.runtime.workspace.move_cursor_up();
+        self.refresh_content();
+    }
+
+    pub fn move_editor_cursor_down(&mut self) {
+        self.runtime.workspace.move_cursor_down();
+        self.refresh_content();
+    }
+
+    pub fn insert_editor_char(&mut self, ch: char) {
+        self.runtime.workspace.insert_char(ch);
+        self.refresh_content();
+    }
+
+    pub fn insert_editor_newline(&mut self) {
+        self.runtime.workspace.insert_newline();
+        self.refresh_content();
+    }
+
+    pub fn backspace_editor_char(&mut self) {
+        self.runtime.workspace.backspace();
+        self.refresh_content();
+    }
+
     pub fn palette_active(&self) -> bool {
         self.scene == ShellScene::Palette
+    }
+
+    pub fn com_reference_helper_active(&self) -> bool {
+        self.scene == ShellScene::ComReference
+    }
+
+    pub fn overlay_active(&self) -> bool {
+        matches!(self.scene, ShellScene::Palette | ShellScene::ComReference)
+    }
+
+    pub fn set_com_reference_helper(&mut self, helper: ComReferenceHelperState) {
+        self.runtime.com_reference_helper = helper;
     }
 
     pub fn inspector_is_collapsed(&self) -> bool {
@@ -592,7 +1060,7 @@ impl ShellState {
     }
 
     pub fn available_focus_regions(&self) -> Vec<FocusRegion> {
-        if self.palette_active() {
+        if self.overlay_active() {
             return vec![FocusRegion::Palette];
         }
 
@@ -635,6 +1103,7 @@ fn workspace_for_scene(scene: ShellScene) -> WorkspaceState {
         ShellScene::Empty => WorkspaceState {
             project_name: None,
             target_name: String::from("None"),
+            project: None,
             buffers: vec![BufferState {
                 id: BUFFER_WELCOME,
                 title: String::from("Welcome"),
@@ -669,9 +1138,10 @@ fn workspace_for_scene(scene: ShellScene) -> WorkspaceState {
             },
             semantic: None,
         },
-        ShellScene::Editing | ShellScene::Palette => WorkspaceState {
+        ShellScene::Editing | ShellScene::Palette | ShellScene::ComReference => WorkspaceState {
             project_name: Some(String::from("Payroll.basproj")),
             target_name: String::from("Exe"),
+            project: None,
             buffers: vec![
                 BufferState {
                     id: BUFFER_MAIN,
@@ -742,6 +1212,7 @@ fn workspace_for_scene(scene: ShellScene) -> WorkspaceState {
         ShellScene::Semantic => WorkspaceState {
             project_name: Some(String::from("Payroll.basproj")),
             target_name: String::from("Exe"),
+            project: None,
             buffers: vec![
                 BufferState {
                     id: BUFFER_MAIN,
@@ -827,6 +1298,7 @@ fn workspace_for_scene(scene: ShellScene) -> WorkspaceState {
         ShellScene::BuildRun => WorkspaceState {
             project_name: Some(String::from("Payroll.basproj")),
             target_name: String::from("Exe"),
+            project: None,
             buffers: vec![
                 BufferState {
                     id: BUFFER_MAIN,
@@ -903,7 +1375,7 @@ fn workspace_for_scene_from_loaded(
 ) -> WorkspaceState {
     match scene {
         ShellScene::Empty => return workspace_for_scene(ShellScene::Empty),
-        ShellScene::Editing | ShellScene::Palette => {
+        ShellScene::Editing | ShellScene::Palette | ShellScene::ComReference => {
             workspace.layout.preset = LayoutPreset::Edit;
         }
         ShellScene::Semantic => {
@@ -1108,6 +1580,7 @@ fn workspace_diagnostics(workspace: &WorkspaceState) -> Vec<String> {
             let symbol_count = workspace_symbol_infos(&WorkspaceState {
                 project_name: workspace.project_name.clone(),
                 target_name: workspace.target_name.clone(),
+                project: workspace.project.clone(),
                 buffers: vec![buffer.clone()],
                 recent_buffers: vec![buffer.id],
                 views: workspace
@@ -1266,6 +1739,7 @@ fn content_for_scene(
             ShellScene::Semantic => "Semantic shell commands",
             ShellScene::BuildRun => "Build/run shell commands",
             ShellScene::Palette => "Palette overlay active",
+            ShellScene::ComReference => "COM reference helper active",
         },
         commands: vec![
             PaletteCommandState {
@@ -1291,6 +1765,22 @@ fn content_for_scene(
             PaletteCommandState {
                 label: "Focus Lower Surface",
                 shortcut: "Alt+4",
+            },
+            PaletteCommandState {
+                label: "Add Module",
+                shortcut: "Ctrl+Shift+M",
+            },
+            PaletteCommandState {
+                label: "Add Class",
+                shortcut: "Ctrl+Shift+C",
+            },
+            PaletteCommandState {
+                label: "Add COM Reference",
+                shortcut: "Ctrl+Shift+R",
+            },
+            PaletteCommandState {
+                label: "Cycle Target",
+                shortcut: "Ctrl+Shift+T",
             },
             PaletteCommandState {
                 label: "Cycle Editor View",
@@ -1356,7 +1846,7 @@ fn content_for_scene(
             },
             palette,
         },
-        ShellScene::Editing | ShellScene::Palette => ShellContentState {
+        ShellScene::Editing | ShellScene::Palette | ShellScene::ComReference => ShellContentState {
             launcher,
             editor_notes: vec![
                 format!("Primary editor view mounted on {active_buffer_title}"),
@@ -1646,5 +2136,16 @@ mod tests {
             "warning: Module1 implicit variant use"
         );
         assert_eq!(state.runtime.content.inspector.sections[1].lines[0], "Main");
+    }
+
+    #[test]
+    fn editor_insert_char_marks_buffer_dirty_and_updates_text() {
+        let mut state = ShellState::default();
+        state.runtime.focus = FocusRegion::Editor;
+        state.insert_editor_char('X');
+
+        let buffer = state.runtime.workspace.active_buffer().expect("buffer");
+        assert!(buffer.dirty);
+        assert!(buffer.lines[4].contains("X"));
     }
 }

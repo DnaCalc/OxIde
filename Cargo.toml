@@ -7,6 +7,10 @@ publish = false
 
 [dependencies]
 ftui = { version = "0.2.1", default-features = false, features = ["crossterm"] }
-oxvba-languageservice = { path = "../OxVba/crates/oxvba-languageservice" }
-oxvba-web-host = { path = "../OxVba/crates/oxvba-web-host" }
-oxvba-web-shell = { path = "../OxVba/crates/oxvba-web-shell" }
+oxvba-languageservice = { path = ".external/oxvba-frozen/crates/oxvba-languageservice" }
+oxvba-project = { path = ".external/oxvba-frozen/crates/oxvba-project" }
+oxvba-web-host = { path = ".external/oxvba-frozen/crates/oxvba-web-host" }
+oxvba-web-shell = { path = ".external/oxvba-frozen/crates/oxvba-web-shell" }
+
+[dev-dependencies]
+oxvba-com = { path = ".external/oxvba-frozen/crates/oxvba-com", features = ["fixture-typelibs"] }

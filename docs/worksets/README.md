@@ -14,9 +14,18 @@ For live execution state use [.beads/issues.jsonl](/C:/Work/DnaCalc/OxIde/.beads
 4. New workset packets should be added only when the next execution sequence has been defined.
 
 ## Current State
-1. `W010` is the active shell-mockup workset.
-2. `W020` and `W030` are stub follow-on packets.
+1. `W010` through `W030` record the implemented foundation sequence.
+2. `W040` through `W070` define the next forward execution sequence.
 3. Live execution state still belongs only in `.beads/`.
+
+## Ordered Sequence
+1. `W010` - shell mockup scaffold and design proof
+2. `W020` - runtime shell foundation
+3. `W030` - service integration
+4. `W040` - project and workspace management
+5. `W050` - file and document services
+6. `W060` - full language-service UX
+7. `W070` - run/debug/immediate shell surfaces
 
 ## Use These Instead
 1. Use [PRODUCT_DIRECTION.md](/C:/Work/DnaCalc/OxIde/PRODUCT_DIRECTION.md) for product and UX authority.
