@@ -180,16 +180,26 @@ fn palette_text(state: &ShellState) -> String {
         "Command Palette\n\nFilter\n  > {}\n\nCommands\n",
         palette.filter_hint
     );
-    for command in &palette.commands {
-        text.push_str(&format_palette_command(command));
+    // Paint a `>` marker on the currently-selected command row so
+    // Up / Down selection and the Enter-dispatch handler give the
+    // user visible, predictable feedback. Identical marker semantics
+    // to the COM reference helper (`com_reference_helper_text`) and
+    // the Empty-scene launcher (`launcher_editor_text`).
+    let selection = state.runtime.palette_selection;
+    for (index, command) in palette.commands.iter().enumerate() {
+        let marker = if index == selection { '>' } else { ' ' };
+        text.push_str(&format_palette_command(command, marker));
     }
 
     // `state_commands` is empty in the default build (uxpass D6). The dev
     // build (--dev-scenes) repopulates it; only then emit the group header.
+    // The Mockup States group has no selection of its own — it's a
+    // reference list for dev-mode preview keys — so every row renders
+    // with a space marker.
     if !palette.state_commands.is_empty() {
         text.push_str("\nMockup States\n");
         for command in &palette.state_commands {
-            text.push_str(&format!("  {:<24}{}\n", command.label, command.shortcut));
+            text.push_str(&format_palette_command(command, ' '));
         }
     }
 
@@ -402,8 +412,8 @@ fn format_panel_content(content: &PanelContentState) -> String {
     parts.join("\n\n")
 }
 
-fn format_palette_command(command: &PaletteCommandState) -> String {
-    format!("  {:<24}{}\n", command.label, command.shortcut)
+fn format_palette_command(command: &PaletteCommandState, marker: char) -> String {
+    format!("{marker} {:<24}{}\n", command.label, command.shortcut)
 }
 
 fn indent_block(text: &str, spaces: usize) -> String {

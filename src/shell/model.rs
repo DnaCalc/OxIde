@@ -15,7 +15,8 @@ use super::project_actions::{
 use super::session::ProjectSession;
 use super::state::{
     ComReferenceHelperState, ComReferenceSearchMode, CursorPosition, FocusRegion, LowerSurfaceMode,
-    ShellScene, ShellState, WidthClass, WorkspaceProjectModuleKind, WorkspaceProjectState,
+    PaletteAction, ShellScene, ShellState, WidthClass, WorkspaceProjectModuleKind,
+    WorkspaceProjectState,
 };
 use super::view;
 
@@ -379,6 +380,88 @@ impl ShellModel {
         self.refresh_com_reference_helper();
     }
 
+    /// Dispatch the palette's currently-selected command.
+    ///
+    /// Closes the palette overlay first, then routes the selected
+    /// `PaletteAction` through the appropriate handler. Closing first
+    /// keeps the modal invariant simple — actions like `Save` that
+    /// guard on `overlay_active()` see a non-overlay state by the
+    /// time they run, and actions like `TogglePalette` don't need
+    /// special close handling because the palette is already gone.
+    fn apply_selected_palette_command(&mut self) {
+        let Some(action) = self.shell.palette_selected_action() else {
+            return;
+        };
+        self.shell.close_overlay();
+        match action {
+            PaletteAction::OpenSelectedProject => {
+                if let Some(path) = self.shell.selected_project_path().cloned() {
+                    self.try_mount_workspace(path);
+                }
+            }
+            PaletteAction::SaveActiveBuffer => {
+                let _ = self.shell.save_active_buffer();
+            }
+            PaletteAction::SaveAllDirtyBuffers => {
+                let _ = self.shell.save_all_dirty_buffers();
+            }
+            PaletteAction::UndoActiveBuffer => {
+                self.shell.undo_active_buffer();
+            }
+            PaletteAction::RedoActiveBuffer => {
+                self.shell.redo_active_buffer();
+            }
+            PaletteAction::FocusRegion(region) => {
+                self.shell.focus_region(region);
+            }
+            PaletteAction::AddProjectModule => {
+                self.apply_project_action(|project_path, project| {
+                    let logical_name =
+                        next_module_name(project, WorkspaceProjectModuleKind::Module);
+                    add_scaffolded_module(
+                        project_path,
+                        WorkspaceProjectModuleKind::Module,
+                        logical_name.as_str(),
+                    )
+                });
+            }
+            PaletteAction::AddProjectClass => {
+                self.apply_project_action(|project_path, project| {
+                    let logical_name =
+                        next_module_name(project, WorkspaceProjectModuleKind::Class);
+                    add_scaffolded_module(
+                        project_path,
+                        WorkspaceProjectModuleKind::Class,
+                        logical_name.as_str(),
+                    )
+                });
+            }
+            PaletteAction::OpenComReferenceHelper => {
+                self.open_com_reference_helper();
+            }
+            PaletteAction::CycleProjectTarget => {
+                self.apply_project_action(|project_path, _| {
+                    cycle_output_type(project_path).map(|_| ())
+                });
+            }
+            PaletteAction::NextEditorView => {
+                self.shell.cycle_active_editor_view();
+            }
+            PaletteAction::TogglePalette => {
+                // Palette is already closed at this point; a palette-
+                // triggered toggle is effectively a no-op — the user
+                // dismissed the overlay, which is what `Esc` already
+                // does. Kept as an enum variant so the palette list
+                // and the keystroke map stay in lockstep.
+            }
+            PaletteAction::SetScene(scene) => {
+                if self.dev_scenes {
+                    self.shell.apply_scene(scene);
+                }
+            }
+        }
+    }
+
     fn apply_selected_com_reference(&mut self) {
         if self
             .shell
@@ -459,6 +542,8 @@ impl Model for ShellModel {
                     self.shell.cycle_launcher_selection(-1);
                 } else if self.com_reference_helper_active() {
                     self.move_com_reference_selection(-1);
+                } else if self.shell.palette_active() {
+                    self.shell.cycle_palette_selection(-1);
                 } else if self.editor_accepts_input() {
                     self.shell.move_editor_cursor_up();
                 }
@@ -469,6 +554,8 @@ impl Model for ShellModel {
                     self.shell.cycle_launcher_selection(1);
                 } else if self.com_reference_helper_active() {
                     self.move_com_reference_selection(1);
+                } else if self.shell.palette_active() {
+                    self.shell.cycle_palette_selection(1);
                 } else if self.editor_accepts_input() {
                     self.shell.move_editor_cursor_down();
                 }
@@ -485,6 +572,8 @@ impl Model for ShellModel {
             Msg::InsertEditorNewline => {
                 if self.com_reference_helper_active() {
                     self.apply_selected_com_reference();
+                } else if self.shell.palette_active() {
+                    self.apply_selected_palette_command();
                 } else if self.editor_accepts_input() {
                     self.shell.insert_editor_newline();
                 }
@@ -828,10 +917,16 @@ mod tests {
 
     #[test]
     fn save_is_suppressed_while_palette_overlay_is_open() {
-        // Modal invariant: Ctrl+S inside the palette should not save
-        // (the palette's Enter-key handler owns acceptance). After
-        // Esc closes the overlay, the user's dirty marker is still
-        // there and a second Ctrl+S persists.
+        // Modal invariant: `Ctrl+S` while the palette is the active
+        // overlay must not fire the save. The save path in the
+        // palette is instead: highlight `Save` (Up/Down) and press
+        // Enter, which closes the overlay and dispatches the save
+        // (see `apply_selected_palette_command`). A raw `Ctrl+S`
+        // inside an overlay would be an unexpected side-channel
+        // into the underlying scene and break the "overlay is
+        // modal" invariant. Once Esc closes the overlay the
+        // user's dirty marker is still there and a subsequent
+        // `Ctrl+S` persists.
         let scratch = seed_project_fixture("save_is_suppressed_while_palette_overlay_is_open");
         let mut model = ShellModel::new(Some(scratch));
         model.update(Msg::FocusRegion(FocusRegion::Editor));
@@ -863,6 +958,79 @@ mod tests {
                 .iter()
                 .all(|buffer| !buffer.dirty),
             "save must succeed once the overlay closes"
+        );
+    }
+
+    #[test]
+    fn palette_enter_dispatches_save_and_clears_dirty_marker() {
+        // End-to-end: user types a character, opens the palette,
+        // Down-arrows to the Save row, Enter. The overlay closes
+        // and the save actually runs — no need to remember Ctrl+S.
+        // This pins J4-e / P6 at the model level.
+        let scratch = seed_project_fixture("palette_enter_dispatches_save_and_clears_dirty_marker");
+        let mut model = ShellModel::new(Some(scratch));
+        model.update(Msg::FocusRegion(FocusRegion::Editor));
+        model.update(Msg::InsertEditorChar('Z'));
+        assert!(
+            model
+                .shell
+                .runtime
+                .workspace
+                .buffers
+                .iter()
+                .any(|buffer| buffer.dirty),
+            "precondition: typed edit marks the buffer dirty"
+        );
+
+        model.update(Msg::TogglePalette);
+        assert!(model.palette_active());
+
+        // Open Project (row 0) is the default selection; Save is row
+        // 1 in the current palette order. One Down moves the
+        // highlight there.
+        model.update(Msg::MoveEditorDown);
+
+        model.update(Msg::InsertEditorNewline); // Enter
+
+        assert!(
+            !model.palette_active(),
+            "Enter on a palette row must close the overlay"
+        );
+        assert!(
+            model
+                .shell
+                .runtime
+                .workspace
+                .buffers
+                .iter()
+                .all(|buffer| !buffer.dirty),
+            "Enter on the Save row must dispatch the save and clear dirty"
+        );
+    }
+
+    #[test]
+    fn palette_enter_dispatches_undo_and_restores_pre_edit_lines() {
+        let scratch = seed_project_fixture("palette_enter_dispatches_undo_and_restores_pre_edit_lines");
+        let mut model = ShellModel::new(Some(scratch));
+        model.update(Msg::FocusRegion(FocusRegion::Editor));
+
+        let before = model.shell.runtime.workspace.buffers[0].lines.clone();
+        model.update(Msg::InsertEditorChar('Q'));
+
+        model.update(Msg::TogglePalette);
+        // Move to the Undo entry. Default palette order is
+        // Open Project / Save / Save All / Undo / Redo / ...
+        // Three Downs lands on Undo.
+        model.update(Msg::MoveEditorDown);
+        model.update(Msg::MoveEditorDown);
+        model.update(Msg::MoveEditorDown);
+
+        model.update(Msg::InsertEditorNewline);
+
+        assert!(!model.palette_active());
+        assert_eq!(
+            model.shell.runtime.workspace.buffers[0].lines, before,
+            "Enter on the Undo row must restore the pre-edit buffer lines"
         );
     }
 

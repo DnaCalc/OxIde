@@ -991,10 +991,42 @@ pub struct LauncherContentState {
     pub actions: Vec<&'static str>,
 }
 
+/// A dispatchable action carried by a palette command entry.
+///
+/// The palette is the canonical command-discovery surface (P6): every
+/// entry has a visible binding AND is actually usable from the
+/// overlay itself — press `Enter` with a row selected and the shell
+/// dispatches the action. This enum is the stable name; `ShellModel`
+/// maps each variant onto a concrete `Msg` in `palette_action_to_msg`.
+///
+/// Keeping the enum in `state.rs` (rather than reusing `model::Msg`)
+/// keeps the state layer independent of the message layer — the
+/// palette's content is state, the handling of that content is model
+/// code.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PaletteAction {
+    OpenSelectedProject,
+    SaveActiveBuffer,
+    SaveAllDirtyBuffers,
+    UndoActiveBuffer,
+    RedoActiveBuffer,
+    FocusRegion(FocusRegion),
+    AddProjectModule,
+    AddProjectClass,
+    OpenComReferenceHelper,
+    CycleProjectTarget,
+    NextEditorView,
+    TogglePalette,
+    /// Dev-only preview: force the shell into a specific scene. Only
+    /// present in the palette when `--dev-scenes` is active (uxpass D6).
+    SetScene(ShellScene),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PaletteCommandState {
     pub label: &'static str,
     pub shortcut: &'static str,
+    pub action: PaletteAction,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1133,6 +1165,12 @@ pub struct ShellRuntimeState {
     pub com_reference_helper: ComReferenceHelperState,
     pub previous_focus: FocusRegion,
     pub previous_scene: ShellScene,
+    /// Index into the palette's `commands` list (not `state_commands`)
+    /// of the currently-selected row. Reset to zero every time the
+    /// palette opens. `Up` / `Down` cycle the selection while the
+    /// palette is the active overlay; `Enter` dispatches the
+    /// command's `PaletteAction`.
+    pub palette_selection: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1171,6 +1209,7 @@ impl Default for ShellState {
                 com_reference_helper: ComReferenceHelperState::default(),
                 previous_focus: FocusRegion::Editor,
                 previous_scene: scene,
+                palette_selection: 0,
             },
         };
         state.apply_scene(scene);
@@ -1180,35 +1219,44 @@ impl Default for ShellState {
 
 impl ShellState {
     pub fn apply_scene(&mut self, scene: ShellScene) {
-        let previous_scene = self.scene;
         self.scene = scene;
         self.runtime.layout = ShellLayoutPolicy::derive(scene, self.runtime.width_class);
+        // Scene transitions are non-destructive for the workspace when
+        // a live session is mounted. Only the layout preset changes
+        // per scene; buffer contents, dirty flags, cursor positions,
+        // and per-buffer undo history all survive every transition —
+        // overlay (Palette / ComReference), semantic flips, F5 →
+        // BuildRun, everything.
+        //
+        // The earlier implementation rebuilt the workspace from
+        // `runtime.session_workspace` (the clean snapshot captured at
+        // mount time) on every non-Empty transition, which silently
+        // destroyed every in-flight edit. Symptoms the user would see:
+        // the `*` dirty marker (J2-d) disappeared from the explorer,
+        // the typed character was gone from the buffer, and F5 ran
+        // against the on-disk file rather than the user's in-memory
+        // change. A direct P4 honesty violation.
+        //
+        // `session_workspace` is the discriminator between "live
+        // mode" and "mock mode". In live mode (real `.basproj`
+        // loaded) we preserve. In mock mode (no project loaded,
+        // scene flips drive the dev previews) we re-derive the
+        // per-scene fixture — so `ShellState::default() →
+        // apply_scene(Semantic)` still pulls the SplitEdit
+        // 2-view mock, as the existing regression tests expect.
+        //
+        // Empty is always rendered from the Empty fixture, because
+        // the Empty surface has no notion of a live project
+        // workspace to preserve.
         self.runtime.workspace = match (scene, self.runtime.session_workspace.clone()) {
             (ShellScene::Empty, _) => workspace_for_scene(scene),
-            // Overlay scenes are non-destructive: preserve the current
-            // workspace so in-flight buffer edits, dirty flags, cursors,
-            // and per-buffer undo history all survive opening / closing
-            // the overlay. Without this clause, `apply_scene(Palette)`
-            // would rebuild the workspace from `session_workspace`
-            // (the clean snapshot captured at mount time) and silently
-            // discard anything the user typed — a P4 honesty violation
-            // because the `*` dirty marker still implied the edit
-            // existed after the overlay closed.
-            (ShellScene::Palette | ShellScene::ComReference, _) => {
-                self.runtime.workspace.clone()
+            (_, Some(_)) => {
+                // Live session: preserve the runtime workspace,
+                // only update the layout preset.
+                let mut workspace = self.runtime.workspace.clone();
+                workspace.layout.preset = layout_preset_for_scene(scene);
+                workspace
             }
-            // Returning from an overlay to the previous scene is also
-            // non-destructive for the same reason: the in-flight
-            // workspace must survive the round-trip.
-            (_, Some(_))
-                if matches!(
-                    previous_scene,
-                    ShellScene::Palette | ShellScene::ComReference
-                ) =>
-            {
-                self.runtime.workspace.clone()
-            }
-            (_, Some(workspace)) => workspace_for_scene_from_loaded(scene, workspace),
             (_, None) => workspace_for_scene(scene),
         };
         self.refresh_content();
@@ -1250,8 +1298,31 @@ impl ShellState {
     }
 
     pub fn mount_workspace(&mut self, workspace: WorkspaceState) {
+        // Keep a pristine snapshot for operations that deliberately
+        // reset to "as it was on mount" (e.g. reload-from-disk when
+        // that lands). Everything else reads `runtime.workspace`.
         self.runtime.session_workspace = Some(workspace.clone());
-        self.runtime.workspace = workspace_for_scene_from_loaded(self.scene, workspace);
+
+        // Install the loaded workspace as the live one immediately,
+        // regardless of the current scene. The subsequent
+        // `apply_scene(Editing)` called by `try_mount_workspace` will
+        // then preserve this live workspace and only adjust the
+        // layout preset.
+        //
+        // Before this was tightened, `mount_workspace` adjusted the
+        // loaded workspace against `self.scene` — which was still
+        // `Empty` at mount time — and so returned the Empty-mock
+        // Welcome fixture. The loaded project was stored in
+        // `session_workspace` but was never promoted to
+        // `runtime.workspace` until the next `apply_scene`. The old
+        // `apply_scene` re-derived from `session_workspace` on every
+        // call, which masked the bug; the non-destructive
+        // `apply_scene` we now ship requires `runtime.workspace` to
+        // actually be the loaded project from this point.
+        let mut live = workspace;
+        live.layout.preset = layout_preset_for_scene(self.scene);
+        self.runtime.workspace = live;
+
         self.refresh_content();
     }
 
@@ -1324,8 +1395,49 @@ impl ShellState {
         } else {
             self.runtime.previous_scene = self.scene;
             self.runtime.previous_focus = self.runtime.focus;
+            // Reset the palette selection to the first command so
+            // opening the overlay always starts from a predictable
+            // spot. Without this, a user who dismissed the palette
+            // mid-way through scrolling would return to a
+            // mid-list selection on the next open.
+            self.runtime.palette_selection = 0;
             self.apply_scene(ShellScene::Palette);
         }
+    }
+
+    /// Move the palette selection by `delta` (positive = down, negative
+    /// = up), wrapping around the end of the command list. No-op when
+    /// the palette is not active or its command list is empty.
+    pub fn cycle_palette_selection(&mut self, delta: i8) {
+        if !self.palette_active() {
+            return;
+        }
+        let len = self.runtime.content.palette.commands.len();
+        if len == 0 {
+            return;
+        }
+        let index = self.runtime.palette_selection.min(len - 1);
+        self.runtime.palette_selection = if delta >= 0 {
+            (index + 1) % len
+        } else if index == 0 {
+            len - 1
+        } else {
+            index - 1
+        };
+        self.refresh_content();
+    }
+
+    /// Return the `PaletteAction` the user would dispatch by pressing
+    /// `Enter` right now, or `None` if the palette is not active or
+    /// its command list is empty.
+    pub fn palette_selected_action(&self) -> Option<PaletteAction> {
+        if !self.palette_active() {
+            return None;
+        }
+        let commands = &self.runtime.content.palette.commands;
+        commands
+            .get(self.runtime.palette_selection)
+            .map(|cmd| cmd.action.clone())
     }
 
     pub fn open_com_reference_helper(&mut self) {
@@ -1518,7 +1630,7 @@ impl ShellState {
                 "Ctrl+O open project  Up/Down select recent  F6 palette  Ctrl+Q quit"
             }
             ShellScene::Editing | ShellScene::Semantic => {
-                "Ctrl+S save  F5 run  Ctrl+Z undo  F6 palette  Tab next focus  Ctrl+Q quit"
+                "Ctrl+S save  F5 run  Ctrl+Z undo  F6 palette  Ctrl+Tab next view  Tab next focus  Ctrl+Q quit"
             }
             ShellScene::BuildRun => {
                 "F5 rerun  F6 palette  Tab next focus  Ctrl+Q quit"
@@ -1872,23 +1984,20 @@ fn workspace_for_scene(scene: ShellScene) -> WorkspaceState {
     }
 }
 
-fn workspace_for_scene_from_loaded(
-    scene: ShellScene,
-    mut workspace: WorkspaceState,
-) -> WorkspaceState {
+/// Layout preset a scene implies. Every non-destructive scene
+/// transition (the live-session branch of `apply_scene`) uses this
+/// function to adjust only the preset while preserving the live
+/// workspace. Previously an intermediate helper
+/// `workspace_for_scene_from_loaded` also called this and cloned
+/// the workspace alongside; the helper is gone because the
+/// apply_scene rework makes the clone unnecessary.
+fn layout_preset_for_scene(scene: ShellScene) -> LayoutPreset {
     match scene {
-        ShellScene::Empty => return workspace_for_scene(ShellScene::Empty),
-        ShellScene::Editing | ShellScene::Palette | ShellScene::ComReference => {
-            workspace.layout.preset = LayoutPreset::Edit;
-        }
-        ShellScene::Semantic => {
-            workspace.layout.preset = LayoutPreset::SplitEdit;
-        }
-        ShellScene::BuildRun => {
-            workspace.layout.preset = LayoutPreset::Run;
-        }
+        ShellScene::Empty => LayoutPreset::Project,
+        ShellScene::Editing | ShellScene::Palette | ShellScene::ComReference => LayoutPreset::Edit,
+        ShellScene::Semantic => LayoutPreset::SplitEdit,
+        ShellScene::BuildRun => LayoutPreset::Run,
     }
-    workspace
 }
 
 fn lines(input: &[&str]) -> Vec<String> {
@@ -2223,6 +2332,7 @@ fn content_for_scene(
             PaletteCommandState {
                 label: "Open Project",
                 shortcut: "Ctrl+O",
+                action: PaletteAction::OpenSelectedProject,
             },
             // J4-e / P6: `New Project` with `Ctrl+N` used to live here
             // but `Ctrl+N` is not wired in `model.rs`. The palette only
@@ -2231,58 +2341,72 @@ fn content_for_scene(
             PaletteCommandState {
                 label: "Save",
                 shortcut: "Ctrl+S",
+                action: PaletteAction::SaveActiveBuffer,
             },
             PaletteCommandState {
                 label: "Save All",
                 shortcut: "Ctrl+Shift+S",
+                action: PaletteAction::SaveAllDirtyBuffers,
             },
             PaletteCommandState {
                 label: "Undo",
                 shortcut: "Ctrl+Z",
+                action: PaletteAction::UndoActiveBuffer,
             },
             PaletteCommandState {
                 label: "Redo",
                 shortcut: "Ctrl+Y",
+                action: PaletteAction::RedoActiveBuffer,
             },
             PaletteCommandState {
                 label: "Focus Explorer",
                 shortcut: "Alt+1",
+                action: PaletteAction::FocusRegion(FocusRegion::Explorer),
             },
             PaletteCommandState {
                 label: "Focus Editor",
                 shortcut: "Alt+2",
+                action: PaletteAction::FocusRegion(FocusRegion::Editor),
             },
             PaletteCommandState {
                 label: "Focus Inspector",
                 shortcut: "Alt+3",
+                action: PaletteAction::FocusRegion(FocusRegion::Inspector),
             },
             PaletteCommandState {
                 label: "Focus Lower Surface",
                 shortcut: "Alt+4",
+                action: PaletteAction::FocusRegion(FocusRegion::LowerSurface),
             },
             PaletteCommandState {
                 label: "Add Module",
                 shortcut: "Ctrl+Shift+M",
+                action: PaletteAction::AddProjectModule,
             },
             PaletteCommandState {
                 label: "Add Class",
                 shortcut: "Ctrl+Shift+C",
+                action: PaletteAction::AddProjectClass,
             },
             PaletteCommandState {
                 label: "Add COM Reference",
                 shortcut: "Ctrl+Shift+R",
+                action: PaletteAction::OpenComReferenceHelper,
             },
             PaletteCommandState {
                 label: "Cycle Target",
                 shortcut: "Ctrl+Shift+T",
+                action: PaletteAction::CycleProjectTarget,
             },
             PaletteCommandState {
                 label: "Cycle Editor View",
                 shortcut: "Ctrl+Tab",
+                action: PaletteAction::NextEditorView,
             },
             PaletteCommandState {
                 label: "Toggle Palette",
                 shortcut: "F6",
+                action: PaletteAction::TogglePalette,
             },
         ],
         // `state_commands` is the dev-only "Mockup States" palette group
@@ -2293,22 +2417,27 @@ fn content_for_scene(
                 PaletteCommandState {
                     label: "Empty",
                     shortcut: "F2",
+                    action: PaletteAction::SetScene(ShellScene::Empty),
                 },
                 PaletteCommandState {
                     label: "Editing",
                     shortcut: "F3",
+                    action: PaletteAction::SetScene(ShellScene::Editing),
                 },
                 PaletteCommandState {
                     label: "Semantic",
                     shortcut: "F4",
+                    action: PaletteAction::SetScene(ShellScene::Semantic),
                 },
                 PaletteCommandState {
                     label: "Build/Run",
                     shortcut: "F5",
+                    action: PaletteAction::SetScene(ShellScene::BuildRun),
                 },
                 PaletteCommandState {
                     label: "Palette",
                     shortcut: "F6",
+                    action: PaletteAction::SetScene(ShellScene::Palette),
                 },
             ]
         } else {
@@ -3151,11 +3280,17 @@ mod tests {
             workspace_with_buffer(buffer_with_source(&path, "line one\nline two\n"));
         workspace.insert_char('Z');
         workspace.save_active_buffer().unwrap();
+
         let actual = std::fs::read(&path).expect("read back as bytes");
-        // Bytes must only contain 0x0A for line breaks — no 0x0D.
-        assert!(
-            !actual.contains(&b'\r'),
-            "LF-only file must not gain a CR after round-trip: {:?}",
+
+        // Byte-exact round trip: detected LF line ending preserved,
+        // trailing newline preserved, edit applied, no CR injected.
+        // A weaker "no CR present" check would miss a regression
+        // that corrupts the content while still being LF-only.
+        assert_eq!(
+            actual,
+            b"Zline one\nline two\n",
+            "LF round-trip must be byte-exact; got {:?}",
             String::from_utf8_lossy(&actual)
         );
     }
@@ -3386,6 +3521,203 @@ mod tests {
             state.runtime.workspace.buffers[0].dirty,
             "dirty flag must survive the full overlay round-trip"
         );
+    }
+
+    // Every non-Empty scene transition (not just overlays) must
+    // preserve in-flight buffer edits. The original overlay-only fix
+    // left F5 → BuildRun and any future scene flip silently
+    // destructive: the `*` dirty marker vanished and the typed
+    // character went with it. This test pins the general rule —
+    // transitions to Semantic, BuildRun, Palette, and ComReference
+    // all keep the live workspace intact. Empty is deliberately not
+    // exercised here: Empty means "no project", so resetting is the
+    // correct behaviour.
+    #[test]
+    fn every_non_empty_scene_transition_preserves_in_flight_edits() {
+        for target in [
+            ShellScene::Semantic,
+            ShellScene::BuildRun,
+            ShellScene::Palette,
+            ShellScene::ComReference,
+        ] {
+            let mut state = ShellState::default();
+            let workspace = workspace_with_buffer(buffer_with_source(
+                Path::new("dummy.bas"),
+                "before\n",
+            ));
+            state.mount_workspace(workspace);
+            state.apply_scene(ShellScene::Editing);
+
+            state.runtime.workspace.insert_char('Z');
+            let edited_lines = state.runtime.workspace.buffers[0].lines.clone();
+
+            state.apply_scene(target);
+
+            assert_eq!(
+                state.runtime.workspace.buffers[0].lines, edited_lines,
+                "transition Editing -> {target:?} must preserve in-flight edit"
+            );
+            assert!(
+                state.runtime.workspace.buffers[0].dirty,
+                "dirty flag must survive Editing -> {target:?}"
+            );
+
+            // And the round-trip back to Editing.
+            state.apply_scene(ShellScene::Editing);
+            assert_eq!(
+                state.runtime.workspace.buffers[0].lines, edited_lines,
+                "round-trip {target:?} -> Editing must preserve the edit"
+            );
+            assert!(
+                state.runtime.workspace.buffers[0].dirty,
+                "dirty flag must survive the round-trip"
+            );
+        }
+    }
+
+    // F5 is the specific flow the audit caught: typed edit, F5 run.
+    // Before the general apply_scene fix, F5 called
+    // `apply_scene(BuildRun)` which rebuilt from the clean session
+    // snapshot and wiped the edit + dirty marker mid-flight while
+    // the OxVba runtime still read the on-disk file. Result: the
+    // user's edit silently vanished and the build ran against the
+    // pre-edit file. Honesty-wise a double P4 violation.
+    #[test]
+    fn f5_run_transition_does_not_wipe_in_flight_edit_or_dirty_marker() {
+        let mut state = ShellState::default();
+        let workspace = workspace_with_buffer(buffer_with_source(
+            Path::new("dummy.bas"),
+            "hello\n",
+        ));
+        state.mount_workspace(workspace);
+        state.apply_scene(ShellScene::Editing);
+
+        state.runtime.workspace.insert_char('X');
+        let dirty_lines = state.runtime.workspace.buffers[0].lines.clone();
+        assert!(state.runtime.workspace.buffers[0].dirty);
+
+        state.apply_scene(ShellScene::BuildRun);
+        assert_eq!(
+            state.runtime.workspace.buffers[0].lines, dirty_lines,
+            "F5 → BuildRun must leave the edit intact; the runtime \
+             reads from disk and if the user forgot to save, they must \
+             still be able to come back and fix it"
+        );
+        assert!(
+            state.runtime.workspace.buffers[0].dirty,
+            "F5 → BuildRun must leave the dirty marker intact"
+        );
+    }
+
+    // J4-d (singular title) pinned explicitly.
+    //
+    // J4-a made the overlay opaque, so the `s` of `As Integer` no
+    // longer bleeds through to make the title read "Command
+    // Palettes" (plural). But that's an indirect fix. This test
+    // pins the direct invariant: the palette's rendered title
+    // string is `Command Palette` (singular) in the rendered panel
+    // text, regardless of what's underneath.
+    #[test]
+    fn palette_panel_title_renders_as_singular_command_palette() {
+        let mut state = ShellState::default();
+        state.toggle_palette();
+        assert!(state.palette_active(), "palette must be open for this check");
+        let panels = crate::shell::mock_data::shell_panels(&state);
+        let first_line = panels
+            .palette
+            .lines()
+            .next()
+            .expect("palette body must be non-empty");
+        assert_eq!(
+            first_line, "Command Palette",
+            "palette title must be singular (J4-d), got {first_line:?}"
+        );
+        assert!(
+            !panels.palette.contains("Command Palettes"),
+            "palette body must not contain the plural form anywhere"
+        );
+    }
+
+    // The palette's Up / Down / Enter dispatch loop (J4-e closure).
+    //
+    // Before this landed the palette was purely display — pressing
+    // Enter on a row did nothing. Now the palette carries a
+    // selection index, Up / Down cycle it with wrap, and Enter
+    // dispatches the highlighted `PaletteAction`. These three tests
+    // pin the state-layer invariants; the model-layer dispatch
+    // (Enter → close overlay → run action) is pinned by
+    // `palette_enter_dispatches_save_and_clears_dirty_marker` in
+    // `shell::model::tests`.
+
+    #[test]
+    fn palette_selection_resets_to_zero_on_each_open() {
+        let mut state = ShellState::default();
+        state.toggle_palette();
+        state.cycle_palette_selection(1);
+        state.cycle_palette_selection(1);
+        assert_eq!(state.runtime.palette_selection, 2);
+
+        state.toggle_palette(); // close
+        assert!(!state.palette_active());
+        state.toggle_palette(); // reopen
+        assert_eq!(
+            state.runtime.palette_selection, 0,
+            "palette selection must reset to zero on every open"
+        );
+    }
+
+    #[test]
+    fn palette_up_down_cycling_wraps_around_the_command_list() {
+        let mut state = ShellState::default();
+        state.toggle_palette();
+        let len = state.runtime.content.palette.commands.len();
+        assert!(len > 1, "palette command list precondition");
+
+        state.cycle_palette_selection(-1);
+        assert_eq!(
+            state.runtime.palette_selection,
+            len - 1,
+            "Up from index 0 must wrap to the last command"
+        );
+
+        state.cycle_palette_selection(1);
+        assert_eq!(
+            state.runtime.palette_selection, 0,
+            "Down from the last command must wrap to the first"
+        );
+    }
+
+    #[test]
+    fn palette_selected_action_returns_none_when_palette_closed() {
+        let state = ShellState::default();
+        assert!(!state.palette_active());
+        assert!(
+            state.palette_selected_action().is_none(),
+            "no action dispatched when palette is not the active overlay"
+        );
+    }
+
+    #[test]
+    fn palette_selected_action_tracks_the_highlighted_row() {
+        let mut state = ShellState::default();
+        state.toggle_palette();
+        // Row 0 is "Open Project" per the default palette layout.
+        assert!(matches!(
+            state.palette_selected_action(),
+            Some(PaletteAction::OpenSelectedProject)
+        ));
+
+        state.cycle_palette_selection(1); // -> "Save"
+        assert!(matches!(
+            state.palette_selected_action(),
+            Some(PaletteAction::SaveActiveBuffer)
+        ));
+
+        state.cycle_palette_selection(1); // -> "Save All"
+        assert!(matches!(
+            state.palette_selected_action(),
+            Some(PaletteAction::SaveAllDirtyBuffers)
+        ));
     }
 
     #[test]

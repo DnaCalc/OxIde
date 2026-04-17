@@ -78,7 +78,7 @@ redo complete the "I can type, I can recover, I can persist" triad.
 Discovery is on the always-present bottom status line (D3): the
 Editing hint carries `Ctrl+S save` and `Ctrl+Z undo`. Each new
 palette binding resolves to a wired `Msg` (J4-e / P6). Pinned by
-fifteen new regression tests in `shell::state::tests` and
+twenty-two new regression tests in `shell::state::tests` and
 `shell::model::tests` — see W035 Progress paragraph for the full list.
 Overlay scenes (Palette, COM reference) are now non-destructive: the
 previous `apply_scene` rebuilt the workspace from the clean session

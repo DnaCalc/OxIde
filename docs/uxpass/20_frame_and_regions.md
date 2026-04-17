@@ -301,13 +301,15 @@ Numbered and imperative. Continues the uxpass-wide numbering from
     its keymap and invocation lives in `40_command_model.md`.
 
 16. **The Top Bar is display-only; it is not a focus target.**
-    `ShellState::available_focus_regions` will drop `TopBar` from the
-    ring on every scene; `Tab` cycles through user-actionable regions
-    only (`Editor` on Empty; `Explorer / Editor / Inspector /
-    LowerSurface` on non-Empty, skipping any region that is absent or
-    collapsed in the current layout). `Alt+1..4` already addresses
-    the actionable regions by index, which remains the direct-focus
-    model. Answers the plan's open question #4.
+    `ShellState::available_focus_regions` drops `TopBar` from the
+    ring on every scene; `Tab` cycles through user-actionable
+    regions only (`Editor` on Empty; `Explorer / Editor / Inspector /
+    LowerSurface` on non-Empty, skipping any region that is absent
+    or collapsed in the current layout). `Alt+1..4` already
+    addresses the actionable regions by index, which remains the
+    direct-focus model. Answers the plan's open question #4. _In
+    force in code_ — pinned by
+    `shell::state::tests::{top_bar_is_not_in_focus_ring_on_any_non_overlay_scene, top_bar_focus_request_is_rejected_on_every_non_overlay_scene, empty_scene_focus_ring_is_editor_only}`.
 
 17. **Split-editor panes are deferred past W050.** The Editor column
     is one logical surface at the frame level. *Within* the Editor
