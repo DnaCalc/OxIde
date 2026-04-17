@@ -9,8 +9,8 @@ use oxvba_project::ComSelectionCandidate;
 use super::mock_data::{ShellPanels, shell_panels};
 use super::oxvba::run_project_state;
 use super::project_actions::{
-    ComReferenceDiscovery, add_com_reference_candidate, add_scaffolded_module, cycle_output_type,
-    discover_com_reference_candidates, next_module_name,
+    ComReferenceDiscovery, add_com_reference_candidate, add_scaffolded_module, create_new_project,
+    cycle_output_type, discover_com_reference_candidates, next_module_name,
 };
 use super::session::ProjectSession;
 use super::state::{
@@ -51,6 +51,11 @@ pub enum Msg {
     /// symbol.
     GotoDefinition,
     OpenSelectedProject,
+    /// Scaffold a brand-new `.basproj` in a sibling directory and
+    /// mount it. Bound to `Ctrl+N` — wired all the way through so
+    /// the Welcome pane's `Create Project` affordance now works
+    /// (was listed but unwired pre-2026-04-17; see J4-e).
+    CreateNewProject,
     RunProject,
     AddProjectModule,
     AddProjectClass,
@@ -72,6 +77,7 @@ impl From<Event> for Msg {
             Event::Key(key) if is_quit_key(key) => Msg::Quit,
             Event::Key(key) if matches!(key.code, KeyCode::Escape) => Msg::CloseOverlay,
             Event::Key(key) if is_open_project_key(key) => Msg::OpenSelectedProject,
+            Event::Key(key) if is_create_project_key(key) => Msg::CreateNewProject,
             Event::Key(key) if matches!(key.code, KeyCode::F(1)) => Msg::ToggleHoverPopover,
             Event::Key(key) if matches!(key.code, KeyCode::F(5)) => Msg::RunProject,
             Event::Key(key) if matches!(key.code, KeyCode::F(12)) => Msg::GotoDefinition,
@@ -169,6 +175,16 @@ impl ShellModel {
 
     pub fn scene(&self) -> ShellScene {
         self.shell.scene
+    }
+
+    /// Scene the shell was in before the current overlay opened.
+    /// Outside an overlay this equals `scene()`. Overlay renderers
+    /// use this to paint the backing body shape (Empty single-panel
+    /// vs Editing three-column) rather than the overlay scene's
+    /// mock layout, which avoids the "hallucinated Payroll project"
+    /// bug observed on Empty + F6.
+    pub fn previous_scene(&self) -> ShellScene {
+        self.shell.runtime.previous_scene
     }
 
     pub fn inspector_is_collapsed(&self) -> bool {
@@ -408,28 +424,82 @@ impl ShellModel {
         self.refresh_com_reference_helper();
     }
 
+    /// Scaffold a brand-new `.basproj` next to the process's current
+    /// working directory and mount it. The user sees the Editing
+    /// scene materialise with `Module1.bas` carrying a minimal
+    /// `Public Sub Main()` that prints `"Hello, world!"`. They can
+    /// press `F5` immediately and watch it run.
+    ///
+    /// On failure (unwritable cwd, race, etc.) a popover explains
+    /// what broke rather than silently no-opping.
+    fn create_new_project(&mut self) {
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        match create_new_project(&cwd, "NewProject") {
+            Ok(basproj_path) => {
+                self.try_mount_workspace(basproj_path);
+                // Refresh the recent list so the newly-scaffolded
+                // project appears in Welcome on a later Empty
+                // visit (e.g. after a palette `Open Project` from
+                // an unrelated target).
+                self.discover_recent_projects();
+            }
+            Err(error) => {
+                self.shell.show_hover_popover(
+                    vec![
+                        String::from("Could not scaffold a new project here:"),
+                        format!("  {error}"),
+                        String::new(),
+                        String::from("Try relaunching from a writable directory, or"),
+                        String::from("specify a project path on the command line."),
+                        String::new(),
+                        String::from("Esc / F1 to dismiss."),
+                    ],
+                    CursorPosition::new(1, 1),
+                );
+            }
+        }
+    }
+
     /// Fetch hover information for the cursor's current position and
-    /// install it as a popover. No-op when no project is loaded, no
-    /// buffer is active, or OxVba returns nothing at the cursor — so
-    /// F1 feels like "press it to get info; if there isn't any, the
-    /// UI doesn't move". Matches the IDE convention that context
-    /// help is free of penalty when it has nothing to say.
+    /// install it as a popover.
+    ///
+    /// Always installs *some* popover when F1 is pressed on an active
+    /// editor buffer — even if OxVba has nothing to report at the
+    /// exact cursor. The fallback "No hover information available at
+    /// this position" keeps F1 feeling responsive: the user sees
+    /// their keystroke produce a visible change and dismisses with
+    /// Esc / F1, rather than wondering whether the binary received
+    /// the key at all. Matches the "press it to get info" convention
+    /// while staying honest about OxVba's resolution.
+    ///
+    /// No-op only when there is genuinely nothing to anchor a popover
+    /// to — no project, no active buffer, no cursor.
     fn open_hover_popover(&mut self) {
-        let Some(project_path) = self.project_path.clone() else {
-            return;
-        };
         let Some(cursor) = self.active_editor_cursor() else {
             return;
         };
-        let (title, lines) = match self.shell.runtime.workspace.active_buffer() {
-            Some(buffer) => (buffer.title.clone(), buffer.lines.clone()),
-            None => return,
+        let Some((title, lines)) = self
+            .shell
+            .runtime
+            .workspace
+            .active_buffer()
+            .map(|buffer| (buffer.title.clone(), buffer.lines.clone()))
+        else {
+            return;
         };
-        if let Some(hover_lines) =
-            super::oxvba::fetch_hover_at_cursor(&project_path, &title, &lines, cursor)
-        {
-            self.shell.show_hover_popover(hover_lines, cursor);
-        }
+
+        let hover_lines = self
+            .project_path
+            .as_ref()
+            .and_then(|project_path| {
+                super::oxvba::fetch_hover_at_cursor(project_path, &title, &lines, cursor)
+            })
+            .unwrap_or_else(|| {
+                vec![String::from(
+                    "No hover information available at this position.",
+                )]
+            });
+        self.shell.show_hover_popover(hover_lines, cursor);
     }
 
     /// Resolve goto-definition at the cursor and, if OxVba returns a
@@ -477,7 +547,20 @@ impl ShellModel {
             PaletteAction::OpenSelectedProject => {
                 if let Some(path) = self.shell.selected_project_path().cloned() {
                     self.try_mount_workspace(path);
+                } else {
+                    self.shell.show_hover_popover(
+                        vec![
+                            String::from("No recent projects in this directory."),
+                            String::new(),
+                            String::from("Relaunch with a path, or press Ctrl+N"),
+                            String::from("(or pick Create Project from F6) to scaffold one."),
+                        ],
+                        CursorPosition::new(1, 1),
+                    );
                 }
+            }
+            PaletteAction::CreateNewProject => {
+                self.create_new_project();
             }
             PaletteAction::SaveActiveBuffer => {
                 let _ = self.shell.save_active_buffer();
@@ -717,7 +800,32 @@ impl Model for ShellModel {
             Msg::OpenSelectedProject => {
                 if let Some(path) = self.shell.selected_project_path().cloned() {
                     self.try_mount_workspace(path);
+                } else {
+                    // Honest feedback when there is nothing to open —
+                    // keeping `Ctrl+O` silent here made the binding
+                    // feel dead (the exact complaint a user filed
+                    // against this build). The popover explains what
+                    // happened and the two escape hatches: pass a
+                    // path on the command line, or press `Ctrl+N` to
+                    // scaffold a new project in-place.
+                    self.shell.show_hover_popover(
+                        vec![
+                            String::from("No recent projects in this directory."),
+                            String::new(),
+                            String::from("To open an existing project, relaunch with:"),
+                            String::from("  ox-ide path/to/YourProject.basproj"),
+                            String::new(),
+                            String::from("Or press Ctrl+N to scaffold a new project here."),
+                            String::new(),
+                            String::from("Esc / F1 to dismiss."),
+                        ],
+                        CursorPosition::new(1, 1),
+                    );
                 }
+                Cmd::none()
+            }
+            Msg::CreateNewProject => {
+                self.create_new_project();
                 Cmd::none()
             }
             Msg::RunProject => {
@@ -810,6 +918,14 @@ fn is_quit_key(key: KeyEvent) -> bool {
 
 fn is_open_project_key(key: KeyEvent) -> bool {
     key.is_char('o') && key.modifiers.contains(Modifiers::CTRL)
+}
+
+/// `Ctrl+N` — scaffold a new project and mount it. Excludes Shift
+/// so a future `Ctrl+Shift+N` can do something distinct.
+fn is_create_project_key(key: KeyEvent) -> bool {
+    key.is_char('n')
+        && key.modifiers.contains(Modifiers::CTRL)
+        && !key.modifiers.contains(Modifiers::SHIFT)
 }
 
 fn is_toggle_palette_key(key: KeyEvent) -> bool {
@@ -1069,6 +1185,55 @@ mod tests {
     }
 
     #[test]
+    fn maps_ctrl_n_to_create_new_project() {
+        let msg = Msg::from(Event::Key(
+            KeyEvent::new(KeyCode::Char('n')).with_modifiers(Modifiers::CTRL),
+        ));
+        assert_eq!(msg, Msg::CreateNewProject);
+    }
+
+    #[test]
+    fn ctrl_o_with_no_recent_projects_shows_honest_feedback_popover() {
+        // Previously Ctrl+O was a silent no-op when the recent list
+        // was empty (a real user complaint). It must now produce a
+        // popover explaining how to open / scaffold. We force the
+        // empty state by clearing the recent list after construction
+        // — avoiding a cwd change that would race with other
+        // parallel tests that rely on the OxIde repo root.
+        let mut model = ShellModel::new(None);
+        assert_eq!(model.scene(), ShellScene::Empty);
+        model.shell.runtime.recent_projects.clear();
+
+        model.update(Msg::OpenSelectedProject);
+
+        let popover = model.shell.hover_popover();
+        assert!(
+            popover.is_some(),
+            "Ctrl+O with no recent must not be a silent no-op — a \
+             feedback popover is the contract now"
+        );
+        let popover = popover.unwrap();
+        assert!(
+            popover.lines.iter().any(|line| line.contains("No recent")),
+            "popover body must explain the situation: {:?}",
+            popover.lines
+        );
+        assert!(
+            popover.lines.iter().any(|line| line.contains("Ctrl+N")),
+            "popover must point the user at Ctrl+N as the escape hatch: {:?}",
+            popover.lines
+        );
+    }
+
+    // Note: an end-to-end "Ctrl+N scaffolds under cwd and mounts"
+    // test would require cwd manipulation, which races with other
+    // parallel tests. The scaffold contract is pinned by
+    // `shell::project_actions::tests::create_new_project_scaffolds_a_loadable_basproj_with_module1`;
+    // the Msg → handler wiring is pinned by
+    // `maps_ctrl_n_to_create_new_project` above. The final integration
+    // is exercised interactively via the W037 wtd workspace.
+
+    #[test]
     fn maps_f1_to_toggle_hover_popover() {
         let msg = Msg::from(Event::Key(KeyEvent::new(KeyCode::F(1))));
         assert_eq!(msg, Msg::ToggleHoverPopover);
@@ -1259,9 +1424,10 @@ mod tests {
         model.update(Msg::TogglePalette);
         assert!(model.palette_active());
 
-        // Open Project (row 0) is the default selection; Save is row
-        // 1 in the current palette order. One Down moves the
-        // highlight there.
+        // Open Project (row 0) is the default selection; Save is
+        // row 2 in the current palette order (Open Project / Create
+        // Project / Save). Two Downs land on Save.
+        model.update(Msg::MoveEditorDown);
         model.update(Msg::MoveEditorDown);
 
         model.update(Msg::InsertEditorNewline); // Enter
@@ -1293,8 +1459,9 @@ mod tests {
 
         model.update(Msg::TogglePalette);
         // Move to the Undo entry. Default palette order is
-        // Open Project / Save / Save All / Undo / Redo / ...
-        // Three Downs lands on Undo.
+        // Open Project / Create Project / Save / Save All / Undo /
+        // Redo / ... — four Downs lands on Undo (index 4).
+        model.update(Msg::MoveEditorDown);
         model.update(Msg::MoveEditorDown);
         model.update(Msg::MoveEditorDown);
         model.update(Msg::MoveEditorDown);

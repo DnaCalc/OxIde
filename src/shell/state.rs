@@ -1006,6 +1006,8 @@ pub struct LauncherContentState {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PaletteAction {
     OpenSelectedProject,
+    /// Scaffold and mount a brand-new `.basproj` (Ctrl+N).
+    CreateNewProject,
     SaveActiveBuffer,
     SaveAllDirtyBuffers,
     UndoActiveBuffer,
@@ -1249,7 +1251,16 @@ impl Default for ShellState {
 impl ShellState {
     pub fn apply_scene(&mut self, scene: ShellScene) {
         self.scene = scene;
-        self.runtime.layout = ShellLayoutPolicy::derive(scene, self.runtime.width_class);
+        // Overlays keep the backing scene's layout so the palette
+        // doesn't reshape the body when it opens (e.g. Empty → F6
+        // should float the palette over Welcome, not suddenly
+        // expose a three-column [Explorer | Editor | Inspector]
+        // layout that Empty deliberately hides per D1b). Non-overlay
+        // scenes re-derive so the layout policy tracks width_class +
+        // scene shape as D10 specifies.
+        if !matches!(scene, ShellScene::Palette | ShellScene::ComReference) {
+            self.runtime.layout = ShellLayoutPolicy::derive(scene, self.runtime.width_class);
+        }
         // Scene transitions are non-destructive for the workspace when
         // a live session is mounted. Only the layout preset changes
         // per scene; buffer contents, dirty flags, cursor positions,
@@ -1279,6 +1290,20 @@ impl ShellState {
         // workspace to preserve.
         self.runtime.workspace = match (scene, self.runtime.session_workspace.clone()) {
             (ShellScene::Empty, _) => workspace_for_scene(scene),
+            // Overlays (Palette / ComReference) float over whatever
+            // is currently on screen — never build a fresh scene
+            // fixture underneath. Without this clause the rest of
+            // the match falls into the mock-mode `(_, None)` branch
+            // when a user on the Empty scene opens the palette,
+            // which fabricated a "Payroll.basproj" mock workspace
+            // *behind* the overlay. Opening the palette from Empty
+            // must show the Empty Welcome surface underneath, not a
+            // hallucinated project.
+            (ShellScene::Palette | ShellScene::ComReference, _) => {
+                let mut workspace = self.runtime.workspace.clone();
+                workspace.layout.preset = layout_preset_for_scene(scene);
+                workspace
+            }
             (_, Some(_)) => {
                 // Live session: preserve the runtime workspace,
                 // only update the layout preset.
@@ -1776,7 +1801,7 @@ impl ShellState {
         }
         match self.scene {
             ShellScene::Empty => {
-                "Ctrl+O open project  Up/Down select recent  F6 palette  Ctrl+Q quit"
+                "Ctrl+O open project  Ctrl+N new project  Up/Down select recent  F6 palette  Ctrl+Q quit"
             }
             ShellScene::Editing | ShellScene::Semantic => {
                 "Ctrl+S save  F1 hover  F5 run  F12 goto def  Ctrl+Z undo  F6 palette  Tab next focus  Ctrl+Q quit"
@@ -2465,7 +2490,15 @@ fn content_for_scene(
                 format!("{marker}{label} ({})", path.display())
             })
             .collect(),
-        actions: vec!["Open Project", "Create Project", "Browse Recent"],
+        // Welcome's Start list carries only affordances that actually
+        // fire a wired Msg today (P6 — every listed affordance must
+        // do what it says). "Open Project" → Ctrl+O / palette action;
+        // "Create Project" → Ctrl+N / palette action. "Browse Recent"
+        // is retired because recent-picking is already done via
+        // Up/Down on the Welcome Recent list above — a separate
+        // affordance was redundant. It will return when a genuine
+        // "browse filesystem outside cwd" picker lands (W040).
+        actions: vec!["Open Project (Ctrl+O)", "Create Project (Ctrl+N)"],
     };
 
     let palette = PaletteContentState {
@@ -2483,10 +2516,14 @@ fn content_for_scene(
                 shortcut: "Ctrl+O",
                 action: PaletteAction::OpenSelectedProject,
             },
-            // J4-e / P6: `New Project` with `Ctrl+N` used to live here
-            // but `Ctrl+N` is not wired in `model.rs`. The palette only
-            // advertises bindings that actually work; `New Project` will
-            // return once it is implemented (see W040).
+            // J4-e / P6 closed 2026-04-17: Create Project is now a
+            // real, wired affordance. Scaffolds a minimal .basproj
+            // under the cwd and mounts it.
+            PaletteCommandState {
+                label: "Create Project",
+                shortcut: "Ctrl+N",
+                action: PaletteAction::CreateNewProject,
+            },
             PaletteCommandState {
                 label: "Save",
                 shortcut: "Ctrl+S",
@@ -2862,22 +2899,21 @@ mod tests {
     // palette must not pretend it does. This test locks the absence
     // in so the entry cannot be reintroduced unwired.
     #[test]
-    fn palette_commands_do_not_advertise_unwired_ctrl_n_binding() {
+    fn palette_create_project_is_wired_to_ctrl_n() {
+        // J4-e flipped 2026-04-17: Ctrl+N now scaffolds a new
+        // project. The palette advertises it, the keystroke fires,
+        // the Msg dispatches a real scaffold. This test pins that
+        // the shortcut and label are both present and that the
+        // action resolves to `CreateNewProject`.
         let state = ShellState::default();
         let commands = &state.runtime.content.palette.commands;
 
-        assert!(
-            commands.iter().all(|command| command.shortcut != "Ctrl+N"),
-            "palette must not advertise Ctrl+N until it is wired (J4-e): {:?}",
-            commands
-                .iter()
-                .map(|c| (c.label, c.shortcut))
-                .collect::<Vec<_>>()
-        );
-        assert!(
-            commands.iter().all(|command| command.label != "New Project"),
-            "palette must not advertise `New Project` until it is implemented (J4-e)"
-        );
+        let create = commands
+            .iter()
+            .find(|command| command.label == "Create Project")
+            .expect("palette must advertise Create Project (J4-e closure)");
+        assert_eq!(create.shortcut, "Ctrl+N");
+        assert_eq!(create.action, PaletteAction::CreateNewProject);
     }
 
     #[test]
@@ -3866,16 +3902,16 @@ mod tests {
             Some(PaletteAction::OpenSelectedProject)
         ));
 
+        state.cycle_palette_selection(1); // -> "Create Project"
+        assert!(matches!(
+            state.palette_selected_action(),
+            Some(PaletteAction::CreateNewProject)
+        ));
+
         state.cycle_palette_selection(1); // -> "Save"
         assert!(matches!(
             state.palette_selected_action(),
             Some(PaletteAction::SaveActiveBuffer)
-        ));
-
-        state.cycle_palette_selection(1); // -> "Save All"
-        assert!(matches!(
-            state.palette_selected_action(),
-            Some(PaletteAction::SaveAllDirtyBuffers)
         ));
     }
 

@@ -42,3 +42,10 @@ opencode.json.*.bak
 
 # bv (beads viewer) local config and caches
 .bv/
+
+# Scaffolded projects from Ctrl+N / Create Project; these land
+# under the process cwd. If the user launches ox-ide from the
+# repo root during interactive testing, ignore them so they don't
+# accumulate in the tree.
+/NewProject/
+/NewProject-*/

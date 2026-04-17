@@ -7,13 +7,13 @@
 │A terminal-native IDE for OxVba.                                                                                      │
 │                                                                                                                      │
 │Recent                                                                                                                │
-│> ThinSliceHello (.\examples\thin-slice\ThinSliceHello.basproj)                                                       │
+│> NewProject (.\NewProject\NewProject.basproj)                                                                        │
+│  NewProject-2 (.\NewProject-2\NewProject-2.basproj)                                                                  │
+│  ThinSliceHello (.\examples\thin-slice\ThinSliceHello.basproj)                                                       │
 │                                                                                                                      │
 │Start                                                                                                                 │
-│  Open Project                                                                                                        │
-│  Create Project                                                                                                      │
-│  Browse Recent                                                                                                       │
-│                                                                                                                      │
+│  Open Project (Ctrl+O)                                                                                               │
+│  Create Project (Ctrl+N)                                                                                             │
 │                                                                                                                      │
 │                                                                                                                      │
 │                                                                                                                      │
@@ -37,4 +37,4 @@
 │                                                                                                                      │
 │                                                                                                                      │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-Ctrl+O open project  Up/Down select recent  F6 palette  Ctrl+Q quit                                                     
+Ctrl+O open project  Ctrl+N new project  Up/Down select recent  F6 palette  Ctrl+Q quit                                 

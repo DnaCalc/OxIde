@@ -45,9 +45,19 @@ pub fn render(model: &ShellModel, frame: &mut Frame) {
         None,
     );
 
+    // Overlay scenes (Palette / ComReference) paint over the
+    // backing scene's body shape — so Empty → F6 still renders the
+    // single-panel Welcome underneath, not a 3-column fake project.
+    // For non-overlay scenes the backing scene is the scene itself.
+    let body_scene = if model.overlay_active() {
+        model.previous_scene()
+    } else {
+        model.scene()
+    };
+
     if model.inspector_is_collapsed() {
         render_narrow_body(root_sections[1], frame, model, &panels);
-    } else if model.scene() == ShellScene::Empty {
+    } else if body_scene == ShellScene::Empty {
         render_empty_body(root_sections[1], frame, model, &panels);
     } else {
         render_wide_body(root_sections[1], frame, model, &panels);

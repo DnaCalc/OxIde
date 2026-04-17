@@ -15,6 +15,60 @@ use super::state::{
     WorkspaceProjectModuleKind, WorkspaceProjectState,
 };
 
+/// Scaffold a fresh `.basproj` workspace under `root`.
+///
+/// Creates a directory named `preferred_name` under `root`; if that
+/// directory already exists, appends `-2`, `-3`, … until a free name
+/// is found. Writes two files:
+/// - `<name>/<name>.basproj` — minimal SDK-style project with a
+///   `Module1.bas` include and `Module1.Main` as the entry point.
+/// - `<name>/Module1.bas` — empty `Public Sub Main()` that prints
+///   `"Hello, world!"` via `Debug.Print`.
+///
+/// Returns the absolute path of the newly-created `.basproj` file so
+/// the caller can mount it. The choice to scaffold a known-good
+/// project layout (SDK version, entry point, one module with one
+/// Sub) is deliberate: the user who presses `Ctrl+N` lands on a
+/// project that already builds under `F5`, matching the onboarding
+/// spirit of "every promised affordance actually works" (P6).
+pub fn create_new_project(root: &Path, preferred_name: &str) -> io::Result<PathBuf> {
+    fs::create_dir_all(root)?;
+    let mut chosen = root.join(preferred_name);
+    let mut suffix: u32 = 2;
+    while chosen.exists() {
+        chosen = root.join(format!("{preferred_name}-{suffix}"));
+        suffix += 1;
+    }
+    fs::create_dir_all(&chosen)?;
+    let project_name = chosen
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(String::from)
+        .unwrap_or_else(|| preferred_name.to_string());
+    let basproj_path = chosen.join(format!("{project_name}.basproj"));
+    fs::write(
+        &basproj_path,
+        format!(
+r#"<Project Sdk="OxVba.Sdk/0.1.0">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <ProjectName>{project_name}</ProjectName>
+    <EntryPoint>Module1.Main</EntryPoint>
+  </PropertyGroup>
+  <ItemGroup>
+    <Module Include="Module1.bas" />
+  </ItemGroup>
+</Project>
+"#
+        ),
+    )?;
+    fs::write(
+        chosen.join("Module1.bas"),
+        "Option Explicit\r\n\r\nPublic Sub Main()\r\n    Debug.Print \"Hello, world!\"\r\nEnd Sub\r\n",
+    )?;
+    Ok(basproj_path)
+}
+
 pub fn next_module_name(
     project: &WorkspaceProjectState,
     kind: WorkspaceProjectModuleKind,
@@ -374,6 +428,42 @@ fn is_supported_file_candidate(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn create_new_project_scaffolds_a_loadable_basproj_with_module1() {
+        let root = PathBuf::from("target")
+            .join("test-workspaces")
+            .join("scaffold-a-new-project");
+        let _ = fs::remove_dir_all(&root);
+        let basproj_path = create_new_project(&root, "NewProject").expect("scaffold");
+        assert!(
+            basproj_path.exists(),
+            "scaffold must produce the .basproj file at the returned path"
+        );
+        assert_eq!(
+            basproj_path.file_name().and_then(|n| n.to_str()),
+            Some("NewProject.basproj"),
+            "scaffold uses the preferred name as the project leaf"
+        );
+        let module_path = basproj_path
+            .parent()
+            .expect("project has a parent directory")
+            .join("Module1.bas");
+        assert!(
+            module_path.exists(),
+            "scaffold must produce Module1.bas alongside the .basproj"
+        );
+        let module_source = fs::read_to_string(&module_path).unwrap();
+        assert!(
+            module_source.contains("Public Sub Main()"),
+            "scaffolded Module1.bas must carry a runnable Main entry: {module_source:?}"
+        );
+
+        // A repeat scaffold must not collide — it appends a suffix.
+        let second = create_new_project(&root, "NewProject").expect("second scaffold");
+        assert_ne!(second, basproj_path);
+        assert!(second.to_string_lossy().contains("NewProject-2"));
+    }
     use crate::shell::session::ProjectSession;
 
     const FIXTURE_BASPROJ: &str = r#"<Project Sdk="OxVba.Sdk/0.1.0">

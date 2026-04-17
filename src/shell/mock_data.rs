@@ -106,7 +106,16 @@ fn explorer_text(state: &ShellState) -> String {
 /// the title, and see nothing indicating the file on disk no longer
 /// matches the buffer.
 fn editor_title(state: &ShellState) -> String {
-    match state.scene {
+    // Mirror the `editor_text` effective-scene rule so overlay scenes
+    // inherit the backing scene's title (Welcome on Empty, the
+    // buffer title on Editing).
+    let effective_scene = if matches!(state.scene, ShellScene::Palette | ShellScene::ComReference)
+    {
+        state.runtime.previous_scene
+    } else {
+        state.scene
+    };
+    match effective_scene {
         ShellScene::Empty => String::from("Welcome"),
         _ => {
             let workspace = &state.runtime.workspace;
@@ -124,7 +133,19 @@ fn editor_title(state: &ShellState) -> String {
 }
 
 fn editor_text(state: &ShellState) -> String {
-    match state.scene {
+    // Overlays (Palette, ComReference) render over whatever scene
+    // was backing them — so Empty + F6 must still surface the
+    // launcher-style Welcome text, not the buffer-level fallback
+    // that targets loaded source files. Choose the effective scene
+    // for text rendering the same way `view.rs` chooses the
+    // effective scene for body *shape*.
+    let effective_scene = if matches!(state.scene, ShellScene::Palette | ShellScene::ComReference)
+    {
+        state.runtime.previous_scene
+    } else {
+        state.scene
+    };
+    match effective_scene {
         ShellScene::Empty => launcher_editor_text(state),
         _ => editor_buffer_text(state),
     }
