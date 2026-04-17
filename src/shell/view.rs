@@ -1,5 +1,7 @@
+use ftui::Cell;
 use ftui::layout::{Constraint, Flex, Rect};
 use ftui::prelude::Frame;
+use ftui::text::WrapMode;
 use ftui::widgets::Widget;
 use ftui::widgets::block::{Alignment, Block};
 use ftui::widgets::borders::Borders;
@@ -10,22 +12,23 @@ use super::model::ShellModel;
 use super::state::{FocusRegion, ShellScene, WidthClass};
 use super::theme::{self, PanelTone};
 
+/// Height of the always-present bottom status line (uxpass D3). One
+/// terminal row — the status line never wraps and never grows.
+const STATUS_LINE_HEIGHT: u16 = 1;
+
+/// Top-level render pass.
+///
+/// Frame layout (uxpass D3 — the status line is permanent):
+///   `[TopBar(Fixed 3), Body(Fill), LowerSurface(optional), StatusLine(Fixed 1)]`
+///
+/// The status line is the canonical "what keystrokes are available
+/// right now" surface — it is never hidden and overlay scenes (Palette /
+/// COM reference helper) reuse it rather than masking it.
 pub fn render(model: &ShellModel, frame: &mut Frame) {
     let area = Rect::new(0, 0, frame.width(), frame.height());
     frame.set_cursor(None);
     frame.set_cursor_visible(false);
-    let root_sections = match model.lower_surface_height() {
-        Some(lower_height) => Flex::vertical()
-            .constraints([
-                Constraint::Fixed(3),
-                Constraint::Fill,
-                Constraint::Fixed(lower_height),
-            ])
-            .split(area),
-        None => Flex::vertical()
-            .constraints([Constraint::Fixed(3), Constraint::Fill])
-            .split(area),
-    };
+    let root_sections = split_root(area, model);
 
     let panels = model.panels();
 
@@ -36,6 +39,9 @@ pub fn render(model: &ShellModel, frame: &mut Frame) {
         &panels.top_bar,
         PanelTone::TopBar,
         model.focus() == FocusRegion::TopBar,
+        // TopBar is a single-row surface; wrapping would duplicate the
+        // row and offset the body layout.
+        None,
     );
 
     if model.inspector_is_collapsed() {
@@ -46,9 +52,10 @@ pub fn render(model: &ShellModel, frame: &mut Frame) {
         render_wide_body(root_sections[1], frame, model, &panels);
     }
 
+    let mut trailing_index = 2;
     if model.shows_lower_surface() {
         render_panel(
-            root_sections[2],
+            root_sections[trailing_index],
             frame,
             &active_title(
                 &model.lower_surface_title(),
@@ -58,8 +65,16 @@ pub fn render(model: &ShellModel, frame: &mut Frame) {
             &panels.lower_surface,
             PanelTone::Utility,
             model.focus() == FocusRegion::LowerSurface,
+            // Lower-surface diagnostics, output, references, etc. can
+            // carry long lines (paths, stack traces, error messages);
+            // wrap on word boundaries and fall back to char-splitting
+            // for identifiers that exceed the column (D7).
+            Some(WrapMode::WordChar),
         );
+        trailing_index += 1;
     }
+
+    render_status_line(root_sections[trailing_index], frame, model);
 
     if model.overlay_active() {
         render_overlay(frame, model, &panels);
@@ -68,6 +83,32 @@ pub fn render(model: &ShellModel, frame: &mut Frame) {
     if let Some(cursor_position) = editor_cursor_position(model, area) {
         frame.set_cursor(Some(cursor_position));
         frame.set_cursor_visible(true);
+    }
+}
+
+/// Split the frame into its canonical horizontal sections.
+///
+/// Returns three sections when no lower surface is shown:
+/// `[TopBar, Body, StatusLine]`. Four sections when the lower surface
+/// is present: `[TopBar, Body, LowerSurface, StatusLine]`. The caller
+/// indexes by role, not by raw position.
+fn split_root(area: Rect, model: &ShellModel) -> Vec<Rect> {
+    match model.lower_surface_height() {
+        Some(lower_height) => Flex::vertical()
+            .constraints([
+                Constraint::Fixed(3),
+                Constraint::Fill,
+                Constraint::Fixed(lower_height),
+                Constraint::Fixed(STATUS_LINE_HEIGHT),
+            ])
+            .split(area),
+        None => Flex::vertical()
+            .constraints([
+                Constraint::Fixed(3),
+                Constraint::Fill,
+                Constraint::Fixed(STATUS_LINE_HEIGHT),
+            ])
+            .split(area),
     }
 }
 
@@ -87,6 +128,9 @@ fn render_wide_body(area: Rect, frame: &mut Frame, model: &ShellModel, panels: &
         &panels.explorer,
         PanelTone::Navigation,
         model.focus() == FocusRegion::Explorer,
+        // Project paths, module includes, GUIDs can overflow the
+        // Explorer column; wrap rather than truncate (D7).
+        Some(WrapMode::WordChar),
     );
     render_panel(
         columns[1],
@@ -95,6 +139,10 @@ fn render_wide_body(area: Rect, frame: &mut Frame, model: &ShellModel, panels: &
         &panels.editor,
         PanelTone::Editor,
         model.focus() == FocusRegion::Editor,
+        // Source code must render one logical line per terminal row; a
+        // wrap that injects an extra row would shift cursor arithmetic
+        // off by one. Leave wrap off on non-Empty scenes.
+        None,
     );
     render_panel(
         columns[2],
@@ -103,41 +151,38 @@ fn render_wide_body(area: Rect, frame: &mut Frame, model: &ShellModel, panels: &
         &panels.inspector,
         PanelTone::Context,
         model.focus() == FocusRegion::Inspector,
+        // Diagnostics, symbol names, hover text all need to stay
+        // readable in the narrowest Inspector column (D7).
+        Some(WrapMode::WordChar),
     );
 }
 
+/// Render the Empty scene body.
+///
+/// Uxpass D1 (D1a + D1b): Empty has nothing to inspect (P5) and
+/// nothing to navigate in a separate tree (D1b — the Welcome panel
+/// owns the launcher role directly). The body collapses to a single
+/// full-width Welcome surface carrying:
+/// - the OxIde header + blurb,
+/// - the Recent projects list with `>` selection marker (driven by
+///   `launcher_selection`; `Up/Down` cycles it, `Ctrl+O` opens the
+///   selected one — both are announced on the status line),
+/// - the Start action list (informational; no second selection marker).
+///
+/// The status line below this region announces `Ctrl+O`, `Up/Down`,
+/// `F6`, and `Ctrl+Q` (D3 / D8).
 fn render_empty_body(area: Rect, frame: &mut Frame, model: &ShellModel, panels: &ShellPanels) {
-    let columns = Flex::horizontal()
-        .constraints([
-            Constraint::Percentage(model.explorer_width_percent()),
-            Constraint::Percentage(model.editor_width_percent()),
-            Constraint::Fill,
-        ])
-        .split(area);
-
     render_panel(
-        columns[0],
+        area,
         frame,
-        &active_title(model.explorer_title(), model, FocusRegion::Explorer),
-        &panels.explorer,
-        PanelTone::Navigation,
-        model.focus() == FocusRegion::Explorer,
-    );
-    render_panel(
-        columns[1],
-        frame,
-        &active_title(&panels.editor_title, model, FocusRegion::Editor),
+        &active_title("Welcome", model, FocusRegion::Editor),
         &panels.editor,
         PanelTone::Editor,
         model.focus() == FocusRegion::Editor,
-    );
-    render_panel(
-        columns[2],
-        frame,
-        &active_title(&model.inspector_title(), model, FocusRegion::Inspector),
-        &panels.inspector,
-        PanelTone::Context,
-        model.focus() == FocusRegion::Inspector,
+        // Welcome is user-facing prose: recent-project paths can be
+        // long; the Start action list can grow. Wrap on word
+        // boundaries with char-break fallback (D7).
+        Some(WrapMode::WordChar),
     );
 }
 
@@ -153,6 +198,7 @@ fn render_narrow_body(area: Rect, frame: &mut Frame, model: &ShellModel, panels:
         &panels.explorer,
         PanelTone::Navigation,
         model.focus() == FocusRegion::Explorer,
+        Some(WrapMode::WordChar),
     );
     render_panel(
         columns[1],
@@ -161,11 +207,19 @@ fn render_narrow_body(area: Rect, frame: &mut Frame, model: &ShellModel, panels:
         &panels.editor,
         PanelTone::Editor,
         model.focus() == FocusRegion::Editor,
+        None,
     );
 }
 
 fn render_overlay(frame: &mut Frame, model: &ShellModel, panels: &ShellPanels) {
     let overlay = centered_rect(frame.width(), frame.height(), model.width_class());
+    // J4-a: clear the overlay rect's cell contents before the panel
+    // renders so editor text underneath cannot bleed through the
+    // Block's `set_style_area` (which preserves cell content while
+    // changing background color). Cell::default() resets the grapheme
+    // to EMPTY; the Block below then paints its own background and
+    // title/body on top of clean cells.
+    frame.buffer.fill(overlay, Cell::default());
     let body = if model.com_reference_helper_active() {
         &panels.com_reference_helper
     } else {
@@ -178,6 +232,9 @@ fn render_overlay(frame: &mut Frame, model: &ShellModel, panels: &ShellPanels) {
         body,
         PanelTone::Overlay,
         true,
+        // Palette filter / COM reference path fields wrap long
+        // candidate labels so none of them silently truncate (D7).
+        Some(WrapMode::WordChar),
     );
 }
 
@@ -188,8 +245,9 @@ fn render_panel(
     body: &str,
     tone: PanelTone,
     active: bool,
+    wrap: Option<WrapMode>,
 ) {
-    Paragraph::new(body)
+    let mut paragraph = Paragraph::new(body)
         .style(theme::content_style(tone, active))
         .block(
             Block::new()
@@ -198,7 +256,22 @@ fn render_panel(
                 .style(theme::panel_style(tone, active))
                 .title(title)
                 .title_alignment(Alignment::Center),
-        )
+        );
+    if let Some(mode) = wrap {
+        paragraph = paragraph.wrap(mode);
+    }
+    paragraph.render(area, frame);
+}
+
+/// Render the always-present bottom status line (uxpass D3 / D8).
+///
+/// Single terminal row, no border, muted foreground on the panel
+/// background. The text comes from `ShellModel::status_line_hint`,
+/// which returns a per-scene hint string (see `ShellState::status_line_hint`).
+fn render_status_line(area: Rect, frame: &mut Frame, model: &ShellModel) {
+    let style = theme::content_style(PanelTone::TopBar, false);
+    Paragraph::new(model.status_line_hint())
+        .style(style)
         .render(area, frame);
 }
 
@@ -262,18 +335,10 @@ fn editor_cursor_position(model: &ShellModel, area: Rect) -> Option<(u16, u16)> 
 }
 
 fn editor_panel_area(model: &ShellModel, area: Rect) -> Option<Rect> {
-    let root_sections = match model.lower_surface_height() {
-        Some(lower_height) => Flex::vertical()
-            .constraints([
-                Constraint::Fixed(3),
-                Constraint::Fill,
-                Constraint::Fixed(lower_height),
-            ])
-            .split(area),
-        None => Flex::vertical()
-            .constraints([Constraint::Fixed(3), Constraint::Fill])
-            .split(area),
-    };
+    // Must mirror `split_root` + the body-section splits in `render_*`;
+    // the status line at the trailing index is irrelevant because we
+    // only need the body rect.
+    let root_sections = split_root(area, model);
     let body = root_sections.get(1).copied()?;
 
     if model.inspector_is_collapsed() {
@@ -320,5 +385,74 @@ mod tests {
 
         assert!(frame.cursor_position.is_some());
         assert!(frame.cursor_visible);
+    }
+
+    /// Collect the printable characters from one row of a Frame's
+    /// buffer within a horizontal `[x_start, x_end)` span. Used by the
+    /// opaque-overlay regression test to assert that specific editor
+    /// glyphs are absent from the overlay's interior rows.
+    fn collect_row_chars(frame: &Frame, y: u16, x_start: u16, x_end: u16) -> String {
+        let mut out = String::new();
+        for x in x_start..x_end {
+            if let Some(cell) = frame.buffer.get(x, y) {
+                if let Some(ch) = cell.content.as_char() {
+                    out.push(ch);
+                } else if cell.content.is_grapheme() {
+                    // Interned grapheme — treat as "non-empty, non-ASCII"
+                    // for substring scans. Editor source code is ASCII,
+                    // so the bleed-through characters we want to catch
+                    // would appear as char-encoded cells, not graphemes.
+                    out.push('?');
+                }
+            }
+        }
+        out
+    }
+
+    /// J4-a / P1 / P4 — the palette overlay must paint opaque cells
+    /// over the editor surface. Before the fix, Block's
+    /// `set_style_area` recolored cells in place, leaving editor
+    /// glyphs (e.g. the `Integer` in `Dim answer As Integer`) visible
+    /// inside the overlay frame. Regression: render Editing with the
+    /// palette open and assert that the editor's characteristic
+    /// source-code tokens are not found inside the overlay's inner
+    /// rows.
+    #[test]
+    fn palette_overlay_is_opaque_over_editor_text() {
+        let mut model = ShellModel::new(Some(std::path::PathBuf::from(
+            "examples/thin-slice/ThinSliceHello.basproj",
+        )));
+        model.update(super::super::model::Msg::FocusRegion(FocusRegion::Editor));
+        model.update(super::super::model::Msg::TogglePalette);
+        assert!(model.overlay_active(), "palette must be open for this test");
+
+        let mut pool = GraphemePool::new();
+        let (width, height) = (120_u16, 40_u16);
+        let mut frame = Frame::new(width, height, &mut pool);
+        render(&model, &mut frame);
+
+        let overlay = centered_rect(width, height, model.width_class());
+        let inner = panel_inner_area(overlay);
+        assert!(
+            !inner.is_empty(),
+            "overlay inner area must be non-empty for this test to be meaningful"
+        );
+
+        // `Integer` from `Dim answer As Integer` is the most obvious
+        // bleed-through token at the 120x40 Editing layout: it lives
+        // near the centre of the editor column where the overlay rect
+        // falls. If J4-a regresses, that substring reappears in one
+        // of the overlay's inner rows.
+        for y in inner.y..inner.y.saturating_add(inner.height) {
+            let row = collect_row_chars(&frame, y, inner.x, inner.x.saturating_add(inner.width));
+            assert!(
+                !row.contains("Integer"),
+                "editor text bled through palette overlay at row {y}: {row:?}"
+            );
+            assert!(
+                !row.contains("answer = 40"),
+                "editor expression bled through palette overlay at row {y}: {row:?}"
+            );
+        }
     }
 }

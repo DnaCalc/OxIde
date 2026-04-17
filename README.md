@@ -111,6 +111,16 @@ cargo test
 Important note:
 - full `cargo test` depends on the local frozen OxVba mirror being present at `.external/oxvba-frozen`
 
+Visible shell behavior is anchored on a WinTermDriver-based headless test
+harness behind a `wtd` cargo feature:
+
+```bash
+cargo test --features wtd
+```
+
+See `docs/TESTING_WTD.md` for the harness, scenario workspaces, and golden
+snapshot discipline.
+
 ## Current Direction
 
 The repo follows the product and architecture direction in:

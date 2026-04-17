@@ -1,0 +1,40 @@
+┌─────────────────────────────────────────────────────OxIde Shell──────────────────────────────────────────────────────┐
+│ThinSliceHello | Editing | Ln 5 Col 3                                                                                 │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌──────Explorer──────┐┌─────────────────────> Module1.bas | Primary View <─────────────────────┐┌Inspector Diagnostics─┐
+│Project             ││Attribute VB_Name = "Module1"                                           ││Diagnostics           │
+│> ThinSliceHello    ││                                                                        ││No diagnostics in     │
+│  BasProj | Exe     ││Option Explicit                                                         ││mounted workspace     │
+│  target            ││                                                                        ││                      │
+│examples/thin-slice/││Public Sub Main()                                                       ││Symbols               │
+│ThinSliceHello.baspr││    Dim answer As Integer                                               ││Main                  │
+│oj                  ││    answer = 40 + 2                                                     ││                      │
+│  file              ││End Sub                                                                 ││                      │
+│examples/thin-slice/││                                                                        ││                      │
+│ThinSliceHello.baspr││                                                                        ││                      │
+│oj                  ││                                                                        ││                      │
+│                    ││                                                                        ││                      │
+│Modules             ││                                                                        ││                      │
+│> Module1 [Module]  ││                                                                        ││                      │
+│  include           ││                                                                        ││                      │
+│Module1.bas         ││                                                                        ││                      │
+│  source            ││                                                                        ││                      │
+│examples/thin-slice\││                                                                        ││                      │
+│Module1.bas         ││                                                                        ││                      │
+│                    ││                                                                        ││                      │
+│References          ││                                                                        ││                      │
+│  No references     ││                                                                        ││                      │
+│declared            ││                                                                        ││                      │
+│                    ││                                                                        ││                      │
+│Open Buffers        ││                                                                        ││                      │
+│> Module1.bas *     ││                                                                        ││                      │
+│                    ││                                                                        ││                      │
+└────────────────────┘└────────────────────────────────────────────────────────────────────────┘└──────────────────────┘
+┌────────────────────────────────────────────────Lower Surface Problems────────────────────────────────────────────────┐
+│Problems                                                                                                              │
+│No diagnostics in mounted workspace                                                                                   │
+│                                                                                                                      │
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+F5 run  F6 palette  Ctrl+Tab next view  Tab next focus  Ctrl+Q quit                                                     

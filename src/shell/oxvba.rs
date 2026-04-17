@@ -2,7 +2,9 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use oxvba_languageservice::service::Position;
-use oxvba_languageservice::{DiagnosticSeverity, DocumentId, HostWorkspaceSession};
+use oxvba_languageservice::{
+    DiagnosticSeverity, DocumentId, HostWorkspaceSession, SymbolProvenanceKind,
+};
 use oxvba_web_host::{WebDiagnosticSeverity, WebHostCommand, WebHostEvent, WebOutputStream};
 use oxvba_web_shell::WebShellSession;
 
@@ -81,6 +83,12 @@ pub fn load_semantic_state(
         })
         .collect::<HashMap<_, _>>();
 
+    // Uxpass J3-b (P4 / P10): diagnostics whose originating document is
+    // a tool-inserted helper (OxVba startup shim, any `__OxVba…`
+    // module) are not the author's code. Tagging them `[generated]`
+    // keeps them visible (they still matter for a run that fails) but
+    // makes the origin honest, so the user can tell at a glance that
+    // the squiggles are not coming from their `Module1.bas`.
     let diagnostics = documents
         .iter()
         .flat_map(|document| {
@@ -89,19 +97,41 @@ pub fn load_semantic_state(
                 .unwrap_or_default()
                 .into_iter()
                 .map(|diagnostic| {
-                    format!(
-                        "{} {} {}",
-                        document.id,
+                    format_diagnostic_line(
+                        &document.id.0,
                         host_diagnostic_severity_label(diagnostic.severity),
-                        diagnostic.message
+                        &diagnostic.message,
                     )
                 })
         })
         .collect::<Vec<_>>();
 
+    // Uxpass J2-c / P1 — the Symbols pane is a user surface and must
+    // list only symbols the user would recognize as theirs.
+    // `document_symbols` returns every symbol the OxVba semantic model
+    // knows about. Three classes leak in and we scrub each:
+    //
+    //   1. Imported type-library projections and project references —
+    //      provenance kinds `ImportedTypeLibraryProjection` /
+    //      `ProjectReference` / `Generated`. Keep only `SourceModule`.
+    //   2. Tool-inserted helper documents (anything `__OxVba…`, e.g.
+    //      `__OxVbaStartupEntryShim`) — those carry a second `Main`
+    //      that mirrors the entry-point reference, not a user
+    //      declaration. Filter by `provenance.document_id`.
+    //   3. Type names appearing inside `As <Type>` annotations. OxVba's
+    //      semantic model currently tags the type-name token as a
+    //      `Variable` declared in the enclosing Sub with the same
+    //      provenance as the Sub. That is an OxVba defect (it confuses
+    //      the type-reference span with a declaration site); until it
+    //      is fixed upstream we screen on the set of VBA intrinsic
+    //      type names. A real user variable named `Integer` would be
+    //      a syntax error in VBA, so this is safe.
     let all_symbols = documents
         .iter()
         .flat_map(|document| session.document_symbols(&document.id).unwrap_or_default())
+        .filter(|symbol| symbol.provenance.kind == SymbolProvenanceKind::SourceModule)
+        .filter(|symbol| !is_generated_document_id(&symbol.provenance.document_id))
+        .filter(|symbol| !is_vba_intrinsic_type_name(&symbol.name))
         .map(|symbol| symbol.name)
         .collect::<Vec<_>>();
 
@@ -314,7 +344,11 @@ fn output_lines_from_events(events: &[WebHostEvent]) -> Vec<String> {
                 lines.push(format!("[workspace] documents {}", summary.documents.len()));
             }
             WebHostEvent::OutputLine { stream, text } => {
-                lines.push(format!("[{}] {text}", output_stream_label(*stream)));
+                lines.push(format!(
+                    "[{}] {}",
+                    output_stream_label(*stream),
+                    sanitize_output_text(text)
+                ));
             }
             WebHostEvent::Error { operation, message } => {
                 lines.push(format!("[error] {operation}: {message}"));
@@ -378,7 +412,11 @@ fn log_lines_from_events(events: &[WebHostEvent]) -> Vec<String> {
                 }
             }
             WebHostEvent::OutputLine { stream, text } => {
-                lines.push(format!("output {} {text}", output_stream_label(*stream)));
+                lines.push(format!(
+                    "output {} {}",
+                    output_stream_label(*stream),
+                    sanitize_output_text(text)
+                ));
             }
             WebHostEvent::RunStateChanged(state) => {
                 lines.push(format!("run-state {:?}", state).to_lowercase());
@@ -416,6 +454,80 @@ fn host_diagnostic_severity_label(severity: DiagnosticSeverity) -> &'static str 
         DiagnosticSeverity::Error => "error",
         DiagnosticSeverity::Warning => "warning",
     }
+}
+
+/// Format a single diagnostic row as it appears in the Problems pane
+/// and the Inspector's Diagnostics sub-pane.
+///
+/// Uxpass J3-b: when the origin document is a tool-inserted helper
+/// (any `__OxVba…` module such as `__OxVbaStartupEntryShim`), the row
+/// is prefixed with `[generated]` instead of the raw document id so
+/// the user can tell the diagnostic is not about their own code.
+/// Otherwise the row is the document id followed by severity and
+/// message, unchanged from the pre-J3-b layout.
+fn format_diagnostic_line(document_id: &str, severity: &str, message: &str) -> String {
+    if is_generated_document_id(document_id) {
+        format!("[generated] {severity} {message}")
+    } else {
+        format!("{document_id} {severity} {message}")
+    }
+}
+
+/// Tool-inserted helper documents carry a leading double-underscore
+/// (e.g. `__OxVbaStartupEntryShim`). Any such id is "generated" for
+/// uxpass labeling purposes.
+fn is_generated_document_id(document_id: &str) -> bool {
+    document_id.starts_with("__OxVba")
+}
+
+/// True if `name` is a VBA intrinsic type name. Used defensively to
+/// screen out the OxVba-language-service defect where the type-token
+/// in `Dim x As Integer` is reported as a `Variable` declaration
+/// inside the enclosing Sub (see J2-c in [docs/uxpass/10_user_journeys.md]).
+/// A real user variable with any of these names would be a VBA syntax
+/// error, so filtering by name does not risk hiding a legitimate
+/// author-declared symbol.
+fn is_vba_intrinsic_type_name(name: &str) -> bool {
+    matches!(
+        name,
+        "Boolean"
+            | "Byte"
+            | "Currency"
+            | "Date"
+            | "Decimal"
+            | "Double"
+            | "Integer"
+            | "Long"
+            | "LongLong"
+            | "LongPtr"
+            | "Object"
+            | "Single"
+            | "String"
+            | "Variant"
+    )
+}
+
+/// Scrub OxVba-internal jargon from a user-facing output line
+/// (uxpass J3-c / P1).
+///
+/// The OxVba web shell emits `project run completed with N user slots`
+/// as a raw stdout line (see `oxvba-web-shell`); "user slots" is the
+/// runtime's slot-allocator vocabulary, not an end-user concept. We
+/// trim the trailing `" with <digits> user slots"` so the Output
+/// surface reads `project run completed` — the count is not
+/// actionable. Only the specific `user slots` suffix is stripped;
+/// other occurrences of `with` in a stdout line are left untouched.
+fn sanitize_output_text(text: &str) -> String {
+    const SUFFIX: &str = " user slots";
+    if let Some(rest) = text.strip_suffix(SUFFIX) {
+        if let Some(with_idx) = rest.rfind(" with ") {
+            let digits = &rest[with_idx + " with ".len()..];
+            if !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit()) {
+                return rest[..with_idx].to_string();
+            }
+        }
+    }
+    text.to_string()
 }
 
 fn resolve_active_document(
@@ -510,8 +622,90 @@ fn source_line_for_offset(source: &str, offset: Position) -> (usize, String) {
 mod tests {
     use std::path::Path;
 
-    use super::{load_execution_state, load_semantic_state, run_project_state};
+    use super::{
+        format_diagnostic_line, is_generated_document_id, is_vba_intrinsic_type_name,
+        load_execution_state, load_semantic_state, run_project_state, sanitize_output_text,
+    };
     use crate::shell::state::CursorPosition;
+
+    // J3-c / P1 — "user slots" is internal allocator jargon emitted by
+    // `oxvba-web-shell` (`project run completed with {N} user slots`).
+    // `sanitize_output_text` strips the specific " with <digits> user
+    // slots" suffix and leaves everything else untouched.
+    #[test]
+    fn sanitize_output_text_strips_user_slots_suffix_from_run_completion() {
+        assert_eq!(
+            sanitize_output_text("project run completed with 1 user slots"),
+            "project run completed"
+        );
+        assert_eq!(
+            sanitize_output_text("project run completed with 42 user slots"),
+            "project run completed"
+        );
+    }
+
+    #[test]
+    fn sanitize_output_text_preserves_unrelated_with_clauses() {
+        // "with" appearing in a non-user-slots context must not be
+        // truncated — only the specific jargon tail is scrubbed.
+        assert_eq!(
+            sanitize_output_text("opened file with unicode bom"),
+            "opened file with unicode bom"
+        );
+        assert_eq!(
+            sanitize_output_text("project run completed"),
+            "project run completed"
+        );
+        assert_eq!(
+            sanitize_output_text("user slots reserved"),
+            "user slots reserved"
+        );
+    }
+
+    // J3-b / P1 — tool-inserted helpers (any `__OxVba…` id) are not
+    // user code. Their diagnostic rows carry a `[generated]` prefix so
+    // the user can see the message is not about their own module.
+    #[test]
+    fn is_generated_document_id_matches_oxvba_tool_helpers() {
+        assert!(is_generated_document_id("__OxVbaStartupEntryShim"));
+        assert!(is_generated_document_id("__OxVbaAnything"));
+        assert!(!is_generated_document_id("Module1.bas"));
+        assert!(!is_generated_document_id("_private_but_not_oxvba"));
+        assert!(!is_generated_document_id(""));
+    }
+
+    #[test]
+    fn vba_intrinsic_type_names_cover_the_builtin_scalar_types() {
+        for name in [
+            "Boolean", "Byte", "Currency", "Date", "Decimal", "Double", "Integer", "Long",
+            "LongLong", "LongPtr", "Object", "Single", "String", "Variant",
+        ] {
+            assert!(
+                is_vba_intrinsic_type_name(name),
+                "{name} must be treated as a VBA intrinsic type name"
+            );
+        }
+        // User-author identifiers must still pass through; the filter
+        // is strictly an intrinsic-keyword denylist.
+        for name in ["answer", "Main", "MyModule", "string_buffer", "intResult"] {
+            assert!(
+                !is_vba_intrinsic_type_name(name),
+                "{name} is a user identifier and must not be filtered"
+            );
+        }
+    }
+
+    #[test]
+    fn format_diagnostic_line_tags_generated_documents_and_preserves_user_ids() {
+        assert_eq!(
+            format_diagnostic_line("__OxVbaStartupEntryShim", "error", "bad thing"),
+            "[generated] error bad thing"
+        );
+        assert_eq!(
+            format_diagnostic_line("Module1.bas", "warning", "unused binding"),
+            "Module1.bas warning unused binding"
+        );
+    }
 
     #[test]
     fn loads_execution_state_from_real_oxvba_runtime_contract() {
@@ -579,6 +773,25 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("run-state completed"))
         );
+        // J3-c / P1 — the OxVba runtime phrase "user slots" must not
+        // reach any user-facing surface. Sanitizer runs over both the
+        // Output pane and the build/run log.
+        assert!(
+            execution
+                .output_lines
+                .iter()
+                .all(|line| !line.contains("user slots")),
+            "output_lines leaked 'user slots': {:?}",
+            execution.output_lines
+        );
+        assert!(
+            execution
+                .log_lines
+                .iter()
+                .all(|line| !line.contains("user slots")),
+            "log_lines leaked 'user slots': {:?}",
+            execution.log_lines
+        );
     }
 
     #[test]
@@ -603,5 +816,18 @@ mod tests {
         assert!(semantic.symbols.iter().any(|symbol| symbol == "Main"));
         assert!(!semantic.hover_lines.is_empty());
         assert!(!semantic.references.is_empty());
+
+        // J2-c / P1 — only `SourceModule` symbols belong in the user-
+        // visible Symbols pane. Intrinsic scalar projections (e.g.
+        // `Integer`, `Long`, `Variant`) and imported type-library
+        // declarations are internal taxonomy and must be filtered out
+        // in `all_symbols`.
+        for intrinsic in ["Integer", "Long", "Variant", "Double", "Boolean", "String"] {
+            assert!(
+                !semantic.symbols.iter().any(|symbol| symbol == intrinsic),
+                "intrinsic type `{intrinsic}` leaked into Symbols pane: {:?}",
+                semantic.symbols
+            );
+        }
     }
 }

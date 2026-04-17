@@ -14,3 +14,13 @@ oxvba-web-shell = { path = ".external/oxvba-frozen/crates/oxvba-web-shell" }
 
 [dev-dependencies]
 oxvba-com = { path = ".external/oxvba-frozen/crates/oxvba-com", features = ["fixture-typelibs"] }
+
+[features]
+# Gates the WinTermDriver-backed visual regression suite (W037).
+# Requires `wtd` on PATH and a running `wtd-host`. See docs/TESTING_WTD.md.
+wtd = []
+
+[[test]]
+name = "wtd_smoke"
+path = "tests/wtd_smoke.rs"
+required-features = ["wtd"]

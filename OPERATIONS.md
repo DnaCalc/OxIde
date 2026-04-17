@@ -111,7 +111,19 @@ A bead closes only when:
 
 Do not close a bead because “enough progress happened”.
 
-## 9. Relationship To Other Docs
+## 9. UX Pass And WTD Suite
+The W035 UX design pass and the W037 WinTermDriver test harness are
+bead-managed like any other execution scope:
+1. W035 produces the `docs/uxpass/*.md` deliverables and reconciles them
+   back into `PRODUCT_DIRECTION.md` and `docs/DESIGN_TUI.md` via
+   `docs/uxpass/60_reconciliation.md`,
+2. W037 ships the `tests/wtd/` harness and the first scenario workspace,
+   and from that point on every workset closes against at least one WTD
+   scenario documented in `docs/TESTING_WTD.md`,
+3. neither workset substitutes for `.beads/`; they are planned, broken
+   into epics, and executed through `br` / `bv` like the rest.
+
+## 10. Relationship To Other Docs
 1. `PRODUCT_DIRECTION.md`
    - product and UX authority
 2. `ARCHITECTURE.md`
@@ -122,3 +134,7 @@ Do not close a bead because “enough progress happened”.
    - local bead working method
 5. `docs/worksets/*`
    - scope and provenance packets for major execution lanes
+6. `docs/uxpass/*`
+   - W035 UX addendum, reconciled back into `PRODUCT_DIRECTION.md` and `docs/DESIGN_TUI.md`
+7. `docs/TESTING_WTD.md`
+   - WinTermDriver harness, scenarios, and golden snapshot discipline

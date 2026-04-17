@@ -1,0 +1,40 @@
+┌─────────────────────────────────────────────────────OxIde Shell──────────────────────────────────────────────────────┐
+│ThinSliceHello | Run | passing / completed                                                                            │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌──────Explorer──────┐┌────────────────────Module1.bas | Primary View────────────────────┐┌────Inspector RunStatus─────┐
+│Project             ││Attribute VB_Name = "Module1"                                     ││Run Status                  │
+│> ThinSliceHello    ││                                                                  ││Build: passing              │
+│  BasProj | Exe     ││Option Explicit                                                   ││Runtime: completed          │
+│  target            ││                                                                  ││Profile: win-console        │
+│examples/thin-slice/││Public Sub Main()                                                 ││Last exit: 0                │
+│ThinSliceHello.baspr││    Dim answer As Integer                                         ││                            │
+│oj                  ││    answer = 40 + 2                                               ││Target                      │
+│  file              ││End Sub                                                           ││Entry: Module1.Main         │
+│examples/thin-slice/││                                                                  ││Active buffer: Module1.bas  │
+│ThinSliceHello.baspr││                                                                  ││                            │
+│oj                  ││                                                                  ││                            │
+│                    ││                                                                  ││                            │
+│Modules             ││                                                                  ││                            │
+│> Module1 [Module]  ││                                                                  ││                            │
+│  include           ││                                                                  ││                            │
+│Module1.bas         ││                                                                  ││                            │
+│  source            ││                                                                  ││                            │
+│examples/thin-slice\││                                                                  ││                            │
+│Module1.bas         ││                                                                  ││                            │
+│                    ││                                                                  ││                            │
+│References          ││                                                                  ││                            │
+│  No references     ││                                                                  ││                            │
+│declared            ││                                                                  ││                            │
+│                    ││                                                                  ││                            │
+└────────────────────┘└──────────────────────────────────────────────────────────────────┘└────────────────────────────┘
+┌───────────────────────────────────────────────> Lower Surface Output <───────────────────────────────────────────────┐
+│Output                                                                                                                │
+│[workspace] examples/thin-slice/ThinSliceHello.basproj                                                                │
+│[workspace] documents 2                                                                                               │
+│[diagnostic] __OxVbaStartupEntryShim error call to unknown procedure: module1_main                                    │
+│[diagnostic] __OxVbaStartupEntryShim error PMR-E-OPTION-PRIVATE-MODULE-KIND-UNRESOLVED: `Option Private Module`       │
+│requires project/module-kind integration: `Option Private Module`                                                     │
+│[stdout] project run completed with 1 user slots                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+F5 rerun  F6 palette  Tab next focus  Ctrl+Q quit                                                                       

@@ -1,0 +1,40 @@
+┌─────────────────────────────────────────────────────OxIde Shell──────────────────────────────────────────────────────┐
+│ThinSliceHello | Editing | Ln 1 Col 1                                                                                 │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌──────Explorer──────┐┌─────────────────────> Module1.bas | Primary View <─────────────────────┐┌Inspector Diagnostics─┐
+│Project             ││Attribute VB_Name = "Module1"                                           ││Diagnostics           │
+│> ThinSliceHello    ││                                                                        ││__OxVbaStartupEntryShi│
+│  BasProj | Exe     ││Option Explicit                                                         ││__OxVbaStartupEntryShi│
+│  target examples/th││                                                                        ││                      │
+│  file examples/thin││Public Sub Main()                                                       ││Symbols               │
+│                    ││    Dim answer As Integer                                               ││Main                  │
+│Modules             ││    answer = 40 + 2                                                     ││answer                │
+│> Module1 [Module]  ││End Sub                                                                 ││Integer               │
+│  include Module1.ba││                                                                        ││Main                  │
+│  source examples/th││                                                                        ││                      │
+│  declared Module1  ││                                                                        ││                      │
+│                    ││                                                                        ││                      │
+│References          ││                                                                        ││                      │
+│  No references decl││                                                                        ││                      │
+│                    ││                                                                        ││                      │
+│Open Buffers        ││                                                                        ││                      │
+│> Module1.bas [Sourc││                                                                        ││                      │
+│                    ││                                                                        ││                      │
+│Views               ││                                                                        ││                      │
+│> Primary view -> Mo││                                                                        ││                      │
+│                    ││                                                                        ││                      │
+│Target              ││                                                                        ││                      │
+│> Exe               ││                                                                        ││                      │
+│                    ││                                                                        ││                      │
+│Layout              ││                                                                        ││                      │
+│  Edit              ││                                                                        ││                      │
+│                    ││                                                                        ││                      │
+│                    ││                                                                        ││                      │
+└────────────────────┘└────────────────────────────────────────────────────────────────────────┘└──────────────────────┘
+┌────────────────────────────────────────────────Lower Surface Problems────────────────────────────────────────────────┐
+│Problems                                                                                                              │
+│__OxVbaStartupEntryShim error call to unknown procedure: module1_main                                                 │
+│__OxVbaStartupEntryShim error PMR-E-OPTION-PRIVATE-MODULE-KIND-UNRESOLVED: `Option Private Module` requires project/mo│
+│                                                                                                                      │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘

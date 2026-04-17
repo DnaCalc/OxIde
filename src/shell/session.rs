@@ -9,10 +9,11 @@ use oxvba_project::{
 
 use super::oxvba::{load_execution_state, load_semantic_state};
 use super::state::{
-    BufferId, BufferKind, BufferState, CursorPosition, EditorSurfaceState, ExecutionState,
-    LayoutPreset, ViewId, ViewKind, ViewState, WorkspaceLayoutState, WorkspaceProjectModuleKind,
-    WorkspaceProjectModuleState, WorkspaceProjectReferenceKind, WorkspaceProjectReferenceState,
-    WorkspaceProjectState, WorkspaceProjectTargetKind, WorkspaceState,
+    BufferHistory, BufferId, BufferKind, BufferState, CursorPosition, EditorSurfaceState,
+    ExecutionState, LayoutPreset, LineEnding, ViewId, ViewKind, ViewState, WorkspaceLayoutState,
+    WorkspaceProjectModuleKind, WorkspaceProjectModuleState, WorkspaceProjectReferenceKind,
+    WorkspaceProjectReferenceState, WorkspaceProjectState, WorkspaceProjectTargetKind,
+    WorkspaceState,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -76,6 +77,10 @@ impl ProjectSession {
                 kind: document.kind,
                 dirty: document.dirty,
                 lines: document.text.lines().map(String::from).collect::<Vec<_>>(),
+                source_path: Some(document.path.clone()),
+                line_ending: LineEnding::detect(&document.text),
+                trailing_newline: document.text.ends_with('\n'),
+                history: BufferHistory::new(),
             })
             .collect::<Vec<_>>();
 

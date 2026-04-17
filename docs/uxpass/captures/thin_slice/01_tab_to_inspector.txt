@@ -1,0 +1,40 @@
+┌─────────────────────────────────────────────────────OxIde Shell──────────────────────────────────────────────────────┐
+│ThinSliceHello | Editing | Ln 1 Col 1                                                                                 │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌──────Explorer──────┐┌───────────────────────Module1.bas | Primary View───────────────────────┐┌> Inspector Diagnostic┐
+│Project             ││Attribute VB_Name = "Module1"                                           ││Diagnostics           │
+│> ThinSliceHello    ││                                                                        ││__OxVbaStartupEntryShi│
+│  BasProj | Exe     ││Option Explicit                                                         ││m error call to       │
+│  target            ││                                                                        ││unknown procedure:    │
+│examples/thin-slice/││Public Sub Main()                                                       ││module1_main          │
+│ThinSliceHello.baspr││    Dim answer As Integer                                               ││__OxVbaStartupEntryShi│
+│oj                  ││    answer = 40 + 2                                                     ││m error               │
+│  file              ││End Sub                                                                 ││PMR-E-OPTION-PRIVATE-M│
+│examples/thin-slice/││                                                                        ││ODULE-KIND-UNRESOLVED:│
+│ThinSliceHello.baspr││                                                                        ││`Option Private       │
+│oj                  ││                                                                        ││Module` requires      │
+│                    ││                                                                        ││project/module-kind   │
+│Modules             ││                                                                        ││integration: `Option  │
+│> Module1 [Module]  ││                                                                        ││Private Module`       │
+│  include           ││                                                                        ││                      │
+│Module1.bas         ││                                                                        ││Symbols               │
+│  source            ││                                                                        ││Main                  │
+│examples/thin-slice\││                                                                        ││answer                │
+│Module1.bas         ││                                                                        ││Integer               │
+│                    ││                                                                        ││Main                  │
+│References          ││                                                                        ││                      │
+│  No references     ││                                                                        ││                      │
+│declared            ││                                                                        ││                      │
+│                    ││                                                                        ││                      │
+│Open Buffers        ││                                                                        ││                      │
+│> Module1.bas       ││                                                                        ││                      │
+│                    ││                                                                        ││                      │
+└────────────────────┘└────────────────────────────────────────────────────────────────────────┘└──────────────────────┘
+┌────────────────────────────────────────────────Lower Surface Problems────────────────────────────────────────────────┐
+│Problems                                                                                                              │
+│__OxVbaStartupEntryShim error call to unknown procedure: module1_main                                                 │
+│__OxVbaStartupEntryShim error PMR-E-OPTION-PRIVATE-MODULE-KIND-UNRESOLVED: `Option Private Module` requires           │
+│project/module-kind integration: `Option Private Module`                                                              │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+F5 run  F6 palette  Ctrl+Tab next view  Tab next focus  Ctrl+Q quit                                                     

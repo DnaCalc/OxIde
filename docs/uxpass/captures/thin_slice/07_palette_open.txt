@@ -1,0 +1,40 @@
+┌─────────────────────────────────────────────────────OxIde Shell──────────────────────────────────────────────────────┐
+│ThinSliceHello | Palette                                                                                              │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌──────Explorer──────┐┌───────────────────────Module1.bas | Primary View───────────────────────┐┌──Inspector Symbols───┐
+│Project             ││Attribute VB_Name = "Module1"                                           ││Diagnostics           │
+│> ThinSliceHello    ││                                                                        ││__OxVbaStartupEntryShi│
+│  BasProj | Exe     ││Option Explicit                                                         ││m error call to       │
+│  target            ││                                                                        ││unknown procedure:    │
+│examples/thin-slice/││┌──────────────────────────────> Palette <───────────────────────────────┐module1_main          │
+│ThinSliceHello.baspr│││Command Palettes Integer                                               ││__OxVbaStartupEntryShi│
+│oj                  │││   answer = 40 + 2                                                     ││m error               │
+│  file              │││Filter                                                                 ││PMR-E-OPTION-PRIVATE-M│
+│examples/thin-slice/│││  > Palette overlay active                                             ││ODULE-KIND-UNRESOLVED:│
+│ThinSliceHello.baspr│││                                                                       ││`Option Private       │
+│oj                  │││Commands                                                               ││Module` requires      │
+│                    │││  Open Project            Ctrl+O                                       ││project/module-kind   │
+│Modules             │││  New Project             Ctrl+N                                       ││integration: `Option  │
+│> Module1 [Module]  │││  Focus Explorer          Alt+1                                        ││Private Module`       │
+│  include           │││  Focus Editor            Alt+2                                        ││                      │
+│Module1.bas         │││  Focus Inspector         Alt+3                                        ││Symbols               │
+│  source            │││  Focus Lower Surface     Alt+4                                        ││Main                  │
+│examples/thin-slice\│││  Add Module              Ctrl+Shift+M                                 ││answer                │
+│Module1.bas         │││  Add Class               Ctrl+Shift+C                                 ││Integer               │
+│                    │││  Add COM Reference       Ctrl+Shift+R                                 ││Main                  │
+│References          │││  Cycle Target            Ctrl+Shift+T                                 ││                      │
+│  No references     │││  Cycle Editor View       Ctrl+Tab                                     ││                      │
+│declared            │││  Toggle Palette          F6                                           ││                      │
+│                    │││                                                                       ││                      │
+│Open Buffers        │││Current Focus Owner                                                    ││                      │
+│> Module1.bas       │││  Palette                                                              ││                      │
+│                    │││                                                                       ││                      │
+└────────────────────┘└└────────────────────────────────────────────────────────────────────────┘──────────────────────┘
+┌────────────────────────────────────────────────Lower Surface Problems────────────────────────────────────────────────┐
+│Problems                                                                                                              │
+│__OxVbaStartupEntryShim error call to unknown procedure: module1_main                                                 │
+│__OxVbaStartupEntryShim error PMR-E-OPTION-PRIVATE-MODULE-KIND-UNRESOLVED: `Option Private Module` requires           │
+│project/module-kind integration: `Option Private Module`                                                              │
+│                                                                                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Esc close  Up/Down select  Enter apply                                                                                  
