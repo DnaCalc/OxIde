@@ -7,6 +7,7 @@ use ftui::widgets::block::{Alignment, Block};
 use ftui::widgets::borders::Borders;
 use ftui::widgets::paragraph::Paragraph;
 
+use super::highlight;
 use super::mock_data::ShellPanels;
 use super::model::ShellModel;
 use super::state::{FocusRegion, ShellScene, WidthClass};
@@ -80,6 +81,17 @@ pub fn render(model: &ShellModel, frame: &mut Frame) {
         render_overlay(frame, model, &panels);
     }
 
+    // Hover popover renders on top of everything except the scene
+    // overlay, since it can co-exist with Editing / Semantic /
+    // BuildRun. When a scene overlay is active the popover should be
+    // suppressed — F1 is gated by `editor_accepts_input()` in the
+    // model layer so a popover cannot be opened during Palette /
+    // ComReference, but a lingering popover from before the overlay
+    // opened would persist without this guard.
+    if !model.overlay_active() {
+        render_hover_popover(frame, model, area);
+    }
+
     if let Some(cursor_position) = editor_cursor_position(model, area) {
         frame.set_cursor(Some(cursor_position));
         frame.set_cursor_visible(true);
@@ -132,18 +144,7 @@ fn render_wide_body(area: Rect, frame: &mut Frame, model: &ShellModel, panels: &
         // Explorer column; wrap rather than truncate (D7).
         Some(WrapMode::WordChar),
     );
-    render_panel(
-        columns[1],
-        frame,
-        &active_title(&panels.editor_title, model, FocusRegion::Editor),
-        &panels.editor,
-        PanelTone::Editor,
-        model.focus() == FocusRegion::Editor,
-        // Source code must render one logical line per terminal row; a
-        // wrap that injects an extra row would shift cursor arithmetic
-        // off by one. Leave wrap off on non-Empty scenes.
-        None,
-    );
+    render_editor_panel(columns[1], frame, model, panels);
     render_panel(
         columns[2],
         frame,
@@ -200,15 +201,41 @@ fn render_narrow_body(area: Rect, frame: &mut Frame, model: &ShellModel, panels:
         model.focus() == FocusRegion::Explorer,
         Some(WrapMode::WordChar),
     );
-    render_panel(
-        columns[1],
-        frame,
-        &active_title(&panels.editor_title, model, FocusRegion::Editor),
-        &panels.editor,
-        PanelTone::Editor,
-        model.focus() == FocusRegion::Editor,
-        None,
-    );
+    render_editor_panel(columns[1], frame, model, panels);
+}
+
+/// Render the Editor panel for any non-Empty scene.
+///
+/// Unlike `render_panel`, this function produces a **styled** body via
+/// `highlight::build_editor_text`: each source line carries a muted
+/// line-number gutter and VBA tokens are colourised (keywords, type
+/// names, strings, numbers, comments). Rendering bypasses wrap so
+/// source-column positions survive one-to-one onto terminal columns —
+/// the cursor-positioning path in `editor_cursor_position` depends on
+/// that invariant.
+///
+/// The Empty scene keeps using `render_panel` with a plain string for
+/// the Welcome surface; Welcome is prose, not code, and must stay
+/// un-lexed.
+fn render_editor_panel(area: Rect, frame: &mut Frame, model: &ShellModel, panels: &ShellPanels) {
+    let active = model.focus() == FocusRegion::Editor;
+    let title = active_title(&panels.editor_title, model, FocusRegion::Editor);
+    let body = model
+        .active_editor_lines()
+        .map(|lines| highlight::build_editor_text(&lines, lines.len()))
+        .unwrap_or_else(|| ftui::text::Text::raw("No buffer mounted."));
+
+    Paragraph::new(body)
+        .style(theme::content_style(PanelTone::Editor, active))
+        .block(
+            Block::new()
+                .borders(Borders::ALL)
+                .border_style(theme::border_style(PanelTone::Editor, active))
+                .style(theme::panel_style(PanelTone::Editor, active))
+                .title(title.as_str())
+                .title_alignment(Alignment::Center),
+        )
+        .render(area, frame);
 }
 
 fn render_overlay(frame: &mut Frame, model: &ShellModel, panels: &ShellPanels) {
@@ -261,6 +288,113 @@ fn render_panel(
         paragraph = paragraph.wrap(mode);
     }
     paragraph.render(area, frame);
+}
+
+/// Render the hover popover (F1) if one is active.
+///
+/// The popover is a small bordered block of lines positioned below
+/// the editor cursor when possible, clamped inside the editor panel
+/// so the popover does not spill into the Inspector / Explorer /
+/// Lower Surface. Width is sized to the longest line plus a 2-cell
+/// border budget; height to the number of lines plus 2.
+///
+/// Falls back to "no-op" when the editor panel is not being rendered
+/// (Empty scene) or when the popover's anchor is off-screen — the
+/// anchor becomes off-screen after a cursor move, which the model
+/// layer already dismisses the popover for, so in practice this is
+/// a belt-and-braces guard.
+fn render_hover_popover(frame: &mut Frame, model: &ShellModel, frame_area: Rect) {
+    let Some(popover) = model.hover_popover() else {
+        return;
+    };
+    if popover.lines.is_empty() {
+        return;
+    }
+    let Some(editor_area) = editor_panel_area(model, frame_area) else {
+        return;
+    };
+    let editor_inner = panel_inner_area(editor_area);
+    if editor_inner.is_empty() {
+        return;
+    }
+
+    // Size the popover to its content with sensible caps.
+    let content_width = popover
+        .lines
+        .iter()
+        .map(|line| line.chars().count())
+        .max()
+        .unwrap_or(0) as u16;
+    let border_budget = 2_u16;
+    let max_width = editor_inner.width.saturating_sub(2).max(10);
+    let popover_width = (content_width + border_budget).min(max_width).max(12);
+    let popover_height = (popover.lines.len() as u16 + border_budget).min(editor_inner.height);
+
+    // Anchor below the cursor's visible row; if that would overflow
+    // the editor panel, anchor above instead. If neither fits, clamp
+    // to the top of the editor panel.
+    let scroll_top = model.active_editor_scroll_top().unwrap_or(0);
+    let visible_row = popover
+        .anchor
+        .line
+        .saturating_sub(1)
+        .checked_sub(scroll_top)
+        .and_then(|row| if row < editor_inner.height { Some(row) } else { None });
+
+    let total_lines = model.active_editor_lines().map(|l| l.len()).unwrap_or(0);
+    let gutter = highlight::gutter_total_width(total_lines) as u16;
+    let visible_col = popover
+        .anchor
+        .column
+        .saturating_sub(1)
+        .saturating_add(gutter);
+
+    let (anchor_x, anchor_y) = match visible_row {
+        Some(row) => (
+            editor_inner.x.saturating_add(visible_col),
+            editor_inner.y.saturating_add(row).saturating_add(1),
+        ),
+        None => (editor_inner.x, editor_inner.y),
+    };
+
+    // Prefer a position below the cursor. If the popover would
+    // overflow the bottom of the editor panel, flip to above.
+    let mut popover_y = anchor_y;
+    let bottom = editor_inner.y.saturating_add(editor_inner.height);
+    if popover_y.saturating_add(popover_height) > bottom {
+        popover_y = anchor_y
+            .saturating_sub(1)
+            .saturating_sub(popover_height)
+            .max(editor_inner.y);
+    }
+
+    // Clamp horizontally so the popover fits entirely inside the
+    // editor panel.
+    let right_limit = editor_inner.x.saturating_add(editor_inner.width);
+    let mut popover_x = anchor_x;
+    if popover_x.saturating_add(popover_width) > right_limit {
+        popover_x = right_limit.saturating_sub(popover_width).max(editor_inner.x);
+    }
+
+    let rect = Rect::new(popover_x, popover_y, popover_width, popover_height);
+
+    // Clear the rect before the popover Block paints — same logic as
+    // J4-a for the palette overlay so editor glyphs don't bleed
+    // through the popover's background.
+    frame.buffer.fill(rect, Cell::default());
+
+    let body = popover.lines.join("\n");
+    Paragraph::new(body)
+        .style(theme::content_style(PanelTone::Overlay, true))
+        .block(
+            Block::new()
+                .borders(Borders::ALL)
+                .border_style(theme::border_style(PanelTone::Overlay, true))
+                .style(theme::panel_style(PanelTone::Overlay, true))
+                .title("Hover"),
+        )
+        .wrap(WrapMode::WordChar)
+        .render(rect, frame);
 }
 
 /// Render the always-present bottom status line (uxpass D3 / D8).
@@ -323,7 +457,13 @@ fn editor_cursor_position(model: &ShellModel, area: Rect) -> Option<(u16, u16)> 
         return None;
     }
 
-    let visible_col = cursor.column.saturating_sub(1);
+    // Account for the gutter that `render_editor_panel` paints on
+    // every line: `" <n> │ "`. Without this shift the terminal
+    // cursor would render inside the gutter rather than on the
+    // character the user is editing.
+    let total_lines = model.active_editor_lines().map(|l| l.len()).unwrap_or(0);
+    let gutter = highlight::gutter_total_width(total_lines) as u16;
+    let visible_col = cursor.column.saturating_sub(1).saturating_add(gutter);
     if visible_col >= inner.width {
         return None;
     }

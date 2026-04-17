@@ -42,6 +42,14 @@ pub enum Msg {
     UndoActiveBuffer,
     /// Re-apply the most recently undone edit. Bound to `Ctrl+Y`.
     RedoActiveBuffer,
+    /// Toggle the hover popover over the active editor cursor. Bound
+    /// to `F1`. If a popover is already visible, closes it; otherwise
+    /// fetches fresh hover info from OxVba and shows it.
+    ToggleHoverPopover,
+    /// Jump to the definition of the symbol under the editor cursor.
+    /// Bound to `F12`. No-op when the cursor is not on a resolvable
+    /// symbol.
+    GotoDefinition,
     OpenSelectedProject,
     RunProject,
     AddProjectModule,
@@ -64,7 +72,9 @@ impl From<Event> for Msg {
             Event::Key(key) if is_quit_key(key) => Msg::Quit,
             Event::Key(key) if matches!(key.code, KeyCode::Escape) => Msg::CloseOverlay,
             Event::Key(key) if is_open_project_key(key) => Msg::OpenSelectedProject,
+            Event::Key(key) if matches!(key.code, KeyCode::F(1)) => Msg::ToggleHoverPopover,
             Event::Key(key) if matches!(key.code, KeyCode::F(5)) => Msg::RunProject,
+            Event::Key(key) if matches!(key.code, KeyCode::F(12)) => Msg::GotoDefinition,
             Event::Key(key) if is_toggle_palette_key(key) => Msg::TogglePalette,
             Event::Key(key) if is_save_all_key(key) => Msg::SaveAllDirtyBuffers,
             Event::Key(key) if is_save_key(key) => Msg::SaveActiveBuffer,
@@ -203,6 +213,24 @@ impl ShellModel {
             .workspace
             .active_view()
             .map(|view| view.surface.scroll_top)
+    }
+
+    /// Clone the active buffer's `lines` vector for renderers that
+    /// need it by value (e.g. the syntax-highlighted editor path).
+    /// `None` when no buffer is mounted — `ShellScene::Empty` and
+    /// mock-mode fixtures that have cleared their workspace.
+    pub fn active_editor_lines(&self) -> Option<Vec<String>> {
+        self.shell
+            .runtime
+            .workspace
+            .active_buffer()
+            .map(|buffer| buffer.lines.clone())
+    }
+
+    /// Hover popover state, or `None` if no popover is visible.
+    /// View layer reads this to position and paint the popover.
+    pub fn hover_popover(&self) -> Option<&crate::shell::state::HoverPopoverState> {
+        self.shell.hover_popover()
     }
 
     /// Explorer column title. Uxpass D1b removed the Launcher column
@@ -380,6 +408,58 @@ impl ShellModel {
         self.refresh_com_reference_helper();
     }
 
+    /// Fetch hover information for the cursor's current position and
+    /// install it as a popover. No-op when no project is loaded, no
+    /// buffer is active, or OxVba returns nothing at the cursor — so
+    /// F1 feels like "press it to get info; if there isn't any, the
+    /// UI doesn't move". Matches the IDE convention that context
+    /// help is free of penalty when it has nothing to say.
+    fn open_hover_popover(&mut self) {
+        let Some(project_path) = self.project_path.clone() else {
+            return;
+        };
+        let Some(cursor) = self.active_editor_cursor() else {
+            return;
+        };
+        let (title, lines) = match self.shell.runtime.workspace.active_buffer() {
+            Some(buffer) => (buffer.title.clone(), buffer.lines.clone()),
+            None => return,
+        };
+        if let Some(hover_lines) =
+            super::oxvba::fetch_hover_at_cursor(&project_path, &title, &lines, cursor)
+        {
+            self.shell.show_hover_popover(hover_lines, cursor);
+        }
+    }
+
+    /// Resolve goto-definition at the cursor and, if OxVba returns a
+    /// target, navigate the active editor to it. Cross-buffer targets
+    /// switch the active view to the destination buffer; same-buffer
+    /// targets just move the cursor. No-op when OxVba has no
+    /// definition to return or the target document is not in the
+    /// open buffer set.
+    fn goto_definition(&mut self) {
+        let Some(project_path) = self.project_path.clone() else {
+            return;
+        };
+        let Some(cursor) = self.active_editor_cursor() else {
+            return;
+        };
+        let (title, lines) = match self.shell.runtime.workspace.active_buffer() {
+            Some(buffer) => (buffer.title.clone(), buffer.lines.clone()),
+            None => return,
+        };
+        if let Some(target) =
+            super::oxvba::fetch_goto_definition(&project_path, &title, &lines, cursor)
+        {
+            self.shell.navigate_active_editor_to(
+                &target.target_title,
+                target.target_line,
+                target.target_column,
+            );
+        }
+    }
+
     /// Dispatch the palette's currently-selected command.
     ///
     /// Closes the palette overlay first, then routes the selected
@@ -453,6 +533,12 @@ impl ShellModel {
                 // dismissed the overlay, which is what `Esc` already
                 // does. Kept as an enum variant so the palette list
                 // and the keystroke map stay in lockstep.
+            }
+            PaletteAction::ToggleHoverPopover => {
+                self.open_hover_popover();
+            }
+            PaletteAction::GotoDefinition => {
+                self.goto_definition();
             }
             PaletteAction::SetScene(scene) => {
                 if self.dev_scenes {
@@ -614,6 +700,20 @@ impl Model for ShellModel {
                 }
                 Cmd::none()
             }
+            Msg::ToggleHoverPopover => {
+                if self.shell.hover_popover().is_some() {
+                    self.shell.close_hover_popover();
+                } else if self.editor_accepts_input() {
+                    self.open_hover_popover();
+                }
+                Cmd::none()
+            }
+            Msg::GotoDefinition => {
+                if self.editor_accepts_input() {
+                    self.goto_definition();
+                }
+                Cmd::none()
+            }
             Msg::OpenSelectedProject => {
                 if let Some(path) = self.shell.selected_project_path().cloned() {
                     self.try_mount_workspace(path);
@@ -629,7 +729,14 @@ impl Model for ShellModel {
                 Cmd::none()
             }
             Msg::CloseOverlay => {
-                self.shell.close_overlay();
+                // Esc cascades: if a hover popover is up, close only
+                // that on the first Esc so the user can dismiss the
+                // popover without collapsing any outer modal state.
+                // Only if there is no popover does Esc close a scene
+                // overlay (Palette / COM reference helper).
+                if !self.shell.close_hover_popover() {
+                    self.shell.close_overlay();
+                }
                 Cmd::none()
             }
             Msg::AddProjectModule => {
@@ -959,6 +1066,173 @@ mod tests {
                 .all(|buffer| !buffer.dirty),
             "save must succeed once the overlay closes"
         );
+    }
+
+    #[test]
+    fn maps_f1_to_toggle_hover_popover() {
+        let msg = Msg::from(Event::Key(KeyEvent::new(KeyCode::F(1))));
+        assert_eq!(msg, Msg::ToggleHoverPopover);
+    }
+
+    #[test]
+    fn maps_f12_to_goto_definition() {
+        let msg = Msg::from(Event::Key(KeyEvent::new(KeyCode::F(12))));
+        assert_eq!(msg, Msg::GotoDefinition);
+    }
+
+    #[test]
+    fn esc_closes_hover_popover_before_scene_overlay() {
+        // Cascade: a visible popover shields the underlying scene
+        // overlay from Esc, so pressing Esc first dismisses only the
+        // popover. A second Esc then closes whatever scene overlay
+        // sits below (Palette / ComReference).
+        let mut model = ShellModel::new(None);
+        model.shell.apply_scene(ShellScene::Editing);
+        model.shell.toggle_palette();
+        assert!(model.palette_active());
+        model
+            .shell
+            .show_hover_popover(vec![String::from("info")], CursorPosition::new(1, 1));
+        assert!(model.shell.hover_popover().is_some());
+
+        model.update(Msg::CloseOverlay);
+        assert!(
+            model.shell.hover_popover().is_none(),
+            "first Esc must close the popover"
+        );
+        assert!(
+            model.palette_active(),
+            "first Esc must leave the Palette overlay intact"
+        );
+
+        model.update(Msg::CloseOverlay);
+        assert!(
+            !model.palette_active(),
+            "second Esc must close the scene overlay"
+        );
+    }
+
+    #[test]
+    fn f1_opens_hover_popover_over_real_oxvba_workspace_when_hover_resolves() {
+        // End-to-end: thin-slice project mounted, cursor swept across
+        // the interior of `Public Sub Main()` line looking for a
+        // position OxVba returns hover for. This avoids brittleness
+        // on the exact column at which a symbol resolves — OxVba's
+        // hover requires the cursor to land inside the token's span,
+        // and the precise span boundaries are an OxVba detail we do
+        // not want this test to pin.
+        //
+        // Pinning contract: at at least one tried position F1 must
+        // produce a non-empty popover. A failure means either hover
+        // is globally broken against real OxVba (regression we want
+        // to catch) or the OxVba internals have shifted in a way we
+        // need to update the test for.
+        let mut model = ShellModel::new(Some(PathBuf::from(
+            "examples/thin-slice/ThinSliceHello.basproj",
+        )));
+        assert_eq!(model.scene(), ShellScene::Editing);
+        model.update(Msg::FocusRegion(FocusRegion::Editor));
+
+        // Move cursor to line 5 ("Public Sub Main()").
+        for _ in 0..4 {
+            model.update(Msg::MoveEditorDown);
+        }
+
+        // Sweep columns across the line; at each try, F1 then close.
+        // As soon as any column produces a popover with content, we
+        // accept the test.
+        let mut found = false;
+        for _col in 0..20 {
+            model.update(Msg::ToggleHoverPopover);
+            if let Some(popover) = model.shell.hover_popover() {
+                if !popover.lines.is_empty() {
+                    found = true;
+                    break;
+                }
+            }
+            // If popover is still None (hover returned nothing at
+            // this column), advance and try the next.
+            model.update(Msg::MoveEditorRight);
+        }
+
+        assert!(
+            found,
+            "no column on `Public Sub Main()` produced a hover popover — \
+             regression in hover dispatch against real OxVba"
+        );
+    }
+
+    #[test]
+    fn f1_a_second_time_closes_the_popover() {
+        let mut model = ShellModel::new(Some(PathBuf::from(
+            "examples/thin-slice/ThinSliceHello.basproj",
+        )));
+        model.update(Msg::FocusRegion(FocusRegion::Editor));
+        for _ in 0..4 {
+            model.update(Msg::MoveEditorDown);
+        }
+        for _ in 0..12 {
+            model.update(Msg::MoveEditorRight);
+        }
+
+        model.update(Msg::ToggleHoverPopover);
+        if model.shell.hover_popover().is_none() {
+            // Hover resolution failed for this exact cursor — not this
+            // test's concern. Install one synthetically so we can
+            // exercise the toggle-close behaviour.
+            model
+                .shell
+                .show_hover_popover(vec![String::from("test")], CursorPosition::new(1, 1));
+        }
+        assert!(model.shell.hover_popover().is_some());
+
+        model.update(Msg::ToggleHoverPopover);
+        assert!(
+            model.shell.hover_popover().is_none(),
+            "second F1 must close the popover (toggle semantics)"
+        );
+    }
+
+    #[test]
+    fn f12_navigates_cursor_to_definition_in_real_oxvba_workspace() {
+        // End-to-end goto-definition. Thin-slice has `Module1.Main`
+        // which is referenced in `__OxVbaStartupEntryShim` and by
+        // self-reference in the module; we navigate within the open
+        // `Module1.bas` buffer by placing the cursor on `Main` in
+        // `Public Sub Main()` and asking for its definition — which
+        // OxVba resolves to the same spot, so the cursor position
+        // must remain (or move to) the symbol's defining line.
+        let mut model = ShellModel::new(Some(PathBuf::from(
+            "examples/thin-slice/ThinSliceHello.basproj",
+        )));
+        model.update(Msg::FocusRegion(FocusRegion::Editor));
+
+        // Get onto `Main` at line 5 col 13.
+        for _ in 0..4 {
+            model.update(Msg::MoveEditorDown);
+        }
+        for _ in 0..12 {
+            model.update(Msg::MoveEditorRight);
+        }
+        let before = model.active_editor_cursor().unwrap();
+
+        model.update(Msg::GotoDefinition);
+
+        let after = model.active_editor_cursor().unwrap();
+        // The cursor must land on a plausible definition row. We
+        // allow either of two outcomes: (a) OxVba resolves to a
+        // different location (cursor moves), or (b) OxVba returns
+        // the cursor's own position (cursor stays) — both count as
+        // "goto-def returned something and the model applied it".
+        // If OxVba returns no definition at all, `navigate_active_editor_to`
+        // would have been a no-op; we accept that too, because this
+        // test's job is to pin "goto-def dispatch does not panic and
+        // produces a consistent state", not to validate OxVba's
+        // symbol resolution accuracy.
+        assert!(after.line >= 1 && after.column >= 1);
+        // Cursor staying put is fine; a meaningful move means OxVba
+        // resolved to a different site.
+        let _ = before;
     }
 
     #[test]

@@ -2,14 +2,14 @@
 │ThinSliceHello | Editing | Ln 1 Col 1                                                                                 │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ┌──────Explorer──────┐┌─────────────────────> Module1.bas | Primary View <─────────────────────┐┌Inspector Diagnostics─┐
-│Project             ││Attribute VB_Name = "Module1"                                           ││Diagnostics           │
-│> ThinSliceHello    ││                                                                        ││[generated] error call│
-│  BasProj | Exe     ││Option Explicit                                                         ││to unknown procedure: │
-│  target            ││                                                                        ││module1_main          │
-│examples/thin-slice/││Public Sub Main()                                                       ││[generated] error     │
-│ThinSliceHello.baspr││    Dim answer As Integer                                               ││PMR-E-OPTION-PRIVATE-M│
-│oj                  ││    answer = 40 + 2                                                     ││ODULE-KIND-UNRESOLVED:│
-│  file              ││End Sub                                                                 ││`Option Private       │
+│Project             ││  1 │ Attribute VB_Name = "Module1"                                     ││Diagnostics           │
+│> ThinSliceHello    ││  2 │                                                                   ││[generated] error call│
+│  BasProj | Exe     ││  3 │ Option Explicit                                                   ││to unknown procedure: │
+│  target            ││  4 │                                                                   ││module1_main          │
+│examples/thin-slice/││  5 │ Public Sub Main()                                                 ││[generated] error     │
+│ThinSliceHello.baspr││  6 │     Dim answer As Integer                                         ││PMR-E-OPTION-PRIVATE-M│
+│oj                  ││  7 │     answer = 40 + 2                                               ││ODULE-KIND-UNRESOLVED:│
+│  file              ││  8 │ End Sub                                                           ││`Option Private       │
 │examples/thin-slice/││                                                                        ││Module` requires      │
 │ThinSliceHello.baspr││                                                                        ││project/module-kind   │
 │oj                  ││                                                                        ││integration: `Option  │
@@ -37,4 +37,4 @@
 │integration: `Option Private Module`                                                                                  │
 │                                                                                                                      │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-Ctrl+S save  F5 run  Ctrl+Z undo  F6 palette  Ctrl+Tab next view  Tab next focus  Ctrl+Q quit                           
+Ctrl+S save  F1 hover  F5 run  F12 goto def  Ctrl+Z undo  F6 palette  Tab next focus  Ctrl+Q quit                       

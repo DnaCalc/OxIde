@@ -1017,6 +1017,10 @@ pub enum PaletteAction {
     CycleProjectTarget,
     NextEditorView,
     TogglePalette,
+    /// Show / hide the hover popover at the cursor (F1).
+    ToggleHoverPopover,
+    /// Navigate to the definition of the symbol under the cursor (F12).
+    GotoDefinition,
     /// Dev-only preview: force the shell into a specific scene. Only
     /// present in the palette when `--dev-scenes` is active (uxpass D6).
     SetScene(ShellScene),
@@ -1148,6 +1152,26 @@ impl ShellLayoutPolicy {
     }
 }
 
+/// Transient hover popover anchored to a cursor position.
+///
+/// Distinct from scene-based overlays (Palette, ComReference) — the
+/// popover floats above the current scene without changing it, so
+/// the user can read hover info and return to editing with one
+/// keystroke (Esc or F1). Cursor movement dismisses it automatically
+/// to keep the popover from lingering stale against a moved cursor.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HoverPopoverState {
+    /// Rendered lines from OxVba's `HoverInfo` (label, detail,
+    /// provenance summary). Already trimmed for display — the view
+    /// just wraps them into a bordered block.
+    pub lines: Vec<String>,
+    /// Editor cursor (1-based line / column) at the time the popover
+    /// opened. The view anchors the popover next to this cell; the
+    /// model uses it to detect when the cursor has moved and the
+    /// popover should close.
+    pub anchor: CursorPosition,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ShellRuntimeState {
     pub focus: FocusRegion,
@@ -1171,6 +1195,10 @@ pub struct ShellRuntimeState {
     /// palette is the active overlay; `Enter` dispatches the
     /// command's `PaletteAction`.
     pub palette_selection: usize,
+    /// `Some` while a hover popover is visible. `None` otherwise.
+    /// Populated by `ShellState::show_hover_popover`; cleared by
+    /// `close_hover_popover` (Esc / F1) and by any cursor movement.
+    pub hover_popover: Option<HoverPopoverState>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1210,6 +1238,7 @@ impl Default for ShellState {
                 previous_focus: FocusRegion::Editor,
                 previous_scene: scene,
                 palette_selection: 0,
+                hover_popover: None,
             },
         };
         state.apply_scene(scene);
@@ -1465,22 +1494,142 @@ impl ShellState {
 
     pub fn move_editor_cursor_left(&mut self) {
         self.runtime.workspace.move_cursor_left();
+        self.close_hover_popover();
         self.refresh_content();
     }
 
     pub fn move_editor_cursor_right(&mut self) {
         self.runtime.workspace.move_cursor_right();
+        self.close_hover_popover();
         self.refresh_content();
     }
 
     pub fn move_editor_cursor_up(&mut self) {
         self.runtime.workspace.move_cursor_up();
+        self.close_hover_popover();
         self.refresh_content();
     }
 
     pub fn move_editor_cursor_down(&mut self) {
         self.runtime.workspace.move_cursor_down();
+        self.close_hover_popover();
         self.refresh_content();
+    }
+
+    /// Install a hover popover anchored at `cursor`. Replaces any
+    /// existing popover.
+    pub fn show_hover_popover(&mut self, lines: Vec<String>, cursor: CursorPosition) {
+        self.runtime.hover_popover = Some(HoverPopoverState {
+            lines,
+            anchor: cursor,
+        });
+    }
+
+    /// Dismiss the popover if one is visible. Returns `true` iff
+    /// something was closed — callers can use this to implement a
+    /// "cascade close" (Esc first closes the popover, a second Esc
+    /// closes the scene overlay, etc.).
+    pub fn close_hover_popover(&mut self) -> bool {
+        if self.runtime.hover_popover.is_some() {
+            self.runtime.hover_popover = None;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn hover_popover(&self) -> Option<&HoverPopoverState> {
+        self.runtime.hover_popover.as_ref()
+    }
+
+    /// Navigate the active editor to (`line`, `column`) 1-based. If
+    /// `target_title` differs from the current active buffer's title,
+    /// switch the active view to the buffer whose `title` matches.
+    /// No-op when the target is not in the open buffer set — callers
+    /// that need cross-buffer loading (documents that are present on
+    /// disk but not yet in memory) must mount them first.
+    ///
+    /// Also closes any hover popover, since the navigation changes
+    /// the cursor's meaning.
+    ///
+    /// Returns `true` if the navigation actually happened.
+    pub fn navigate_active_editor_to(
+        &mut self,
+        target_title: &str,
+        line: u16,
+        column: u16,
+    ) -> bool {
+        // Locate the target buffer. Match on title (leaf filename);
+        // if the active buffer already carries that title, we stay
+        // in-buffer. Otherwise we promote the target's first view to
+        // `active_view` so subsequent cursor / edit primitives see it.
+        let target_buffer_id = self
+            .runtime
+            .workspace
+            .buffers
+            .iter()
+            .find(|buffer| buffer.title == target_title)
+            .map(|buffer| buffer.id);
+        let Some(buffer_id) = target_buffer_id else {
+            return false;
+        };
+
+        if self
+            .runtime
+            .workspace
+            .active_view()
+            .map(|view| view.buffer_id)
+            != Some(buffer_id)
+        {
+            // Swap the active view to one targeting the destination
+            // buffer. Falls back to the first existing view on that
+            // buffer; if none exists, creates an entry by reusing the
+            // first visible view and repointing it.
+            let existing_view_id = self
+                .runtime
+                .workspace
+                .views
+                .iter()
+                .find(|view| view.buffer_id == buffer_id)
+                .map(|view| view.id);
+            if let Some(view_id) = existing_view_id {
+                self.runtime.workspace.layout.active_view = view_id;
+                if !self
+                    .runtime
+                    .workspace
+                    .layout
+                    .visible_views
+                    .contains(&view_id)
+                {
+                    self.runtime
+                        .workspace
+                        .layout
+                        .visible_views
+                        .push(view_id);
+                }
+            } else if let Some(first_view) = self.runtime.workspace.views.first_mut() {
+                first_view.buffer_id = buffer_id;
+            }
+        }
+
+        if let Some(view) = self.runtime.workspace.active_view_mut() {
+            view.surface.cursor = CursorPosition::new(line.max(1), column.max(1));
+            // Ensure the cursor lands inside the visible window.
+            // Simple rule: if the new line is above the current scroll
+            // window, jump scroll_top to the new line; else leave it
+            // so the view keeps its current frame.
+            if view.surface.cursor.line.saturating_sub(1) < view.surface.scroll_top {
+                view.surface.scroll_top = view.surface.cursor.line.saturating_sub(1);
+            }
+        }
+        self.close_hover_popover();
+        // Invalidate the cached semantic state; the cursor moved
+        // to a different spot (potentially a different buffer) so
+        // hover / symbol-at-cursor projections need a refresh on
+        // the next `refresh_content`.
+        self.runtime.workspace.semantic = None;
+        self.refresh_content();
+        true
     }
 
     pub fn insert_editor_char(&mut self, ch: char) {
@@ -1630,7 +1779,7 @@ impl ShellState {
                 "Ctrl+O open project  Up/Down select recent  F6 palette  Ctrl+Q quit"
             }
             ShellScene::Editing | ShellScene::Semantic => {
-                "Ctrl+S save  F5 run  Ctrl+Z undo  F6 palette  Ctrl+Tab next view  Tab next focus  Ctrl+Q quit"
+                "Ctrl+S save  F1 hover  F5 run  F12 goto def  Ctrl+Z undo  F6 palette  Tab next focus  Ctrl+Q quit"
             }
             ShellScene::BuildRun => {
                 "F5 rerun  F6 palette  Tab next focus  Ctrl+Q quit"
@@ -2357,6 +2506,16 @@ fn content_for_scene(
                 label: "Redo",
                 shortcut: "Ctrl+Y",
                 action: PaletteAction::RedoActiveBuffer,
+            },
+            PaletteCommandState {
+                label: "Hover",
+                shortcut: "F1",
+                action: PaletteAction::ToggleHoverPopover,
+            },
+            PaletteCommandState {
+                label: "Goto Definition",
+                shortcut: "F12",
+                action: PaletteAction::GotoDefinition,
             },
             PaletteCommandState {
                 label: "Focus Explorer",
@@ -3718,6 +3877,184 @@ mod tests {
             state.palette_selected_action(),
             Some(PaletteAction::SaveAllDirtyBuffers)
         ));
+    }
+
+    // Hover popover state: toggle, close cascades, dismiss on cursor
+    // movement. The model-layer integration with OxVba is pinned
+    // separately in the shell::model tests because it needs a loaded
+    // thin-slice project.
+
+    #[test]
+    fn hover_popover_is_absent_by_default() {
+        let state = ShellState::default();
+        assert!(state.hover_popover().is_none());
+    }
+
+    #[test]
+    fn show_hover_popover_stores_lines_and_anchor() {
+        let mut state = ShellState::default();
+        let anchor = CursorPosition::new(3, 7);
+        state.show_hover_popover(
+            vec![String::from("Sub Main()"), String::from("Defined in Module1")],
+            anchor,
+        );
+        let popover = state
+            .hover_popover()
+            .expect("show_hover_popover must install a popover");
+        assert_eq!(popover.anchor, anchor);
+        assert_eq!(popover.lines.len(), 2);
+        assert_eq!(popover.lines[0], "Sub Main()");
+    }
+
+    #[test]
+    fn close_hover_popover_returns_true_only_when_one_was_open() {
+        let mut state = ShellState::default();
+        assert!(
+            !state.close_hover_popover(),
+            "no popover → close is a no-op returning false"
+        );
+
+        state.show_hover_popover(vec![String::from("x")], CursorPosition::new(1, 1));
+        assert!(
+            state.close_hover_popover(),
+            "popover present → close returns true"
+        );
+        assert!(state.hover_popover().is_none());
+    }
+
+    #[test]
+    fn cursor_movement_dismisses_hover_popover() {
+        // Each direction; each should close an open popover so the
+        // popover never lingers anchored to an obsolete cell.
+        for mutator in [
+            |state: &mut ShellState| state.move_editor_cursor_left(),
+            |state: &mut ShellState| state.move_editor_cursor_right(),
+            |state: &mut ShellState| state.move_editor_cursor_up(),
+            |state: &mut ShellState| state.move_editor_cursor_down(),
+        ] {
+            let mut state = ShellState::default();
+            state.show_hover_popover(
+                vec![String::from("some info")],
+                CursorPosition::new(1, 1),
+            );
+            assert!(state.hover_popover().is_some());
+            mutator(&mut state);
+            assert!(
+                state.hover_popover().is_none(),
+                "cursor movement must dismiss the popover"
+            );
+        }
+    }
+
+    // navigate_active_editor_to: same-buffer move and cross-buffer
+    // switch. Uses the default ShellState's mock Editing workspace
+    // which carries three buffers (MainModule.bas, Helpers.bas,
+    // Invoice.cls) so a cross-buffer switch is exercisable.
+
+    #[test]
+    fn navigate_same_buffer_moves_cursor_and_closes_popover() {
+        let mut state = ShellState::default();
+        assert_eq!(state.scene, ShellScene::Editing);
+        let active_title = state
+            .runtime
+            .workspace
+            .active_buffer()
+            .expect("default Editing fixture has an active buffer")
+            .title
+            .clone();
+        state.show_hover_popover(
+            vec![String::from("hover text")],
+            CursorPosition::new(1, 1),
+        );
+
+        let ok = state.navigate_active_editor_to(&active_title, 5, 3);
+        assert!(ok);
+        let view = state
+            .runtime
+            .workspace
+            .active_view()
+            .expect("active view after navigation");
+        assert_eq!(view.surface.cursor, CursorPosition::new(5, 3));
+        assert!(
+            state.hover_popover().is_none(),
+            "navigation must dismiss any active popover"
+        );
+    }
+
+    #[test]
+    fn navigate_unknown_title_is_a_noop() {
+        let mut state = ShellState::default();
+        let before_cursor = state.runtime.workspace.active_view().unwrap().surface.cursor;
+        let ok = state.navigate_active_editor_to("NoSuchBuffer.bas", 99, 99);
+        assert!(!ok);
+        assert_eq!(
+            state.runtime.workspace.active_view().unwrap().surface.cursor,
+            before_cursor,
+            "navigation to an unknown buffer must leave cursor untouched"
+        );
+    }
+
+    #[test]
+    fn navigate_to_other_buffer_switches_active_view() {
+        let mut state = ShellState::default();
+        // Default Editing fixture has three buffers. Find one that
+        // is not the current active.
+        let current_title = state
+            .runtime
+            .workspace
+            .active_buffer()
+            .unwrap()
+            .title
+            .clone();
+        let other_title = state
+            .runtime
+            .workspace
+            .buffers
+            .iter()
+            .map(|buffer| buffer.title.clone())
+            .find(|title| title != &current_title)
+            .expect("default fixture has >1 buffer");
+
+        let ok = state.navigate_active_editor_to(&other_title, 1, 1);
+        assert!(ok);
+        assert_eq!(
+            state
+                .runtime
+                .workspace
+                .active_buffer()
+                .map(|b| b.title.clone()),
+            Some(other_title),
+            "navigation must switch the active buffer for a cross-file target"
+        );
+    }
+
+    #[test]
+    fn palette_advertises_hover_and_goto_definition_with_wired_bindings() {
+        let state = ShellState::default();
+        let shortcuts: Vec<(&str, &str)> = state
+            .runtime
+            .content
+            .palette
+            .commands
+            .iter()
+            .map(|cmd| (cmd.label, cmd.shortcut))
+            .collect();
+        assert!(shortcuts.contains(&("Hover", "F1")));
+        assert!(shortcuts.contains(&("Goto Definition", "F12")));
+    }
+
+    #[test]
+    fn editing_status_line_announces_hover_and_goto_definition() {
+        let state = ShellState::default();
+        let hint = state.status_line_hint();
+        assert!(
+            hint.contains("F1 hover"),
+            "Editing hint must announce F1 hover (hover popover landing), got {hint:?}"
+        );
+        assert!(
+            hint.contains("F12 goto def"),
+            "Editing hint must announce F12 goto definition, got {hint:?}"
+        );
     }
 
     #[test]

@@ -1,3 +1,4 @@
+mod highlight;
 mod mock_data;
 mod model;
 mod oxvba;

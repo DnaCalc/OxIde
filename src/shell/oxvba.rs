@@ -555,6 +555,105 @@ fn document_id_from_buffer_title(title: &str) -> Option<DocumentId> {
     ))
 }
 
+/// Navigation target produced by `fetch_goto_definition`.
+///
+/// `target_title` matches the `BufferState::title` the model uses to
+/// locate the destination buffer (e.g. `Module1.bas`). `(target_line,
+/// target_column)` are 1-based, matching `CursorPosition`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GotoDefinitionTarget {
+    pub target_title: String,
+    pub target_line: u16,
+    pub target_column: u16,
+}
+
+/// Fetch hover information at the given cursor position for the
+/// active buffer. Returns the rendered lines ready for a popover, or
+/// `None` if OxVba reports nothing at that position (or the workspace
+/// cannot be loaded).
+pub fn fetch_hover_at_cursor(
+    project_path: &Path,
+    active_buffer_title: &str,
+    active_buffer_lines: &[String],
+    cursor: CursorPosition,
+) -> Option<Vec<String>> {
+    let session = HostWorkspaceSession::load_workspace_path(project_path).ok()?;
+    let documents = session.documents();
+    let active_document = resolve_active_document(&documents, Some(active_buffer_title))?;
+    let position = cursor_offset(active_buffer_lines, cursor);
+    let hover = session.hover(&active_document, position).ok().flatten()?;
+    Some(hover_lines_from_info(&hover))
+}
+
+/// Resolve a goto-definition request at the given cursor position.
+/// Returns `None` if OxVba has no definition to point to.
+///
+/// The returned `target_title` is the leaf filename of the resolved
+/// document's id, matching the convention `ProjectSession::workspace_state`
+/// uses for `BufferState::title`. Callers can look the buffer up by
+/// title (same-document navigation stays in-buffer; cross-document
+/// navigation switches the active view).
+pub fn fetch_goto_definition(
+    project_path: &Path,
+    active_buffer_title: &str,
+    active_buffer_lines: &[String],
+    cursor: CursorPosition,
+) -> Option<GotoDefinitionTarget> {
+    let session = HostWorkspaceSession::load_workspace_path(project_path).ok()?;
+    let documents = session.documents();
+    let active_document = resolve_active_document(&documents, Some(active_buffer_title))?;
+    let position = cursor_offset(active_buffer_lines, cursor);
+    let location = session
+        .go_to_definition(&active_document, position)
+        .ok()
+        .flatten()?;
+    let target_source = session.document_source(&location.document).ok()?;
+    let (target_line, target_column) =
+        line_col_for_offset(&target_source, location.span.start);
+    Some(GotoDefinitionTarget {
+        target_title: document_leaf_title(&location.document.0),
+        target_line,
+        target_column,
+    })
+}
+
+/// Convert a byte offset in a source string to a 1-based (line, column)
+/// pair. Inverse of `cursor_offset` for this file's purposes; column
+/// counts Unicode scalars (chars), matching the cursor model.
+fn line_col_for_offset(source: &str, offset: Position) -> (u16, u16) {
+    let target = offset as usize;
+    let mut line_number = 1u16;
+    let mut line_start = 0usize;
+
+    for (index, byte) in source.bytes().enumerate() {
+        if index >= target {
+            break;
+        }
+        if byte == b'\n' {
+            line_number = line_number.saturating_add(1);
+            line_start = index + 1;
+        }
+    }
+
+    let slice_end = target.min(source.len());
+    let column_chars = source
+        .get(line_start..slice_end)
+        .map(|slice| slice.chars().count())
+        .unwrap_or(0) as u16;
+    (line_number, column_chars.saturating_add(1))
+}
+
+/// Map a `DocumentId` back to the buffer title `ProjectSession`
+/// produced. Document ids carry the source path; the title is the
+/// file's leaf name (e.g. `Module1.bas`).
+fn document_leaf_title(document_id: &str) -> String {
+    document_id
+        .rsplit(|c| c == '/' || c == '\\')
+        .next()
+        .map(String::from)
+        .unwrap_or_else(|| document_id.to_string())
+}
+
 fn cursor_offset(lines: &[String], cursor: CursorPosition) -> Position {
     let target_line = usize::from(cursor.line.saturating_sub(1));
     let mut offset = 0usize;

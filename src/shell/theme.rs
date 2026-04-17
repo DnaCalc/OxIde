@@ -49,6 +49,65 @@ pub fn selection() -> PackedRgba {
     PackedRgba::rgb(0x21, 0x4D, 0x66)
 }
 
+// ---------------------------------------------------------------------
+// Syntax-highlighting palette.
+//
+// The Editor panel uses these colours to paint VBA tokens (see
+// `src/shell/highlight.rs`). Kept here next to the rest of the palette
+// so any future theme toggle (W100) changes one file. Identifiers and
+// punctuation deliberately have no override — they pick up the panel's
+// active/inactive foreground from `content_style` and so remain
+// legible when the panel loses focus.
+
+/// Cyan/blue for control-flow and declaration keywords
+/// (`Sub`, `Dim`, `If`, `End`, ...).
+pub fn keyword_color() -> PackedRgba {
+    PackedRgba::rgb(0x7C, 0xB3, 0xE8)
+}
+
+/// Softer cyan for built-in type names (`Integer`, `String`, ...),
+/// distinct from control keywords so declarations read `Dim x As Integer`
+/// with two visibly different accents.
+pub fn type_keyword_color() -> PackedRgba {
+    PackedRgba::rgb(0x5F, 0x9E, 0xA0)
+}
+
+/// Green for string literals.
+pub fn string_color() -> PackedRgba {
+    PackedRgba::rgb(0x8F, 0xC1, 0x75)
+}
+
+/// Soft yellow for numeric literals.
+pub fn number_color() -> PackedRgba {
+    PackedRgba::rgb(0xE6, 0xB4, 0x50)
+}
+
+pub fn style_keyword() -> Style {
+    Style::new().fg(keyword_color()).bold()
+}
+
+pub fn style_type_keyword() -> Style {
+    Style::new().fg(type_keyword_color())
+}
+
+pub fn style_string() -> Style {
+    Style::new().fg(string_color())
+}
+
+pub fn style_number() -> Style {
+    Style::new().fg(number_color())
+}
+
+pub fn style_comment() -> Style {
+    Style::new().fg(muted())
+}
+
+/// Line-number gutter rendered in the muted foreground so it reads as
+/// secondary information next to the source.
+pub fn style_gutter() -> Style {
+    Style::new().fg(muted())
+}
+
 fn panel_background(tone: PanelTone, active: bool) -> PackedRgba {
     match (tone, active) {
         (PanelTone::TopBar, true) => panel_alt(),
