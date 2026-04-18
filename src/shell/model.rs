@@ -466,6 +466,7 @@ impl ShellModel {
 
     fn apply_project_action(
         &mut self,
+        success_lines: Vec<String>,
         action: impl FnOnce(&PathBuf, &WorkspaceProjectState) -> std::io::Result<()>,
     ) {
         if self
@@ -476,19 +477,45 @@ impl ShellModel {
             .iter()
             .any(|buffer| buffer.dirty)
         {
+            self.show_project_feedback(vec![
+                String::from("Save dirty buffers before modifying project structure."),
+                String::from("Press Ctrl+S / Ctrl+Shift+S and retry."),
+            ]);
             return;
         }
 
         let Some(project_path) = self.project_path.clone() else {
+            self.show_project_feedback(vec![String::from(
+                "Open a project first before running project actions.",
+            )]);
             return;
         };
         let Some(project) = self.shell.runtime.workspace.project.as_ref() else {
+            self.show_project_feedback(vec![String::from(
+                "Project metadata is unavailable; remount and retry.",
+            )]);
             return;
         };
 
-        if action(&project_path, project).is_ok() {
-            self.try_mount_workspace(project_path, true);
+        match action(&project_path, project) {
+            Ok(()) => {
+                self.try_mount_workspace(project_path, true);
+                self.show_project_feedback(success_lines);
+            }
+            Err(error) => {
+                self.show_project_feedback(vec![format!("Project action failed: {error}")]);
+            }
         }
+    }
+
+    fn show_project_feedback(&mut self, lines: Vec<String>) {
+        if lines.is_empty() {
+            return;
+        }
+        let cursor = self
+            .active_editor_cursor()
+            .unwrap_or_else(|| CursorPosition::new(1, 1));
+        self.shell.show_hover_popover(lines, cursor);
     }
 
     fn refresh_com_reference_helper(&mut self) {
@@ -724,33 +751,40 @@ impl ShellModel {
                 self.shell.focus_region(region);
             }
             PaletteAction::AddProjectModule => {
-                self.apply_project_action(|project_path, project| {
-                    let logical_name =
-                        next_module_name(project, WorkspaceProjectModuleKind::Module);
-                    add_scaffolded_module(
-                        project_path,
-                        WorkspaceProjectModuleKind::Module,
-                        logical_name.as_str(),
-                    )
-                });
+                self.apply_project_action(
+                    vec![String::from("Added module to project.")],
+                    |project_path, project| {
+                        let logical_name =
+                            next_module_name(project, WorkspaceProjectModuleKind::Module);
+                        add_scaffolded_module(
+                            project_path,
+                            WorkspaceProjectModuleKind::Module,
+                            logical_name.as_str(),
+                        )
+                    },
+                );
             }
             PaletteAction::AddProjectClass => {
-                self.apply_project_action(|project_path, project| {
-                    let logical_name = next_module_name(project, WorkspaceProjectModuleKind::Class);
-                    add_scaffolded_module(
-                        project_path,
-                        WorkspaceProjectModuleKind::Class,
-                        logical_name.as_str(),
-                    )
-                });
+                self.apply_project_action(
+                    vec![String::from("Added class to project.")],
+                    |project_path, project| {
+                        let logical_name = next_module_name(project, WorkspaceProjectModuleKind::Class);
+                        add_scaffolded_module(
+                            project_path,
+                            WorkspaceProjectModuleKind::Class,
+                            logical_name.as_str(),
+                        )
+                    },
+                );
             }
             PaletteAction::OpenComReferenceHelper => {
                 self.open_com_reference_helper();
             }
             PaletteAction::CycleProjectTarget => {
-                self.apply_project_action(|project_path, _| {
-                    cycle_output_type(project_path).map(|_| ())
-                });
+                self.apply_project_action(
+                    vec![String::from("Cycled project output target.")],
+                    |project_path, _| cycle_output_type(project_path).map(|_| ()),
+                );
             }
             PaletteAction::NextEditorView => {
                 self.shell.cycle_active_editor_view();
@@ -807,7 +841,7 @@ impl ShellModel {
         match add_com_reference_candidate(&project_path, &candidate) {
             Ok(()) => {
                 self.shell.close_overlay();
-            self.try_mount_workspace(project_path, true);
+                self.try_mount_workspace(project_path, true);
             }
             Err(error) => {
                 let mut helper = self.shell.runtime.com_reference_helper.clone();
@@ -1003,32 +1037,39 @@ impl Model for ShellModel {
                 Cmd::none()
             }
             Msg::AddProjectModule => {
-                self.apply_project_action(|project_path, project| {
-                    let logical_name =
-                        next_module_name(project, WorkspaceProjectModuleKind::Module);
-                    add_scaffolded_module(
-                        project_path,
-                        WorkspaceProjectModuleKind::Module,
-                        logical_name.as_str(),
-                    )
-                });
+                self.apply_project_action(
+                    vec![String::from("Added module to project.")],
+                    |project_path, project| {
+                        let logical_name =
+                            next_module_name(project, WorkspaceProjectModuleKind::Module);
+                        add_scaffolded_module(
+                            project_path,
+                            WorkspaceProjectModuleKind::Module,
+                            logical_name.as_str(),
+                        )
+                    },
+                );
                 Cmd::none()
             }
             Msg::AddProjectClass => {
-                self.apply_project_action(|project_path, project| {
-                    let logical_name = next_module_name(project, WorkspaceProjectModuleKind::Class);
-                    add_scaffolded_module(
-                        project_path,
-                        WorkspaceProjectModuleKind::Class,
-                        logical_name.as_str(),
-                    )
-                });
+                self.apply_project_action(
+                    vec![String::from("Added class to project.")],
+                    |project_path, project| {
+                        let logical_name = next_module_name(project, WorkspaceProjectModuleKind::Class);
+                        add_scaffolded_module(
+                            project_path,
+                            WorkspaceProjectModuleKind::Class,
+                            logical_name.as_str(),
+                        )
+                    },
+                );
                 Cmd::none()
             }
             Msg::CycleProjectTarget => {
-                self.apply_project_action(|project_path, _| {
-                    cycle_output_type(project_path).map(|_| ())
-                });
+                self.apply_project_action(
+                    vec![String::from("Cycled project output target.")],
+                    |project_path, _| cycle_output_type(project_path).map(|_| ()),
+                );
                 Cmd::none()
             }
             Msg::FocusRegion(region) => {
@@ -1936,6 +1977,62 @@ mod tests {
                 .modules
                 .iter()
                 .any(|module| module.include == "Module2.bas")));
+    }
+
+    #[test]
+    fn add_project_module_surfaces_success_feedback_popover() {
+        let fixture = seed_project_fixture("model-add-module-popover");
+        let mut model = ShellModel::new(Some(fixture));
+
+        model.update(Msg::AddProjectModule);
+
+        let popover = model
+            .hover_popover()
+            .expect("project action success should surface feedback");
+        assert!(popover.lines.iter().any(|line| line.contains("Added module")));
+    }
+
+    #[test]
+    fn project_actions_show_dirty_buffer_gate_feedback() {
+        let fixture = seed_project_fixture("model-project-action-dirty-gate");
+        let mut model = ShellModel::new(Some(fixture));
+        model.shell.focus_region(FocusRegion::Editor);
+        model.update(Msg::InsertEditorChar('X'));
+
+        model.update(Msg::AddProjectModule);
+
+        assert!(!model
+            .shell
+            .runtime
+            .workspace
+            .project
+            .as_ref()
+            .is_some_and(|project| project
+                .modules
+                .iter()
+                .any(|module| module.include == "Module2.bas")));
+        let popover = model
+            .hover_popover()
+            .expect("dirty gate should surface feedback popover");
+        assert!(popover
+            .lines
+            .iter()
+            .any(|line| line.contains("Save dirty buffers")));
+    }
+
+    #[test]
+    fn project_action_failures_surface_error_feedback() {
+        let fixture = seed_project_fixture("model-project-action-failure");
+        let mut model = ShellModel::new(Some(fixture));
+
+        model.apply_project_action(vec![String::from("success")], |_project_path, _project| {
+            Err(std::io::Error::other("boom"))
+        });
+
+        let popover = model
+            .hover_popover()
+            .expect("project action failures should surface feedback");
+        assert!(popover.lines.iter().any(|line| line.contains("boom")));
     }
 
     #[test]
