@@ -11,6 +11,8 @@ oxvba-languageservice = { path = ".external/oxvba-frozen/crates/oxvba-languagese
 oxvba-project = { path = ".external/oxvba-frozen/crates/oxvba-project" }
 oxvba-web-host = { path = ".external/oxvba-frozen/crates/oxvba-web-host" }
 oxvba-web-shell = { path = ".external/oxvba-frozen/crates/oxvba-web-shell" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 [dev-dependencies]
 oxvba-com = { path = ".external/oxvba-frozen/crates/oxvba-com", features = ["fixture-typelibs"] }

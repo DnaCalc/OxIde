@@ -730,6 +730,8 @@ dependencies = [
  "oxvba-project",
  "oxvba-web-host",
  "oxvba-web-shell",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

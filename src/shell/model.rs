@@ -1,22 +1,23 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use ftui::{
-    KeyEventKind,
     prelude::{Cmd, Event, Frame, KeyCode, KeyEvent, Model, Modifiers},
+    KeyEventKind,
 };
 use oxvba_project::ComSelectionCandidate;
 
-use super::mock_data::{ShellPanels, shell_panels};
+use super::mock_data::{shell_panels, ShellPanels};
 use super::oxvba::run_project_state;
 use super::project_actions::{
-    ComReferenceDiscovery, add_com_reference_candidate, add_scaffolded_module, create_new_project,
-    cycle_output_type, discover_com_reference_candidates, next_module_name,
+    add_com_reference_candidate, add_scaffolded_module, create_new_project, cycle_output_type,
+    discover_com_reference_candidates, next_module_name, ComReferenceDiscovery,
 };
 use super::session::ProjectSession;
+use super::session_store::{self, SessionSnapshot, SessionWorkspaceRestore};
 use super::state::{
     ComReferenceHelperState, ComReferenceSearchMode, CursorPosition, FocusRegion, LowerSurfaceMode,
-    PaletteAction, ShellScene, ShellState, WidthClass, WorkspaceProjectModuleKind,
-    WorkspaceProjectState,
+    PaletteAction, ShellScene, ShellState, ViewId, ViewKind, ViewState, WidthClass,
+    WorkspaceProjectModuleKind, WorkspaceProjectState,
 };
 use super::view;
 
@@ -47,8 +48,8 @@ pub enum Msg {
     /// fetches fresh hover info from OxVba and shows it.
     ToggleHoverPopover,
     /// Jump to the definition of the symbol under the editor cursor.
-    /// Bound to `F12`. No-op when the cursor is not on a resolvable
-    /// symbol.
+    /// Bound to `F12`. Shows fallback feedback when the cursor is not
+    /// on a resolvable symbol.
     GotoDefinition,
     OpenSelectedProject,
     /// Scaffold a brand-new `.basproj` in a sibling directory and
@@ -132,6 +133,7 @@ pub struct ShellModel {
     shell: ShellState,
     project_path: Option<PathBuf>,
     com_reference_candidates: Vec<ComSelectionCandidate>,
+    session: SessionSnapshot,
     dev_scenes: bool,
 }
 
@@ -145,18 +147,32 @@ impl ShellModel {
     /// Construct the shell, optionally enabling the dev-only `F2/F3/F4`
     /// scene-flips and the palette's `Mockup States` group (uxpass D6).
     pub fn with_dev_scenes(project_path: Option<PathBuf>, dev_scenes: bool) -> Self {
+        let session = session_store::load().unwrap_or_default();
+        Self::with_session_snapshot(project_path, dev_scenes, session)
+    }
+
+    fn with_session_snapshot(
+        project_path: Option<PathBuf>,
+        dev_scenes: bool,
+        session: SessionSnapshot,
+    ) -> Self {
         let mut shell = ShellState::default();
         shell.set_dev_scenes(dev_scenes);
         let mut model = Self {
             shell,
             project_path: None,
             com_reference_candidates: Vec::new(),
+            session,
             dev_scenes,
         };
         model.shell.apply_scene(ShellScene::Empty);
-        model.discover_recent_projects();
+        model.load_recent_projects();
         if let Some(project_path) = project_path {
-            model.try_mount_workspace(project_path);
+            model.try_mount_workspace(project_path, true);
+        } else if let Some(last_opened) = model.session.last_opened_path() {
+            if model.try_mount_workspace(last_opened.clone(), false) {
+                model.restore_last_workspace_state(last_opened.as_path());
+            }
         }
         model
     }
@@ -291,19 +307,142 @@ impl ShellModel {
         }
     }
 
-    fn discover_recent_projects(&mut self) {
-        let projects = ProjectSession::discover_projects(".").unwrap_or_default();
+    fn load_recent_projects(&mut self) {
+        let mut projects = self.session.recent_project_paths();
+        projects.retain(|path| path.exists());
+        if projects.is_empty() {
+            projects = ProjectSession::discover_projects(".").unwrap_or_default();
+            self.session.recent_projects = projects
+                .iter()
+                .map(|path| path.to_string_lossy().to_string())
+                .collect();
+        }
         self.shell.set_recent_projects(projects);
     }
 
-    fn try_mount_workspace(&mut self, project_path: impl Into<PathBuf>) {
+    fn try_mount_workspace(&mut self, project_path: impl Into<PathBuf>, update_session: bool) -> bool {
         let project_path = project_path.into();
         if let Ok(session) = ProjectSession::load(&project_path) {
             self.shell.set_execution(session.execution_state());
             self.shell.mount_workspace(session.workspace_state());
             self.shell.apply_scene(ShellScene::Editing);
-            self.project_path = Some(project_path);
+            self.project_path = Some(project_path.clone());
+            if update_session {
+                self.record_opened_project(project_path.as_path());
+            }
+            true
+        } else {
+            false
         }
+    }
+
+    fn record_opened_project(&mut self, project_path: &Path) {
+        self.session.record_opened(project_path);
+        self.load_recent_projects();
+        let _ = session_store::save(&self.session);
+    }
+
+    fn capture_last_workspace_state(&self) -> Option<SessionWorkspaceRestore> {
+        let project_path = self.project_path.as_ref()?;
+        let workspace = &self.shell.runtime.workspace;
+        let visible_views = workspace.visible_views();
+        let open_buffers = visible_views
+            .iter()
+            .filter_map(|view| workspace.buffer(view.buffer_id).map(|buffer| buffer.title.clone()))
+            .collect::<Vec<_>>();
+        let active_view = workspace.active_view()?;
+        let active_buffer = workspace
+            .buffer(active_view.buffer_id)
+            .map(|buffer| buffer.title.clone());
+        Some(SessionWorkspaceRestore {
+            project_path: project_path.to_string_lossy().to_string(),
+            open_buffers,
+            active_buffer,
+            cursor_line: active_view.surface.cursor.line,
+            cursor_column: active_view.surface.cursor.column,
+            scroll_top: active_view.surface.scroll_top,
+        })
+    }
+
+    fn restore_last_workspace_state(&mut self, project_path: &Path) {
+        let Some(restore) = self.session.last_workspace.as_ref() else {
+            return;
+        };
+        if restore.project_path != project_path.to_string_lossy() {
+            return;
+        }
+
+        let workspace = &mut self.shell.runtime.workspace;
+        let mut selected_buffer_ids = restore
+            .open_buffers
+            .iter()
+            .filter_map(|title| {
+                workspace
+                    .buffers
+                    .iter()
+                    .find(|buffer| &buffer.title == title)
+                    .map(|buffer| buffer.id)
+            })
+            .collect::<Vec<_>>();
+        selected_buffer_ids.dedup();
+        if selected_buffer_ids.is_empty() {
+            if let Some(buffer) = workspace.active_buffer() {
+                selected_buffer_ids.push(buffer.id);
+            }
+        }
+        if selected_buffer_ids.is_empty() {
+            return;
+        }
+
+        workspace.views = selected_buffer_ids
+            .iter()
+            .enumerate()
+            .map(|(index, buffer_id)| ViewState {
+                id: ViewId((index + 1) as u16),
+                buffer_id: *buffer_id,
+                kind: if index == 0 {
+                    ViewKind::Primary
+                } else {
+                    ViewKind::Secondary
+                },
+                surface: super::state::EditorSurfaceState {
+                    cursor: CursorPosition::new(1, 1),
+                    selection: None,
+                    scroll_top: 0,
+                },
+            })
+            .collect();
+        workspace.layout.visible_views = workspace.views.iter().map(|view| view.id).collect();
+        workspace.layout.active_view = workspace.views[0].id;
+
+        if let Some(active_title) = restore.active_buffer.as_ref() {
+            if let Some(view) = workspace.views.iter().find(|view| {
+                workspace
+                    .buffer(view.buffer_id)
+                    .is_some_and(|buffer| &buffer.title == active_title)
+            }) {
+                workspace.layout.active_view = view.id;
+            }
+        }
+        if let Some(active_view) = workspace
+            .views
+            .iter_mut()
+            .find(|view| view.id == workspace.layout.active_view)
+        {
+            active_view.surface.cursor =
+                CursorPosition::new(restore.cursor_line, restore.cursor_column);
+            active_view.surface.scroll_top = restore.scroll_top;
+        }
+
+        // Refresh scene-derived content after mutating the live workspace.
+        self.shell.apply_scene(self.shell.scene);
+    }
+
+    fn persist_session_state(&mut self) {
+        if let Some(restore) = self.capture_last_workspace_state() {
+            self.session.last_workspace = Some(restore);
+        }
+        let _ = session_store::save(&self.session);
     }
 
     fn run_project(&mut self) {
@@ -348,7 +487,7 @@ impl ShellModel {
         };
 
         if action(&project_path, project).is_ok() {
-            self.try_mount_workspace(project_path);
+            self.try_mount_workspace(project_path, true);
         }
     }
 
@@ -436,12 +575,7 @@ impl ShellModel {
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         match create_new_project(&cwd, "NewProject") {
             Ok(basproj_path) => {
-                self.try_mount_workspace(basproj_path);
-                // Refresh the recent list so the newly-scaffolded
-                // project appears in Welcome on a later Empty
-                // visit (e.g. after a palette `Open Project` from
-                // an unrelated target).
-                self.discover_recent_projects();
+                self.try_mount_workspace(basproj_path, true);
             }
             Err(error) => {
                 self.shell.show_hover_popover(
@@ -505,9 +639,12 @@ impl ShellModel {
     /// Resolve goto-definition at the cursor and, if OxVba returns a
     /// target, navigate the active editor to it. Cross-buffer targets
     /// switch the active view to the destination buffer; same-buffer
-    /// targets just move the cursor. No-op when OxVba has no
-    /// definition to return or the target document is not in the
-    /// open buffer set.
+    /// targets just move the cursor.
+    ///
+    /// When OxVba has no definition to return, install an honest
+    /// fallback popover instead of silently doing nothing. This keeps
+    /// the advertised F12 affordance visibly responsive even at
+    /// non-symbol cursor positions.
     fn goto_definition(&mut self) {
         let Some(project_path) = self.project_path.clone() else {
             return;
@@ -526,6 +663,15 @@ impl ShellModel {
                 &target.target_title,
                 target.target_line,
                 target.target_column,
+            );
+        } else {
+            self.shell.show_hover_popover(
+                vec![
+                    String::from("No definition target available at this position."),
+                    String::new(),
+                    String::from("Move onto a symbol and press F12 again."),
+                ],
+                cursor,
             );
         }
     }
@@ -546,7 +692,7 @@ impl ShellModel {
         match action {
             PaletteAction::OpenSelectedProject => {
                 if let Some(path) = self.shell.selected_project_path().cloned() {
-                    self.try_mount_workspace(path);
+                    self.try_mount_workspace(path, true);
                 } else {
                     self.shell.show_hover_popover(
                         vec![
@@ -590,8 +736,7 @@ impl ShellModel {
             }
             PaletteAction::AddProjectClass => {
                 self.apply_project_action(|project_path, project| {
-                    let logical_name =
-                        next_module_name(project, WorkspaceProjectModuleKind::Class);
+                    let logical_name = next_module_name(project, WorkspaceProjectModuleKind::Class);
                     add_scaffolded_module(
                         project_path,
                         WorkspaceProjectModuleKind::Class,
@@ -662,7 +807,7 @@ impl ShellModel {
         match add_com_reference_candidate(&project_path, &candidate) {
             Ok(()) => {
                 self.shell.close_overlay();
-                self.try_mount_workspace(project_path);
+            self.try_mount_workspace(project_path, true);
             }
             Err(error) => {
                 let mut helper = self.shell.runtime.com_reference_helper.clone();
@@ -685,7 +830,10 @@ impl Model for ShellModel {
 
     fn update(&mut self, msg: Self::Message) -> Cmd<Self::Message> {
         match msg {
-            Msg::Quit => Cmd::quit(),
+            Msg::Quit => {
+                self.persist_session_state();
+                Cmd::quit()
+            }
             Msg::NextFocus => {
                 if self.com_reference_helper_active() {
                     self.cycle_com_reference_mode();
@@ -799,7 +947,7 @@ impl Model for ShellModel {
             }
             Msg::OpenSelectedProject => {
                 if let Some(path) = self.shell.selected_project_path().cloned() {
-                    self.try_mount_workspace(path);
+                    self.try_mount_workspace(path, true);
                 } else {
                     // Honest feedback when there is nothing to open —
                     // keeping `Ctrl+O` silent here made the binding
@@ -843,7 +991,14 @@ impl Model for ShellModel {
                 // Only if there is no popover does Esc close a scene
                 // overlay (Palette / COM reference helper).
                 if !self.shell.close_hover_popover() {
-                    self.shell.close_overlay();
+                    if self.shell.overlay_active() {
+                        self.shell.close_overlay();
+                    } else if self.shell.scene == ShellScene::BuildRun {
+                        // BuildRun is transient task state. `Esc`
+                        // returns to Editing so users can quickly
+                        // bounce run -> inspect -> edit.
+                        self.shell.apply_scene(ShellScene::Editing);
+                    }
                 }
                 Cmd::none()
             }
@@ -1245,6 +1400,15 @@ mod tests {
         assert_eq!(msg, Msg::GotoDefinition);
     }
 
+    fn select_palette_command_by_label(model: &mut ShellModel, label: &str) {
+        let commands = &model.shell.runtime.content.palette.commands;
+        let target_index = commands
+            .iter()
+            .position(|command| command.label == label)
+            .unwrap_or_else(|| panic!("palette missing command {label:?}"));
+        model.shell.runtime.palette_selection = target_index;
+    }
+
     #[test]
     fn esc_closes_hover_popover_before_scene_overlay() {
         // Cascade: a visible popover shields the underlying scene
@@ -1274,6 +1438,24 @@ mod tests {
         assert!(
             !model.palette_active(),
             "second Esc must close the scene overlay"
+        );
+    }
+
+    #[test]
+    fn esc_on_build_run_returns_to_editing_scene() {
+        let mut model = ShellModel::new(Some(PathBuf::from(
+            "examples/thin-slice/ThinSliceHello.basproj",
+        )));
+        assert_eq!(model.scene(), ShellScene::Editing);
+
+        model.update(Msg::RunProject);
+        assert_eq!(model.scene(), ShellScene::BuildRun);
+
+        model.update(Msg::CloseOverlay);
+        assert_eq!(
+            model.scene(),
+            ShellScene::Editing,
+            "Esc from BuildRun must return to Editing"
         );
     }
 
@@ -1401,10 +1583,37 @@ mod tests {
     }
 
     #[test]
+    fn f12_on_unresolved_position_surfaces_fallback_popover() {
+        let mut model = ShellModel::new(Some(PathBuf::from(
+            "examples/thin-slice/ThinSliceHello.basproj",
+        )));
+        model.update(Msg::FocusRegion(FocusRegion::Editor));
+
+        // Line 4 in thin-slice is intentionally blank.
+        for _ in 0..3 {
+            model.update(Msg::MoveEditorDown);
+        }
+
+        model.update(Msg::GotoDefinition);
+
+        let popover = model
+            .shell
+            .hover_popover()
+            .expect("F12 on unresolved cursor should surface fallback feedback");
+        assert!(
+            popover
+                .lines
+                .iter()
+                .any(|line| line.contains("No definition target available at this position.")),
+            "fallback popover should explain unresolved goto-definition"
+        );
+    }
+
+    #[test]
     fn palette_enter_dispatches_save_and_clears_dirty_marker() {
         // End-to-end: user types a character, opens the palette,
-        // Down-arrows to the Save row, Enter. The overlay closes
-        // and the save actually runs — no need to remember Ctrl+S.
+        // selects Save by label, Enter. The overlay closes and the
+        // save actually runs — no need to remember Ctrl+S.
         // This pins J4-e / P6 at the model level.
         let scratch = seed_project_fixture("palette_enter_dispatches_save_and_clears_dirty_marker");
         let mut model = ShellModel::new(Some(scratch));
@@ -1423,12 +1632,7 @@ mod tests {
 
         model.update(Msg::TogglePalette);
         assert!(model.palette_active());
-
-        // Open Project (row 0) is the default selection; Save is
-        // row 2 in the current palette order (Open Project / Create
-        // Project / Save). Two Downs land on Save.
-        model.update(Msg::MoveEditorDown);
-        model.update(Msg::MoveEditorDown);
+        select_palette_command_by_label(&mut model, "Save");
 
         model.update(Msg::InsertEditorNewline); // Enter
 
@@ -1450,7 +1654,8 @@ mod tests {
 
     #[test]
     fn palette_enter_dispatches_undo_and_restores_pre_edit_lines() {
-        let scratch = seed_project_fixture("palette_enter_dispatches_undo_and_restores_pre_edit_lines");
+        let scratch =
+            seed_project_fixture("palette_enter_dispatches_undo_and_restores_pre_edit_lines");
         let mut model = ShellModel::new(Some(scratch));
         model.update(Msg::FocusRegion(FocusRegion::Editor));
 
@@ -1458,13 +1663,7 @@ mod tests {
         model.update(Msg::InsertEditorChar('Q'));
 
         model.update(Msg::TogglePalette);
-        // Move to the Undo entry. Default palette order is
-        // Open Project / Create Project / Save / Save All / Undo /
-        // Redo / ... — four Downs lands on Undo (index 4).
-        model.update(Msg::MoveEditorDown);
-        model.update(Msg::MoveEditorDown);
-        model.update(Msg::MoveEditorDown);
-        model.update(Msg::MoveEditorDown);
+        select_palette_command_by_label(&mut model, "Undo");
 
         model.update(Msg::InsertEditorNewline);
 
@@ -1581,7 +1780,13 @@ mod tests {
     fn palette_state_commands_are_empty_in_default_build() {
         let model = ShellModel::new(None);
         assert!(
-            model.shell.runtime.content.palette.state_commands.is_empty(),
+            model
+                .shell
+                .runtime
+                .content
+                .palette
+                .state_commands
+                .is_empty(),
             "default-build palette must not surface the Mockup States group"
         );
     }
@@ -1594,11 +1799,9 @@ mod tests {
             !state_commands.is_empty(),
             "--dev-scenes must repopulate the Mockup States group"
         );
-        assert!(
-            state_commands
-                .iter()
-                .any(|cmd| cmd.shortcut == "F2" && cmd.label == "Empty")
-        );
+        assert!(state_commands
+            .iter()
+            .any(|cmd| cmd.shortcut == "F2" && cmd.label == "Empty"));
     }
 
     #[test]
@@ -1615,6 +1818,70 @@ mod tests {
     }
 
     #[test]
+    fn session_snapshot_bootstrap_restores_last_opened_workspace_and_cursor() {
+        let fixture = seed_project_fixture("session_snapshot_bootstrap");
+        let fixture_text = fixture.to_string_lossy().to_string();
+        let snapshot = SessionSnapshot {
+            recent_projects: vec![fixture_text.clone()],
+            last_opened: Some(fixture_text.clone()),
+            last_workspace: Some(SessionWorkspaceRestore {
+                project_path: fixture_text.clone(),
+                open_buffers: vec![String::from("Module1.bas")],
+                active_buffer: Some(String::from("Module1.bas")),
+                cursor_line: 3,
+                cursor_column: 4,
+                scroll_top: 2,
+            }),
+        };
+
+        let model = ShellModel::with_session_snapshot(None, false, snapshot);
+        assert_eq!(model.scene(), ShellScene::Editing);
+        assert_eq!(
+            model.active_editor_cursor(),
+            Some(CursorPosition::new(3, 4)),
+            "bootstrap restore should place cursor at persisted location"
+        );
+        assert_eq!(
+            model.active_editor_scroll_top(),
+            Some(2),
+            "bootstrap restore should preserve scroll_top"
+        );
+        assert_eq!(
+            model.shell
+                .runtime
+                .recent_projects
+                .first()
+                .map(|path| path.to_string_lossy().to_string()),
+            Some(fixture_text)
+        );
+    }
+
+    #[test]
+    fn quit_persists_last_workspace_state_into_session_snapshot() {
+        let fixture = seed_project_fixture("quit_persists_last_workspace");
+        let fixture_text = fixture.to_string_lossy().to_string();
+        let mut model = ShellModel::with_session_snapshot(
+            Some(fixture.clone()),
+            false,
+            SessionSnapshot::default(),
+        );
+        model.update(Msg::MoveEditorDown);
+        model.update(Msg::MoveEditorRight);
+        model.update(Msg::Quit);
+
+        let persisted = model
+            .session
+            .last_workspace
+            .as_ref()
+            .expect("quit should persist the last workspace state");
+        assert_eq!(persisted.project_path, fixture_text);
+        assert_eq!(persisted.open_buffers, vec![String::from("Module1.bas")]);
+        assert_eq!(persisted.active_buffer.as_deref(), Some("Module1.bas"));
+        assert_eq!(persisted.cursor_line, 3);
+        assert_eq!(persisted.cursor_column, 1);
+    }
+
+    #[test]
     fn run_project_transitions_to_build_run_scene_and_updates_output() {
         let mut model = ShellModel::new(Some(PathBuf::from(
             "examples/thin-slice/ThinSliceHello.basproj",
@@ -1624,15 +1891,13 @@ mod tests {
 
         assert_eq!(model.shell.scene, ShellScene::BuildRun);
         assert_eq!(model.shell.runtime.execution.runtime_status, "completed");
-        assert!(
-            model
-                .shell
-                .runtime
-                .execution
-                .output_lines
-                .iter()
-                .any(|line| line.contains("project run completed"))
-        );
+        assert!(model
+            .shell
+            .runtime
+            .execution
+            .output_lines
+            .iter()
+            .any(|line| line.contains("project run completed")));
     }
 
     #[test]
@@ -1661,18 +1926,16 @@ mod tests {
 
         model.update(Msg::AddProjectModule);
 
-        assert!(
-            model
-                .shell
-                .runtime
-                .workspace
-                .project
-                .as_ref()
-                .is_some_and(|project| project
-                    .modules
-                    .iter()
-                    .any(|module| module.include == "Module2.bas"))
-        );
+        assert!(model
+            .shell
+            .runtime
+            .workspace
+            .project
+            .as_ref()
+            .is_some_and(|project| project
+                .modules
+                .iter()
+                .any(|module| module.include == "Module2.bas")));
     }
 
     #[test]
@@ -1696,15 +1959,13 @@ mod tests {
         }
 
         assert!(model.com_reference_helper_active());
-        assert!(
-            model
-                .shell
-                .runtime
-                .com_reference_helper
-                .candidates
-                .iter()
-                .any(|candidate| candidate.title == "OxVba.TestDispatch")
-        );
+        assert!(model
+            .shell
+            .runtime
+            .com_reference_helper
+            .candidates
+            .iter()
+            .any(|candidate| candidate.title == "OxVba.TestDispatch"));
     }
 
     fn seed_project_fixture(name: &str) -> PathBuf {
