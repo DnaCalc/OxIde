@@ -7,6 +7,7 @@ mod session;
 mod session_store;
 mod state;
 mod theme;
+pub mod uxlab;
 mod view;
 
 pub use model::ShellModel;

@@ -41,7 +41,8 @@ This spec does not redefine:
 
 ## 2. Canonical Shell Frame
 
-The canonical OxIde shell is:
+The canonical OxIde shell is a **four-band vertical frame with a
+scene-scoped body decomposition**:
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────┐
@@ -50,16 +51,18 @@ The canonical OxIde shell is:
 │ Explorer     │ Editor Area                               │ Inspector     │
 ├──────────────┴───────────────────────────────────────────┴───────────────┤
 │ Lower Utility Surface                                                   │
+├──────────────────────────────────────────────────────────────────────────┤
+│ Status Line (active bindings for current scene/overlay)                 │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
 Region meaning:
 
-- top = project identity, target, mode, state, and commandability hints
-- left = project structure and navigation
-- center = primary work
-- right = contextual meaning
-- bottom = eventful, list-shaped, or stream-shaped work
+- top band = project identity and scene state
+- body band = scene-scoped decomposition (Empty: Welcome-only; non-Empty:
+  Explorer/Editor/Inspector with width-class collapse rules)
+- lower band = eventful, list-shaped, or stream-shaped task surface
+- status band = always-on current binding hints
 
 This frame should persist across the core states so the product keeps its
 identity under editing, semantic inspection, and execution activity.
@@ -73,16 +76,10 @@ The top bar is mandatory.
 It should show:
 
 - workspace or project name
-- active target
-- active shell mode
+- active shell scene
 - dirty / running / debugging status
-- terminal capability status if relevant
 
-It may also show:
-
-- active view count
-- current inspector mode
-- current lower-surface mode
+It should not duplicate command hints that belong in the status line band.
 
 It should not become a menu bar clone or a toolbar strip.
 
@@ -163,7 +160,14 @@ This region hosts:
 
 It should support collapsed, compact, and expanded heights.
 
-### 3.6 Overlays
+### 3.6 Status Line
+
+The status line is mandatory and always present.
+
+It owns one contract only: announce the bindings that are live in the current
+scene/overlay. It does not repeat inspector prose or top-bar metadata.
+
+### 3.7 Overlays
 
 The main overlay class is the command palette.
 
@@ -182,6 +186,8 @@ Overlay rules:
 - overlay focus is explicit
 - overlays anchor to the shell grid
 - overlays should not require backdrop theatrics to read clearly
+- overlays do not replace the status-line band; they provide overlay-specific
+  status hints there
 
 ## 4. State Compositions
 
@@ -194,10 +200,9 @@ Goal:
 Composition:
 
 - top bar present
-- explorer minimized or replaced by workspace launcher content
-- editor area becomes welcome surface
-- inspector may show environment or capability summary
+- body decomposes to a single Welcome surface
 - lower surface hidden by default unless capability checks need detail
+- status line present
 
 Content:
 
@@ -221,6 +226,7 @@ Composition:
 - editor area visible
 - inspector visible in `Summary` or `Diagnostics`
 - lower utility present in compact or collapsed state
+- status line present
 
 Default lower-surface mode:
 
@@ -239,6 +245,7 @@ Composition:
 - editor unchanged
 - inspector switches to `Hover`, `Symbols`, or `Diagnostics`
 - lower utility may switch to `Immediate` or `References`
+- status line present
 
 Rules:
 
@@ -258,6 +265,7 @@ Composition:
 - editor area stays central
 - inspector switches to `RunStatus`
 - lower utility switches to `Output` or `BuildLog`
+- status line present and includes return/re-run affordances
 
 The editor may show:
 
@@ -276,6 +284,7 @@ Composition:
 - centered or strongly anchored overlay
 - shell remains visible behind it
 - active focus entirely owned by the palette
+- status line remains visible with overlay-specific key hints
 
 Content structure:
 
@@ -287,12 +296,12 @@ Content structure:
 ## 5. Region Mode Matrix
 
 ```text
-State           Explorer      Editor          Inspector       Lower Surface
-Empty           launcher/min  welcome         summary/setup   hidden/optional
-Editing         project       source          summary/diag    problems/last
-Semantic        project       source          hover/symbols   immediate/refs
-BuildRun        project       source          run-status      output/buildlog
-Palette         frozen        dimmed/frozen   frozen          frozen
+State           Body decomposition            Lower Surface      Status Line
+Empty           welcome-only                  hidden/optional    empty-scene bindings
+Editing         explorer/editor/inspector     problems/last      editing bindings
+Semantic        explorer/editor/inspector     immediate/refs     semantic bindings
+BuildRun        explorer/editor/inspector     output/buildlog    run bindings
+Palette         overlay over backing body     backing frozen     overlay bindings
 ```
 
 `Palette` does not mean visual dimming is mandatory. It means background regions

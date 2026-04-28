@@ -76,13 +76,78 @@ pub struct Token<'a> {
 /// `Rem` is present but we also detect it specially below (the rest of
 /// the line is a comment when a line begins with `Rem` as a full word).
 const KEYWORDS: &[&str] = &[
-    "Sub", "End", "Function", "Dim", "ReDim", "As", "Public", "Private", "Friend", "Global",
-    "Option", "Explicit", "Compare", "Base", "Module", "If", "Then", "Else", "ElseIf", "EndIf",
-    "For", "Next", "Do", "Loop", "While", "Wend", "Until", "Select", "Case", "With", "New", "Set",
-    "Let", "Const", "Declare", "Type", "Property", "Get", "True", "False", "Nothing", "Null",
-    "Empty", "On", "Error", "GoTo", "Resume", "Return", "Exit", "Each", "In", "To", "Step",
-    "ByVal", "ByRef", "Optional", "ParamArray", "Attribute", "And", "Or", "Not", "Xor", "Eqv",
-    "Imp", "Mod", "Like", "Is", "Me", "Implements", "Call", "Rem", "Stop",
+    "Sub",
+    "End",
+    "Function",
+    "Dim",
+    "ReDim",
+    "As",
+    "Public",
+    "Private",
+    "Friend",
+    "Global",
+    "Option",
+    "Explicit",
+    "Compare",
+    "Base",
+    "Module",
+    "If",
+    "Then",
+    "Else",
+    "ElseIf",
+    "EndIf",
+    "For",
+    "Next",
+    "Do",
+    "Loop",
+    "While",
+    "Wend",
+    "Until",
+    "Select",
+    "Case",
+    "With",
+    "New",
+    "Set",
+    "Let",
+    "Const",
+    "Declare",
+    "Type",
+    "Property",
+    "Get",
+    "True",
+    "False",
+    "Nothing",
+    "Null",
+    "Empty",
+    "On",
+    "Error",
+    "GoTo",
+    "Resume",
+    "Return",
+    "Exit",
+    "Each",
+    "In",
+    "To",
+    "Step",
+    "ByVal",
+    "ByRef",
+    "Optional",
+    "ParamArray",
+    "Attribute",
+    "And",
+    "Or",
+    "Not",
+    "Xor",
+    "Eqv",
+    "Imp",
+    "Mod",
+    "Like",
+    "Is",
+    "Me",
+    "Implements",
+    "Call",
+    "Rem",
+    "Stop",
 ];
 
 /// Reserved VBA scalar type names.
@@ -342,11 +407,11 @@ mod tests {
         assert_eq!(
             kinds(line),
             vec![
-                TokenKind::Keyword,    // Public
+                TokenKind::Keyword, // Public
                 TokenKind::Whitespace,
-                TokenKind::Keyword,    // Sub
+                TokenKind::Keyword, // Sub
                 TokenKind::Whitespace,
-                TokenKind::Identifier, // Main
+                TokenKind::Identifier,  // Main
                 TokenKind::Punctuation, // (
                 TokenKind::Punctuation, // )
             ]
@@ -355,7 +420,11 @@ mod tests {
 
     #[test]
     fn gutter_width_adapts_to_total_line_count() {
-        assert_eq!(gutter_width(1), 3, "single-line buffer still gets a 3-col gutter");
+        assert_eq!(
+            gutter_width(1),
+            3,
+            "single-line buffer still gets a 3-col gutter"
+        );
         assert_eq!(gutter_width(9), 3);
         assert_eq!(gutter_width(10), 3);
         assert_eq!(gutter_width(99), 3);

@@ -14,7 +14,9 @@ Current planning note:
 
 - see `PRODUCT_DIRECTION.md` for the active UX and product-direction document
 - see `docs/DESIGN_TUI.md` for the current detailed TUI shell spec
-- see `OPERATIONS.md` and `docs/WORKSET_REGISTER.md` for the current execution model and workset state
+- see `docs/BEADS.md` for the working method (worksets + beads, with
+  testing, evidence, and closure rules embedded in the bead concept)
+- see `docs/WORKSET_REGISTER.md` for the ordered workset sequence
 
 Ownership of truth is split this way:
 
@@ -111,27 +113,38 @@ cargo test
 Important note:
 - full `cargo test` depends on the local frozen OxVba mirror being present at `.external/oxvba-frozen`
 
-Visible shell behavior is anchored on a WinTermDriver-based headless test
-harness behind a `wtd` cargo feature:
+Visible shell behaviour is driven through a WinTermDriver-based headless
+harness behind a `wtd` cargo feature. Every user-facing bead closes with
+a `wtd` journey under `tests/wtd/` driving the release binary:
 
 ```bash
 cargo test --features wtd
 ```
 
-See `docs/TESTING_WTD.md` for the harness, scenario workspaces, and golden
-snapshot discipline.
+See `docs/TESTING_WTD.md` for the mechanical harness reference and
+`docs/BEADS.md` §2.1 for the discipline that pins a `wtd` journey to
+every user-facing bead.
 
-## Current Direction
+## Doc Map
 
-The repo follows the product and architecture direction in:
+Read in roughly this order:
 
-- `PRODUCT_DIRECTION.md`
-- `ARCHITECTURE.md`
-- `OPERATIONS.md`
-- `docs/WORKSET_REGISTER.md`
+- `AGENTS.md` — repo safety rules.
+- `docs/BEADS.md` — the working method. A bead is the complete unit
+  of work (goal / design / tests / evidence / closure). Read this
+  before executing anything.
+- `docs/WORKSET_REGISTER.md` — ordered workset sequence.
+- `docs/worksets/*.md` — per-workset design + bead list.
+- `PRODUCT_DIRECTION.md` — product and UX authority.
+- `ARCHITECTURE.md` — seams and implementation direction.
+- `docs/DESIGN_TUI.md` — current TUI shell spec (to be reconciled
+  with the uxpass output).
+- `docs/TESTING_WTD.md` — mechanical `wtd` reference.
+- `docs/uxpass/*.md` — W035 UX design pass (principles, journeys,
+  frame-and-regions).
 
-The intended ecosystem shape is:
+## Ecosystem Shape
 
-- `OxVba` = engine, semantics, project truth, transport
-- `OxIde` = first-class direct host and showcase
-- VS Code extension = alternate host over the same `OxVba` semantics
+- `OxVba` = engine, semantics, project truth, transport.
+- `OxIde` = first-class direct host and showcase.
+- VS Code extension = alternate host over the same `OxVba` semantics.

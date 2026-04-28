@@ -1,0 +1,34 @@
+Identity Rail | OxIde | Console Fit | Console Fit | Theme Paper Ember | Labels visible without color                    
+------------------------------------------------------------------------------------------------------------------------
+Capability Summary | Truecolor pass; glyph fallback warning; input latency pass                                         
+------------------------------------------------------------------------------------------------------------------------
+Signal               | result | detail                                                | Recommendation                  
+------------------------------------------------------------------------------------------------------------------------
+truecolor            | pass | 24-bit color supported                                  | Use Graphite Ember or Paper Embe
+box-glyphs           | warn | Heavy separators may degrade in this host               | Prefer ASCII rail fallback for d
+alternate-screen     | pass | ConPTY alternate screen available                       | Safe for WTD capture.           
+------------------------------------------------------------------------------------------------------------------------
+Activity: Signals | terminal capability rows are fixtures, not live probes                                              
+truecolor: pass | 24-bit color supported | Use Graphite Ember or Paper Ember themes.                                    
+box-glyphs: warn | Heavy separators may degrade in this host | Prefer ASCII rail fallback for dense scenes.             
+alternate-screen: pass | ConPTY alternate screen available | Safe for WTD capture.                                      
+------------------------------------------------------------------------------------------------------------------------
+Enter Open Report  Enter Rerun Checks  Esc Return                                                                       
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        

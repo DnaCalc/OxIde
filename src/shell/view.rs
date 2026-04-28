@@ -349,7 +349,13 @@ fn render_hover_popover(frame: &mut Frame, model: &ShellModel, frame_area: Rect)
         .line
         .saturating_sub(1)
         .checked_sub(scroll_top)
-        .and_then(|row| if row < editor_inner.height { Some(row) } else { None });
+        .and_then(|row| {
+            if row < editor_inner.height {
+                Some(row)
+            } else {
+                None
+            }
+        });
 
     let total_lines = model.active_editor_lines().map(|l| l.len()).unwrap_or(0);
     let gutter = highlight::gutter_total_width(total_lines) as u16;
@@ -383,7 +389,9 @@ fn render_hover_popover(frame: &mut Frame, model: &ShellModel, frame_area: Rect)
     let right_limit = editor_inner.x.saturating_add(editor_inner.width);
     let mut popover_x = anchor_x;
     if popover_x.saturating_add(popover_width) > right_limit {
-        popover_x = right_limit.saturating_sub(popover_width).max(editor_inner.x);
+        popover_x = right_limit
+            .saturating_sub(popover_width)
+            .max(editor_inner.x);
     }
 
     let rect = Rect::new(popover_x, popover_y, popover_width, popover_height);

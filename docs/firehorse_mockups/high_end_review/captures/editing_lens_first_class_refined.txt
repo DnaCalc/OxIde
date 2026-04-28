@@ -1,0 +1,42 @@
+OxIde  NorthwindPricing  target:ExcelDesktop  Fire Horse Editing Lens  source-centered desktop target  viewport:first-class 160x42                              
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+PROJECT SPINE                  │ CODE CANVAS  PriceFor.bas  VBA                                                     │ CONTEXT DOCK                              
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+> NorthwindPricing             │   1     Option Explicit                                                            │ Diagnostic  warning OXVBA-W060            
+>*  PriceFor.bas               │   3     Public Function PriceFor(productId As Long) As Currency                    │ line 8  Argument to FormatCurrency is infe
+    Orders.bas                 │   4         Dim basePrice As Currency                                              │ Symbol      PriceFor                      
+    CustomerView.frm           │   5         basePrice = LookupPrice(productId)                                     │ Kind        Function                      
+    ExcelDesktop               │   6 >       PriceFor = ApplyRegionalDiscount(basePrice)                            │ Actions     F12 definition  Shift+F12 refs
+    VBA                        │   8  !      Debug.Print FormatCurrency(PriceFor)                                   │ Run Status  idle; last run clean          
+                               │   9     End Function                                                               │ Deck        Problems 1 | References 4     
+                               │                                                                                    │                                           
+                               │                                                                                    │                                           
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+SEMANTIC LENS                  │ Function PriceFor(productId As Long) As Currency  ::  HostWorkspaceSession::hover  │ PINNED ACTIONS                            
+                               │ OxVba hover: resolves to pricing module function.                                  │ F1 pin  F12 go  Shift+F12 refs            
+                               │ Actions: semantic.goto_definition  semantic.references                             │ W060 replaces fixture hover               
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ACTIVITY DECK  Problems (1)  |  Output ready  |  References (4)  |  Watch/Trace                                                                                 
+warning OXVBA-W060  PriceFor.bas:8  Argument to FormatCurrency is inferred as Variant; inspect return type.                                                     
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Ctrl+S Save  F6 Command Lens  F1 Semantic Lens  F5 Run  Ctrl+. Quick Fix                                                                                        
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                

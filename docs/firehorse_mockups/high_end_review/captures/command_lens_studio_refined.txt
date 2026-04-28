@@ -1,0 +1,48 @@
+OxIde  NorthwindPricing  target:ExcelDesktop  Fire Horse Command Lens  modal command surface  viewport:studio 190x48                                                                          
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+COMMAND LENS  filter: 'run'  selected: run.start  backing scene: inactive                                                                                                                     
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ACTIONS                                                                                  │ PREVIEW                                                                                            
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+> Run Project          F5             run.start                  enabled                 │ Run Project                                                                                        
+  Stop Run             F8             run.stop                   disabled: No active run │ Stop Run                                                                                           
+  Configure Target     Ctrl+K T       target.configure           enabled                 │ Configure Target                                                                                   
+  Switch Target        Ctrl+K Shift+T target.switch              enabled                 │ Switch Target                                                                                      
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+CONSEQUENCE PREVIEW                                                                      │ Run Project                                                                                        
+                                                                                         │ Target: ExcelDesktop                                                                               
+                                                                                         │ Runs the current OxVba project through the configured host.                                        
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Enter run  Ctrl+Enter Alternate  Esc Close                                                                                                                                                    
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              

@@ -343,36 +343,24 @@ The current priority areas are:
 - prepare for typed direct build/run contracts when OxVba exposes them
 - support session restore and persistent shell state where OxIde should own it
 
-## Verification And Test Anchor
+## Verification
 
-- visible shell behavior is anchored on a `WinTermDriver`-based headless
-  test harness; see `docs/TESTING_WTD.md` for the harness shape, scenario
-  workspace layout, golden snapshot discipline, and CI expectations
-- the WTD suite is gated behind a `wtd` cargo feature so the default
-  `cargo test` loop stays fast; `cargo test --features wtd` drives the
-  full scenario sweep
-- each workset from W037 onward closes against at least one WTD scenario
+See [`docs/BEADS.md`](docs/BEADS.md) for the verification method.
+This file is for architecture only; the when / why / what closes of
+verification live in the bead definition.
 
 ## Relationship To Other Docs
 
-- `PRODUCT_DIRECTION.md`
-  - authoritative for product direction, UX model, scope, and design intent
-
-- `ARCHITECTURE.md`
-  - authoritative for current seam boundaries and implementation direction
-
-- `docs/DESIGN_TUI.md`
-  - authoritative for the current detailed TUI shell specification and the
-    FrankenTui mockup target
-
-- `docs/uxpass/`
-  - addendum UX authority produced by W035; reconciled back into
-    `PRODUCT_DIRECTION.md` and `docs/DESIGN_TUI.md` via
-    `docs/uxpass/60_reconciliation.md`
-
-- `docs/TESTING_WTD.md`
-  - authoritative for how the TUI shell is driven and verified via
-    WinTermDriver
-
-- `README.md`
-  - entry point and current-state summary
+- `PRODUCT_DIRECTION.md` — product direction, UX model, scope, design
+  intent.
+- `ARCHITECTURE.md` — seam boundaries and implementation direction
+  (this file).
+- `docs/BEADS.md` — working method (worksets, beads, closure).
+- `docs/WORKSET_REGISTER.md` — ordered workset sequence.
+- `docs/DESIGN_TUI.md` — current detailed TUI shell specification.
+- `docs/uxpass/` — addendum UX authority produced by W035; to be
+  reconciled back into `PRODUCT_DIRECTION.md` and
+  `docs/DESIGN_TUI.md` via `docs/uxpass/60_reconciliation.md`.
+- `docs/TESTING_WTD.md` — mechanical reference for the `wtd`
+  harness.
+- `README.md` — entry point and doc map.

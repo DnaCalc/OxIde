@@ -1,0 +1,42 @@
+OxIde  NorthwindPricing  target:ExcelDesktop  Fire Horse Debug Cockpit  paused source plus debug dock  viewport:first-class 160x42                              
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+DEBUG  paused at PriceFor.bas:8  breakpoint hit  W080 owns real debug contract                                                                                  
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+PROJECT / BREAKPOINTS          │ CODE CANVAS  PriceFor.bas                                                          │ DEBUG DOCK                                
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+> NorthwindPricing             │   1    Option Explicit                                                             │ CALL STACK                                
+>*  PriceFor.bas               │   3    Public Function PriceFor(productId As Long) As Currency                     │ frame-0  PriceFor  line 8                 
+    Orders.bas                 │   4        Dim basePrice As Currency                                               │ frame-1  QuoteSelectedOrder  line 22      
+    CustomerView.frm           │   5        basePrice = LookupPrice(productId)                                      │ LOCALS                                    
+    ExcelDesktop               │   6        PriceFor = ApplyRegionalDiscount(basePrice)                             │ productId As Long = 42                    
+    VBA                        │   8 =>     Debug.Print FormatCurrency(PriceFor)                                    │ WATCHES                                   
+                               │   9    End Function                                                                │ PriceFor(productId) As Currency = 12.40   
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ACTIVITY DECK  Watch/Trace active  |  Immediate ? answer = 42  |  Output paused                                                                                 
+Immediate context: frame-0 PriceFor  |  Watches can be pinned from source or Immediate                                                                          
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+F5 Continue  F8 Step  Shift+F8 Step Out  Ctrl+W Pin Watch  Esc Return                                                                                           
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                

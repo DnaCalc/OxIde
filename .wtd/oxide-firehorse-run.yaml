@@ -1,0 +1,26 @@
+version: 1
+name: oxide-firehorse-run
+defaults:
+  terminalSize:
+    cols: 120
+    rows: 34
+profiles:
+  oxide-firehorse-run:
+    type: custom
+    executable: 'C:\Work\DnaCalc\OxIde\target\release\oxide-uxlab.exe'
+    cwd: 'C:\Work\DnaCalc\OxIde'
+    args:
+      - '--suite'
+      - 'firehorse'
+      - '--scenario'
+      - 'firehorse-run-lane-standard'
+      - '--viewport'
+      - 'standard'
+      - '--once'
+tabs:
+  - name: run-lane
+    layout:
+      type: pane
+      name: oxide-firehorse-run-pane
+      session:
+        profile: oxide-firehorse-run

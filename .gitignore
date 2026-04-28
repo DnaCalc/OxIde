@@ -43,6 +43,9 @@ opencode.json.*.bak
 # bv (beads viewer) local config and caches
 .bv/
 
+# Generated visual previews derived from committed/reviewable text captures.
+/docs/firehorse_mockups/high_end_review/previews/
+
 # Scaffolded projects from Ctrl+N / Create Project; these land
 # under the process cwd. If the user launches ox-ide from the
 # repo root during interactive testing, ignore them so they don't

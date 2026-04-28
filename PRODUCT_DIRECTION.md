@@ -750,6 +750,13 @@ Keyboard        PgUp/PgDn, j/k, arrows, search
 
 The biggest TUI mistake would be to copy desktop pane count blindly.
 
+Frame contract (D9):
+
+`OxIde` uses a **four-band vertical frame with a scene-scoped body decomposition**.
+Top bar and status line are persistent frame bands. Scene and width changes
+reshape the body decomposition (and lower-surface emphasis), not the existence
+of the frame itself.
+
 ### The shell should prioritize:
 
 1. editor surface
@@ -795,6 +802,9 @@ This maps very well to:
 Do not use one frozen layout for everything.
 
 Use a small number of task-shaped layouts.
+
+These presets are body decompositions inside the four-band vertical frame, not
+new frame definitions.
 
 ### 9.1 Edit layout
 

@@ -1,0 +1,42 @@
+Fire Horse Debug Cockpit                                                                                                                                        
+Identity Rail | OxIde | NorthwindPricing | Debug Cockpit | Target ExcelDesktop | paused PriceFor.bas:8                                                          
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+Code Canvas          | Paused Line | Call Stack                                       | Context Dock                                                            
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+  1    Option Explic | PriceFor @ line 8                                              |                                                                         
+  3    Public Functi | PriceFor @ line 8                                              |                                                                         
+  4        Dim baseP | PriceFor @ line 8                                              |                                                                         
+  5        basePrice | PriceFor @ line 8                                              |                                                                         
+  6        PriceFor  | PriceFor @ line 8                                              |                                                                         
+  8 =>     Debug.Pri | PriceFor @ line 8                                              | Debug Cockpit | paused                                                  
+  9    End Function  | PriceFor @ line 8                                              |                                                                         
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+Call Stack                                                                                                                                                      
+frame-0 | PriceFor | doc://NorthwindPricing/PriceFor.bas:8 | OxVba debug contract (W080 audit)                                                                  
+frame-1 | QuoteSelectedOrder | doc://NorthwindPricing/Orders.bas:22 | OxVba debug contract (W080 audit)                                                         
+Locals                                                                                                                                                          
+productId As Long = 42 | OxVba debug contract (W080 audit)                                                                                                      
+Watches                                                                                                                                                         
+PriceFor(productId) As Currency = 12.40 | OxVba debug contract (W080 audit)                                                                                     
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+Activity: Watch/Trace | Immediate | Output                                                                                                                      
+F5 Continue  F8 Step  Shift+F8 Step Out  Ctrl+W Pin Watch  Esc Return                                                                                           
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                

@@ -7,13 +7,13 @@
 │A terminal-native IDE for OxVba.                                                                                      │
 │                                                                                                                      │
 │Recent                                                                                                                │
-│> NewProject (.\NewProject\NewProject.basproj)                                                                        │
-│  NewProject-2 (.\NewProject-2\NewProject-2.basproj)                                                                  │
-│  ThinSliceHello (.\examples\thin-slice\ThinSliceHello.basproj)                                                       │
+│> ThinSliceHello (.\examples\thin-slice\ThinSliceHello.basproj)                                                       │
 │                                                                                                                      │
 │Start                                                                                                                 │
 │  Open Project (Ctrl+O)                                                                                               │
 │  Create Project (Ctrl+N)                                                                                             │
+│                                                                                                                      │
+│                                                                                                                      │
 │                                                                                                                      │
 │                                                                                                                      │
 │                                                                                                                      │

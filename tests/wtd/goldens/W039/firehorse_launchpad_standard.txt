@@ -1,0 +1,34 @@
+Identity Rail | OxIde | No project | Launchpad | Target none | Ready                                                    
+------------------------------------------------------------------------------------------------------------------------
+Start Surface | Open Project | Create Project | Import | Console Fit                                                    
+------------------------------------------------------------------------------------------------------------------------
+Recent               | project | target | health | recency                            | Capability                      
+recent 1             | NorthwindPricing | ExcelDesktop | healthy | 2h ago             | F10 Console Fit                 
+recent 2             | RibbonLab | ExcelAddIn | warning | yesterday                   | fixture only                    
+------------------------------------------------------------------------------------------------------------------------
+Context Dock: Start Context                                                                                             
+ProjectSession unavailable | No project is mounted in Launchpad.                                                        
+------------------------------------------------------------------------------------------------------------------------
+Activity: Recent                                                                                                        
+SessionStore fixture | NorthwindPricing / ExcelDesktop / healthy / 2h ago                                               
+SessionStore fixture | RibbonLab / ExcelAddIn / warning / yesterday                                                     
+------------------------------------------------------------------------------------------------------------------------
+Ctrl+O Open Project  Ctrl+N Create Project  Ctrl+Shift+O Import  F10 Console Fit  Ctrl+Q Quit                           
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        

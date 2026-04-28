@@ -49,7 +49,7 @@ pub fn create_new_project(root: &Path, preferred_name: &str) -> io::Result<PathB
     fs::write(
         &basproj_path,
         format!(
-r#"<Project Sdk="OxVba.Sdk/0.1.0">
+            r#"<Project Sdk="OxVba.Sdk/0.1.0">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <ProjectName>{project_name}</ProjectName>
@@ -192,18 +192,16 @@ pub fn discover_com_reference_candidates(
 
     if query.is_empty() {
         status_lines.push(match mode {
-            ComReferenceSearchMode::Search => {
-                String::from("Type an exact library name or ProgID")
-            }
+            ComReferenceSearchMode::Search => String::from("Type an exact library name or ProgID"),
             ComReferenceSearchMode::File => {
                 String::from("Enter an absolute .tlb, .dll, or .xll path")
             }
         });
     } else if candidates.is_empty() {
         status_lines.push(match mode {
-            ComReferenceSearchMode::Search => {
-                String::from("No COM typelib candidates matched the exact library-name or ProgID query")
-            }
+            ComReferenceSearchMode::Search => String::from(
+                "No COM typelib candidates matched the exact library-name or ProgID query",
+            ),
             ComReferenceSearchMode::File => {
                 String::from("No COM typelib candidates matched the current file path")
             }

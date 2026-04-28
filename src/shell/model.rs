@@ -1,16 +1,16 @@
 use std::path::{Path, PathBuf};
 
 use ftui::{
-    prelude::{Cmd, Event, Frame, KeyCode, KeyEvent, Model, Modifiers},
     KeyEventKind,
+    prelude::{Cmd, Event, Frame, KeyCode, KeyEvent, Model, Modifiers},
 };
 use oxvba_project::ComSelectionCandidate;
 
-use super::mock_data::{shell_panels, ShellPanels};
+use super::mock_data::{ShellPanels, shell_panels};
 use super::oxvba::run_project_state;
 use super::project_actions::{
-    add_com_reference_candidate, add_scaffolded_module, create_new_project, cycle_output_type,
-    discover_com_reference_candidates, next_module_name, ComReferenceDiscovery,
+    ComReferenceDiscovery, add_com_reference_candidate, add_scaffolded_module, create_new_project,
+    cycle_output_type, discover_com_reference_candidates, next_module_name,
 };
 use super::session::ProjectSession;
 use super::session_store::{self, SessionSnapshot, SessionWorkspaceRestore};
@@ -320,7 +320,11 @@ impl ShellModel {
         self.shell.set_recent_projects(projects);
     }
 
-    fn try_mount_workspace(&mut self, project_path: impl Into<PathBuf>, update_session: bool) -> bool {
+    fn try_mount_workspace(
+        &mut self,
+        project_path: impl Into<PathBuf>,
+        update_session: bool,
+    ) -> bool {
         let project_path = project_path.into();
         if let Ok(session) = ProjectSession::load(&project_path) {
             self.shell.set_execution(session.execution_state());
@@ -348,7 +352,11 @@ impl ShellModel {
         let visible_views = workspace.visible_views();
         let open_buffers = visible_views
             .iter()
-            .filter_map(|view| workspace.buffer(view.buffer_id).map(|buffer| buffer.title.clone()))
+            .filter_map(|view| {
+                workspace
+                    .buffer(view.buffer_id)
+                    .map(|buffer| buffer.title.clone())
+            })
             .collect::<Vec<_>>();
         let active_view = workspace.active_view()?;
         let active_buffer = workspace
@@ -768,7 +776,8 @@ impl ShellModel {
                 self.apply_project_action(
                     vec![String::from("Added class to project.")],
                     |project_path, project| {
-                        let logical_name = next_module_name(project, WorkspaceProjectModuleKind::Class);
+                        let logical_name =
+                            next_module_name(project, WorkspaceProjectModuleKind::Class);
                         add_scaffolded_module(
                             project_path,
                             WorkspaceProjectModuleKind::Class,
@@ -1055,7 +1064,8 @@ impl Model for ShellModel {
                 self.apply_project_action(
                     vec![String::from("Added class to project.")],
                     |project_path, project| {
-                        let logical_name = next_module_name(project, WorkspaceProjectModuleKind::Class);
+                        let logical_name =
+                            next_module_name(project, WorkspaceProjectModuleKind::Class);
                         add_scaffolded_module(
                             project_path,
                             WorkspaceProjectModuleKind::Class,
@@ -1203,6 +1213,10 @@ fn is_actionable_key(key: KeyEvent) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn model_with_empty_session(dev_scenes: bool) -> ShellModel {
+        ShellModel::with_session_snapshot(None, dev_scenes, SessionSnapshot::default())
+    }
 
     #[test]
     fn ignores_key_release_events() {
@@ -1396,7 +1410,7 @@ mod tests {
         // empty state by clearing the recent list after construction
         // — avoiding a cwd change that would race with other
         // parallel tests that rely on the OxIde repo root.
-        let mut model = ShellModel::new(None);
+        let mut model = model_with_empty_session(false);
         assert_eq!(model.scene(), ShellScene::Empty);
         model.shell.runtime.recent_projects.clear();
 
@@ -1456,7 +1470,7 @@ mod tests {
         // overlay from Esc, so pressing Esc first dismisses only the
         // popover. A second Esc then closes whatever scene overlay
         // sits below (Palette / ComReference).
-        let mut model = ShellModel::new(None);
+        let mut model = model_with_empty_session(false);
         model.shell.apply_scene(ShellScene::Editing);
         model.shell.toggle_palette();
         assert!(model.palette_active());
@@ -1755,7 +1769,7 @@ mod tests {
 
     #[test]
     fn starts_in_empty_scene_without_startup_project() {
-        let model = ShellModel::new(None);
+        let model = model_with_empty_session(false);
 
         assert_eq!(model.shell.scene, ShellScene::Empty);
         assert!(!model.shell.runtime.recent_projects.is_empty());
@@ -1768,7 +1782,7 @@ mod tests {
     /// self-contained), but `update()` must not apply the scene change.
     #[test]
     fn f2_does_not_change_scene_in_default_build() {
-        let mut model = ShellModel::new(None);
+        let mut model = model_with_empty_session(false);
         assert_eq!(model.shell.scene, ShellScene::Empty);
 
         // F2 would normally request Empty; apply another scene first so we
@@ -1787,7 +1801,7 @@ mod tests {
     /// available so W035 prototyping can still flip between mockup shapes.
     #[test]
     fn f3_changes_scene_when_dev_scenes_enabled() {
-        let mut model = ShellModel::with_dev_scenes(None, true);
+        let mut model = model_with_empty_session(true);
         assert_eq!(model.shell.scene, ShellScene::Empty);
 
         model.update(Msg::SetScene(ShellScene::Editing));
@@ -1801,7 +1815,7 @@ mod tests {
     /// body is gone — D1b merged it into the always-present status line.)
     #[test]
     fn empty_status_line_announces_ctrl_o_and_omits_dev_scene_flips() {
-        let model = ShellModel::new(None);
+        let model = model_with_empty_session(false);
         let hint = model.status_line_hint();
 
         assert!(
@@ -1819,7 +1833,7 @@ mod tests {
     /// Uxpass D6: the palette's `Mockup States` group is dev-only.
     #[test]
     fn palette_state_commands_are_empty_in_default_build() {
-        let model = ShellModel::new(None);
+        let model = model_with_empty_session(false);
         assert!(
             model
                 .shell
@@ -1834,15 +1848,17 @@ mod tests {
 
     #[test]
     fn palette_state_commands_are_populated_when_dev_scenes_enabled() {
-        let model = ShellModel::with_dev_scenes(None, true);
+        let model = model_with_empty_session(true);
         let state_commands = &model.shell.runtime.content.palette.state_commands;
         assert!(
             !state_commands.is_empty(),
             "--dev-scenes must repopulate the Mockup States group"
         );
-        assert!(state_commands
-            .iter()
-            .any(|cmd| cmd.shortcut == "F2" && cmd.label == "Empty"));
+        assert!(
+            state_commands
+                .iter()
+                .any(|cmd| cmd.shortcut == "F2" && cmd.label == "Empty")
+        );
     }
 
     #[test]
@@ -1888,7 +1904,8 @@ mod tests {
             "bootstrap restore should preserve scroll_top"
         );
         assert_eq!(
-            model.shell
+            model
+                .shell
                 .runtime
                 .recent_projects
                 .first()
@@ -1932,13 +1949,15 @@ mod tests {
 
         assert_eq!(model.shell.scene, ShellScene::BuildRun);
         assert_eq!(model.shell.runtime.execution.runtime_status, "completed");
-        assert!(model
-            .shell
-            .runtime
-            .execution
-            .output_lines
-            .iter()
-            .any(|line| line.contains("project run completed")));
+        assert!(
+            model
+                .shell
+                .runtime
+                .execution
+                .output_lines
+                .iter()
+                .any(|line| line.contains("project run completed"))
+        );
     }
 
     #[test]
@@ -1967,16 +1986,18 @@ mod tests {
 
         model.update(Msg::AddProjectModule);
 
-        assert!(model
-            .shell
-            .runtime
-            .workspace
-            .project
-            .as_ref()
-            .is_some_and(|project| project
-                .modules
-                .iter()
-                .any(|module| module.include == "Module2.bas")));
+        assert!(
+            model
+                .shell
+                .runtime
+                .workspace
+                .project
+                .as_ref()
+                .is_some_and(|project| project
+                    .modules
+                    .iter()
+                    .any(|module| module.include == "Module2.bas"))
+        );
     }
 
     #[test]
@@ -1989,7 +2010,12 @@ mod tests {
         let popover = model
             .hover_popover()
             .expect("project action success should surface feedback");
-        assert!(popover.lines.iter().any(|line| line.contains("Added module")));
+        assert!(
+            popover
+                .lines
+                .iter()
+                .any(|line| line.contains("Added module"))
+        );
     }
 
     #[test]
@@ -2001,23 +2027,27 @@ mod tests {
 
         model.update(Msg::AddProjectModule);
 
-        assert!(!model
-            .shell
-            .runtime
-            .workspace
-            .project
-            .as_ref()
-            .is_some_and(|project| project
-                .modules
-                .iter()
-                .any(|module| module.include == "Module2.bas")));
+        assert!(
+            !model
+                .shell
+                .runtime
+                .workspace
+                .project
+                .as_ref()
+                .is_some_and(|project| project
+                    .modules
+                    .iter()
+                    .any(|module| module.include == "Module2.bas"))
+        );
         let popover = model
             .hover_popover()
             .expect("dirty gate should surface feedback popover");
-        assert!(popover
-            .lines
-            .iter()
-            .any(|line| line.contains("Save dirty buffers")));
+        assert!(
+            popover
+                .lines
+                .iter()
+                .any(|line| line.contains("Save dirty buffers"))
+        );
     }
 
     #[test]
@@ -2056,13 +2086,15 @@ mod tests {
         }
 
         assert!(model.com_reference_helper_active());
-        assert!(model
-            .shell
-            .runtime
-            .com_reference_helper
-            .candidates
-            .iter()
-            .any(|candidate| candidate.title == "OxVba.TestDispatch"));
+        assert!(
+            model
+                .shell
+                .runtime
+                .com_reference_helper
+                .candidates
+                .iter()
+                .any(|candidate| candidate.title == "OxVba.TestDispatch")
+        );
     }
 
     fn seed_project_fixture(name: &str) -> PathBuf {

@@ -608,8 +608,7 @@ pub fn fetch_goto_definition(
         .ok()
         .flatten()?;
     let target_source = session.document_source(&location.document).ok()?;
-    let (target_line, target_column) =
-        line_col_for_offset(&target_source, location.span.start);
+    let (target_line, target_column) = line_col_for_offset(&target_source, location.span.start);
     Some(GotoDefinitionTarget {
         target_title: document_leaf_title(&location.document.0),
         target_line,

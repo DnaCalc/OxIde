@@ -1,0 +1,30 @@
+Identity Rail | OxIde | NorthwindPricing | Compact Focus | Target ExcelDesktop | Ln 8 Col 9 
+--------------------------------------------------------------------------------------------
+Project Spine: hidden | Context Dock: hidden | temporary docks Alt+1/Alt+3/Alt+4            
+--------------------------------------------------------------------------------------------
+Code Canvas | PriceFor.bas | VBA                                                            
+--------------------------------------------------------------------------------------------
+  1   Option Explicit                                                                       
+  3   Public Function PriceFor(productId As Long) As Currency                               
+  4       Dim basePrice As Currency                                                         
+  5       basePrice = LookupPrice(productId)                                                
+  6       PriceFor = ApplyRegionalDiscount(basePrice)                                       
+  8 !     Debug.Print FormatCurrency(PriceFor)                                              
+  9   End Function                                                                          
+--------------------------------------------------------------------------------------------
+Source Lens | Compact source lens                                                           
+Project, Context, and Activity are temporary docks.                                         
+--------------------------------------------------------------------------------------------
+Activity Rail: Problems                                                                     
+--------------------------------------------------------------------------------------------
+Alt+1 Project  Alt+2 Code  Alt+3 Context  Alt+4 Activity  F6 Command                        
+                                                                                            
+                                                                                            
+                                                                                            
+                                                                                            
+                                                                                            
+                                                                                            
+                                                                                            
+                                                                                            
+                                                                                            
+                                                                                            

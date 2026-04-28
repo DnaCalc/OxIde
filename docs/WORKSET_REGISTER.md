@@ -1,68 +1,92 @@
 # OxIde Workset Register
 
-Status: `active`
-Date: 2026-04-05
+Ordered worksets for OxIde's current green-field implementation
+sequence.
 
-## 1. Purpose
-This is the live ordered workset register for OxIde.
+This file owns **workset truth**: which worksets exist, in what order,
+and what ambition each carries. It does not own bead state; that lives
+in `.beads/` (see [`BEADS.md`](BEADS.md)).
 
-At the moment it records the first green-field implementation sequence:
-1. active worksets now exist,
-2. the ordered execution sequence is defined below,
-3. live execution state remains in `.beads/`.
+## Workset Rule
 
-This file is not an execution-status board.
-It owns workset truth, not bead state.
+A workset partitions ambition. Each workset spec at
+`docs/worksets/W<NNN>_<slug>.md` is a design document, not a progress
+log. It reads:
 
-## 2. Planning-Surface Clarification
-Planning and execution truth in OxIde is split as follows:
-1. [PRODUCT_DIRECTION.md](/C:/Work/DnaCalc/OxIde/PRODUCT_DIRECTION.md) owns product direction and UX authority.
-2. [ARCHITECTURE.md](/C:/Work/DnaCalc/OxIde/ARCHITECTURE.md) owns seam and implementation-direction authority.
-3. [OPERATIONS.md](/C:/Work/DnaCalc/OxIde/OPERATIONS.md) owns the local execution model.
-4. this register owns ordered workset truth.
-5. `.beads/` owns epics, beads, readiness, blockers, in-progress state, and closure.
+- **Ambition** — the user capability delivered end-to-end.
+- **Dependencies** — upstream worksets / beads.
+- **Design** — the shape of the end state (UX, architecture,
+  contracts, interactions) in enough detail to review without code.
+- **Beads** — the full ordered bead list. Each bead uses the schema
+  from [`BEADS.md`](BEADS.md) §2.1 (Goal / Design / Tests / Evidence /
+  Closure).
+- **Out-of-scope** — explicit deferrals, with pointers to the future
+  worksets that pick them up.
 
-## 3. Current State
-The current ordered workset sequence is:
+No `Progress` section. Progress lives in git log and `.beads/`
+closures.
 
-1. `W010` - shell mockup scaffold and design proof in FrankenTui
-2. `W020` - runtime shell foundation on top of the proven mockup
-3. `W030` - project/document/OxVba service integration into the new shell
-4. `W035` - fresh UX design pass, reconciled back into `PRODUCT_DIRECTION.md` and `DESIGN_TUI.md` (see [docs/uxpass/README.md](/C:/Work/DnaCalc/OxIde/docs/uxpass/README.md))
-5. `W037` - WinTermDriver test harness foundation (see [docs/TESTING_WTD.md](/C:/Work/DnaCalc/OxIde/docs/TESTING_WTD.md))
-6. `W038` - UX development lab (scene flag, scenario driver, VT replay/diff, `oxide-uxlab` TUI)
-7. `W040` - project and workspace management shell over OxVba-owned truth
-8. `W050` - file and document lifecycle services in the TUI shell
-9. `W060` - full language-service UX over direct OxVba semantics
-10. `W070` - run/debug/immediate shell surfaces over OxVba execution contracts
-11. `W080` - debug surfaces (callstack / locals / watches / breakpoints, step control)
-12. `W090` - command system and keymap profiles (unified action registry, VBA-IDE-compatible profile)
-13. `W100` - terminal capability and onboarding (probe, degradation, status-line hints)
-14. `W110` - polish, accessibility, and recovery; WTD regression suite locked
+Worksets are **ambitious in scope** (a real user capability) and
+**comprehensive in design** (every bead in the list knows its tests
+and evidence shape before work starts).
 
-## 4. Active Worksets
+## Current Sequence
 
-1. [W010_shell_mockup_scaffold.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W010_shell_mockup_scaffold.md)
-2. [W020_runtime_shell_foundation.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W020_runtime_shell_foundation.md)
-3. [W030_service_integration.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W030_service_integration.md)
-4. [W035_ux_design_pass.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W035_ux_design_pass.md)
-5. [W037_wtd_harness.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W037_wtd_harness.md)
-6. [W038_ux_development_lab.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W038_ux_development_lab.md)
-7. [W040_project_workspace_management.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W040_project_workspace_management.md)
-8. [W050_file_document_services.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W050_file_document_services.md)
-9. [W060_full_language_service_ux.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W060_full_language_service_ux.md)
-10. [W070_run_debug_immediate_surfaces.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W070_run_debug_immediate_surfaces.md)
-11. [W080_debug_surfaces.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W080_debug_surfaces.md)
-12. [W090_command_system.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W090_command_system.md)
-13. [W100_terminal_capability.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W100_terminal_capability.md)
-14. [W110_polish_and_recovery.md](/C:/Work/DnaCalc/OxIde/docs/worksets/W110_polish_and_recovery.md)
-## 5. Use Rule
+1. `W010` — shell mockup scaffold and design proof in FrankenTui
+   *(historical — predates the current bead schema)*
+2. `W020` — runtime shell foundation on top of the proven mockup
+   *(historical)*
+3. `W030` — project/document/OxVba service integration
+   *(historical)*
+4. `W035` — fresh UX design pass, reconciled back into
+   `PRODUCT_DIRECTION.md` and `DESIGN_TUI.md`
+5. `W037` — WinTermDriver test harness foundation
+6. `W038` — UX development lab (scene flag, scenario driver, VT
+   replay / diff, `oxide-uxlab` TUI)
+7. `W039` — Fire Horse terminal UX proof (terminal-cell mockups,
+   projection contracts, command/action matrix, OxVba seam mapping)
+8. `W040` — project and workspace management shell over OxVba-owned
+   truth
+9. `W045` — WTD demo backfill and affordance wiring audit
+10. `W050` — file and document lifecycle services in the TUI shell
+11. `W060` — full language-service UX over direct OxVba semantics
+12. `W070` — run / debug / immediate shell surfaces over OxVba
+    execution contracts
+13. `W080` — debug surfaces (callstack / locals / watches /
+    breakpoints, step control)
+14. `W090` — command system and keymap profiles
+15. `W100` — terminal capability and onboarding (probe, degradation,
+    status-line hints)
+16. `W110` — polish, accessibility, and recovery; WTD regression
+    suite locked
+
+## Workset Specs
+
+- [W010_shell_mockup_scaffold.md](worksets/W010_shell_mockup_scaffold.md)
+- [W020_runtime_shell_foundation.md](worksets/W020_runtime_shell_foundation.md)
+- [W030_service_integration.md](worksets/W030_service_integration.md)
+- [W035_ux_design_pass.md](worksets/W035_ux_design_pass.md)
+- [W037_wtd_harness.md](worksets/W037_wtd_harness.md)
+- [W038_ux_development_lab.md](worksets/W038_ux_development_lab.md)
+- [W039_firehorse_terminal_ux_proof.md](worksets/W039_firehorse_terminal_ux_proof.md)
+- [W040_project_workspace_management.md](worksets/W040_project_workspace_management.md)
+- [W045_wtd_demo_backfill.md](worksets/W045_wtd_demo_backfill.md)
+- [W050_file_document_services.md](worksets/W050_file_document_services.md)
+- [W060_full_language_service_ux.md](worksets/W060_full_language_service_ux.md)
+- [W070_run_debug_immediate_surfaces.md](worksets/W070_run_debug_immediate_surfaces.md)
+- [W080_debug_surfaces.md](worksets/W080_debug_surfaces.md)
+- [W090_command_system.md](worksets/W090_command_system.md)
+- [W100_terminal_capability.md](worksets/W100_terminal_capability.md)
+- [W110_polish_and_recovery.md](worksets/W110_polish_and_recovery.md)
+
+## Use Rule
+
 Use this document as:
 1. the repo-local workset authority,
-2. the place that records whether active worksets exist,
-3. the starting point for the current execution sequence.
+2. the place that records which worksets exist and in what order,
+3. the entry point into per-workset design documents.
 
 Do not use this document as:
 1. a blocker tracker,
-2. a second status board,
+2. a status board,
 3. a replacement for `.beads/`.

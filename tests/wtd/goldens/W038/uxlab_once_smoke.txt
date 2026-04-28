@@ -1,0 +1,34 @@
+suite: lab-smoke  scenario: lab-smoke-editing                                                                           
+title: Lab Smoke Editing                                                                                                
+viewport: standard 120x34                                                                                               
+                                                                                                                        
+Project Spine | Code Canvas | Context Dock                                                                              
+                                                                                                                        
+Public Sub LabSmoke()                                                                                                   
+    Debug.Print "W038 lab smoke"                                                                                        
+End Sub                                                                                                                 
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+Activity: Problems 0 | Output ready                                                                                     
+F6 Command Lens  Enter run  Esc close                                                                                   
+                                                                                                                        

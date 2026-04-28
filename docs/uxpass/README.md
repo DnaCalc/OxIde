@@ -19,7 +19,7 @@ the reconciliation file is the exit gate.
 4. `30_scene_catalogue.md` - scenes and modes (Empty, Editing, Semantic, BuildRun, Debug, Palette, overlay stack) with data, inputs, and transitions. _Next._
 5. `40_command_model.md` - unified action registry, palette behavior, keymap profiles (default and VBA-IDE-compatible), chord and mnemonic handling, mouse mapping.
 6. `50_visual_language.md` - palette (light and dark), typography, density, border language, motion and animation policy, degradation rules for weak terminals.
-7. `60_reconciliation.md` - explicit diff vs `PRODUCT_DIRECTION.md` and `docs/DESIGN_TUI.md`; lists what changes, what stays, what gets amended.
+7. [60_reconciliation.md](60_reconciliation.md) - explicit diff vs `PRODUCT_DIRECTION.md` and `docs/DESIGN_TUI.md`; lists what changes, what stays, what gets amended. **Draft landed.**
 
 Supporting evidence lives under [captures/](captures/): one
 subdirectory per journey, each file a `wtd capture` of a specific state

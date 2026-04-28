@@ -52,7 +52,63 @@ pub fn repo_root() -> PathBuf {
 
 /// Path to `tests/wtd/goldens/<workset>/`.
 pub fn goldens_dir(workset: &str) -> PathBuf {
-    repo_root().join("tests").join("wtd").join("goldens").join(workset)
+    repo_root()
+        .join("tests")
+        .join("wtd")
+        .join("goldens")
+        .join(workset)
+}
+
+/// WTD launch contract for a non-interactive `oxide-uxlab --once` scenario.
+///
+/// The workspace YAML still owns the concrete process launch because `wtd`
+/// opens panes from workspace files. This struct keeps the suite/id/viewport,
+/// workspace target, and expected command shape together so future UX-lab
+/// journeys do not each invent their own convention.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct LabScenarioJourney {
+    pub workspace_yaml: &'static str,
+    pub workspace_name: &'static str,
+    pub pane_suffix: &'static str,
+    pub suite: &'static str,
+    pub scenario: &'static str,
+    pub viewport: &'static str,
+}
+
+impl LabScenarioJourney {
+    pub const fn new(
+        workspace_yaml: &'static str,
+        workspace_name: &'static str,
+        pane_suffix: &'static str,
+        suite: &'static str,
+        scenario: &'static str,
+        viewport: &'static str,
+    ) -> Self {
+        Self {
+            workspace_yaml,
+            workspace_name,
+            pane_suffix,
+            suite,
+            scenario,
+            viewport,
+        }
+    }
+
+    pub fn oxide_uxlab_args(&self) -> Vec<&'static str> {
+        vec![
+            "--suite",
+            self.suite,
+            "--scenario",
+            self.scenario,
+            "--viewport",
+            self.viewport,
+            "--once",
+        ]
+    }
+
+    pub fn oxide_uxlab_command_line(&self) -> String {
+        format!("oxide-uxlab.exe {}", self.oxide_uxlab_args().join(" "))
+    }
 }
 
 /// A running wtd workspace for a single test.
@@ -66,6 +122,11 @@ pub struct Harness {
 }
 
 impl Harness {
+    /// Open the WTD workspace for a non-interactive lab scenario.
+    pub fn open_lab_once(journey: &LabScenarioJourney) -> Self {
+        Self::open(journey.workspace_yaml, journey.workspace_name)
+    }
+
     /// Open the workspace definition at `yaml_path` (relative to the repo root),
     /// returning a handle whose target strings are addressed as
     /// `<workspace_name>/<tab>/<pane>`.
@@ -113,6 +174,74 @@ impl Harness {
         String::from_utf8_lossy(&out.stdout).into_owned()
     }
 
+    /// Wait for a lab scenario's visible contracts, stabilize, then capture text.
+    pub fn capture_lab_once_text(
+        &self,
+        journey: &LabScenarioJourney,
+        visible_needles: &[&str],
+    ) -> String {
+        for needle in visible_needles {
+            self.wait_for_text(journey.pane_suffix, needle);
+        }
+        self.wait_for_stable_frame(journey.pane_suffix);
+        self.capture_text(journey.pane_suffix)
+    }
+
+    /// Send one or more key specs (e.g. `["Ctrl+O"]`, `["Down", "Enter"]`)
+    /// to `target_suffix`.
+    pub fn send_keys(&self, target_suffix: &str, keys: &[&str]) {
+        assert!(!keys.is_empty(), "send_keys requires at least one key spec");
+        let target = self.target(target_suffix);
+        let mut command = Command::new("wtd");
+        command.arg("keys").arg(target);
+        for key in keys {
+            command.arg(key);
+        }
+        let out = command.output().unwrap_or_else(|err| {
+            panic!("failed to invoke `wtd keys`: {err}");
+        });
+        assert!(
+            out.status.success(),
+            "wtd keys failed: stdout={} stderr={}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+
+    /// Send literal text bytes without an implicit trailing newline.
+    pub fn send_text(&self, target_suffix: &str, text: &str) {
+        let target = self.target(target_suffix);
+        let out = wtd_command(&["send", "--no-newline", &target, text]);
+        assert!(
+            out.status.success(),
+            "wtd send failed: stdout={} stderr={}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+
+    /// Inject a mouse click into the pane.
+    pub fn mouse_click(&self, target_suffix: &str, col: u16, row: u16) {
+        let target = self.target(target_suffix);
+        let out = wtd_command(&[
+            "mouse",
+            "--col",
+            &col.to_string(),
+            "--row",
+            &row.to_string(),
+            "--button",
+            "left",
+            &target,
+            "click",
+        ]);
+        assert!(
+            out.status.success(),
+            "wtd mouse click failed: stdout={} stderr={}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+
     /// Capture a replayable VT snapshot of `target_suffix`.
     pub fn capture_vt(&self, target_suffix: &str) -> Vec<u8> {
         let target = self.target(target_suffix);
@@ -125,17 +254,17 @@ impl Harness {
         out.stdout
     }
 
+    /// Capture the replayable VT snapshot for a stabilized lab scenario pane.
+    pub fn capture_lab_once_vt(&self, journey: &LabScenarioJourney) -> Vec<u8> {
+        self.capture_vt(journey.pane_suffix)
+    }
+
     /// Poll `target_suffix` until `needle` appears or `DEFAULT_WAIT_TIMEOUT` elapses.
     pub fn wait_for_text(&self, target_suffix: &str, needle: &str) {
         self.wait_for_text_with_timeout(target_suffix, needle, DEFAULT_WAIT_TIMEOUT);
     }
 
-    pub fn wait_for_text_with_timeout(
-        &self,
-        target_suffix: &str,
-        needle: &str,
-        timeout: Duration,
-    ) {
+    pub fn wait_for_text_with_timeout(&self, target_suffix: &str, needle: &str, timeout: Duration) {
         let start = Instant::now();
         let mut last = String::new();
         while start.elapsed() < timeout {
@@ -200,8 +329,7 @@ pub fn assert_golden_text(workset: &str, name: &str, actual: &str) {
     let path = goldens_dir(workset).join(format!("{name}.txt"));
 
     if update_goldens() {
-        std::fs::create_dir_all(path.parent().unwrap())
-            .expect("create goldens dir");
+        std::fs::create_dir_all(path.parent().unwrap()).expect("create goldens dir");
         std::fs::write(&path, actual).expect("write golden");
         eprintln!("updated golden: {}", path.display());
         return;
@@ -230,8 +358,7 @@ pub fn assert_golden_vt(workset: &str, name: &str, actual_vt: &[u8]) {
     let path = goldens_dir(workset).join(format!("{name}.vt"));
 
     if update_goldens() {
-        std::fs::create_dir_all(path.parent().unwrap())
-            .expect("create goldens dir");
+        std::fs::create_dir_all(path.parent().unwrap()).expect("create goldens dir");
         std::fs::write(&path, actual_vt).expect("write golden");
         eprintln!("updated VT golden: {}", path.display());
         return;
@@ -277,4 +404,38 @@ fn simple_line_diff(expected: &str, actual: &str) -> String {
         out.push('\n');
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lab_scenario_journey_builds_expected_uxlab_once_command() {
+        let journey = LabScenarioJourney::new(
+            ".wtd/oxide-uxlab-smoke.yaml",
+            "oxide-uxlab-smoke",
+            "uxlab-smoke/oxide-uxlab-smoke-pane",
+            "lab-smoke",
+            "lab-smoke-editing",
+            "standard",
+        );
+
+        assert_eq!(
+            journey.oxide_uxlab_args(),
+            vec![
+                "--suite",
+                "lab-smoke",
+                "--scenario",
+                "lab-smoke-editing",
+                "--viewport",
+                "standard",
+                "--once",
+            ]
+        );
+        assert_eq!(
+            journey.oxide_uxlab_command_line(),
+            "oxide-uxlab.exe --suite lab-smoke --scenario lab-smoke-editing --viewport standard --once"
+        );
+    }
 }

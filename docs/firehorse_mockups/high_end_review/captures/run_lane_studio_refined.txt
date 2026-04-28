@@ -1,0 +1,48 @@
+OxIde  NorthwindPricing  target:ExcelDesktop  Fire Horse Run Lane  workflow rail plus source continuity  viewport:studio 190x48                                                               
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+RUN  prepare ok  >  analyze ok  >  build active  >  execute pending  >  result pending                                                                                                        
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+RUN TIMELINE                       │ CODE CANVAS  PriceFor.bas                                                                              │ RUN CONTEXT                                     
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Prepare  complete   10ms  Prepare  │   1    Option Explicit                                                                                 │ Prepare  complete                               
+Analyze  complete  180ms  Analyze  │   3    Public Function PriceFor(productId As Long) As Currency                                         │ Analyze  complete                               
+Build    active    430ms  Build is │   4        Dim basePrice As Currency                                                                   │ Build  active step                              
+Execute  pending     0ms  Execute  │   5        basePrice = LookupPrice(productId)                                                          │ Execute  pending                                
+Result   pending     0ms  Result i │   6        PriceFor = ApplyRegionalDiscount(basePrice)                                                 │ Result  pending                                 
+                                   │   8        Debug.Print FormatCurrency(PriceFor)                                                        │                                                 
+                                   │   9    End Function                                                                                    │                                                 
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ACTIVITY DECK  Run Timeline active  |  Output structured  |  Immediate ready                                                                                                                  
+Prepare complete  target ExcelDesktop  Prepare is Complete                                                                                                                                    
+Analyze complete  target ExcelDesktop  Analyze is Complete                                                                                                                                    
+Build active  target ExcelDesktop  Build is Active                                                                                                                                            
+Execute pending  target ExcelDesktop  Execute is Pending                                                                                                                                      
+Result pending  target ExcelDesktop  Result is Pending                                                                                                                                        
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+F8 Stop Run  Ctrl+G Immediate  Esc Return                                                                                                                                                     
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              
+                                                                                                                                                                                              

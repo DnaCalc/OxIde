@@ -1,5 +1,11 @@
 # W010 - Shell Mockup Scaffold
 
+> **Historical.** This spec predates the current bead schema
+> ([`docs/BEADS.md`](../BEADS.md) §2). It is closed and retained for
+> provenance. New work against this area starts as a new workset in
+> the current template. Do not treat the sections below as a live
+> design target.
+
 Status: `implemented`
 Sequence: `1`
 Depends on: none
@@ -16,8 +22,9 @@ design study.
 1. [PRODUCT_DIRECTION.md](/C:/Work/DnaCalc/OxIde/PRODUCT_DIRECTION.md)
 2. [ARCHITECTURE.md](/C:/Work/DnaCalc/OxIde/ARCHITECTURE.md)
 3. [DESIGN_TUI.md](/C:/Work/DnaCalc/OxIde/docs/DESIGN_TUI.md)
-4. [OPERATIONS.md](/C:/Work/DnaCalc/OxIde/OPERATIONS.md)
-5. [WORKSET_REGISTER.md](/C:/Work/DnaCalc/OxIde/docs/WORKSET_REGISTER.md)
+4. [WORKSET_REGISTER.md](/C:/Work/DnaCalc/OxIde/docs/WORKSET_REGISTER.md)
+   (historical note: this spec originally cited `OPERATIONS.md`, which has
+   since been collapsed into [`docs/BEADS.md`](../BEADS.md).)
 
 ## 3. Execution Lanes
 1. shell scaffold and module split

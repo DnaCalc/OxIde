@@ -1,5 +1,11 @@
 # W020 - Runtime Shell Foundation
 
+> **Historical.** This spec predates the current bead schema
+> ([`docs/BEADS.md`](../BEADS.md) §2). It is closed and retained for
+> provenance. New work against this area starts as a new workset in
+> the current template. Do not treat the sections below as a live
+> design target.
+
 Status: `implemented`
 Sequence: `2`
 Depends on: `W010`

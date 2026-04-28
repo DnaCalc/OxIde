@@ -1626,11 +1626,7 @@ impl ShellState {
                     .visible_views
                     .contains(&view_id)
                 {
-                    self.runtime
-                        .workspace
-                        .layout
-                        .visible_views
-                        .push(view_id);
+                    self.runtime.workspace.layout.visible_views.push(view_id);
                 }
             } else if let Some(first_view) = self.runtime.workspace.views.first_mut() {
                 first_view.buffer_id = buffer_id;
@@ -1806,16 +1802,12 @@ impl ShellState {
             ShellScene::Editing | ShellScene::Semantic => {
                 "Ctrl+S save  F1 hover  F5 run  F12 goto def  Ctrl+Z undo  F6 palette  Tab next focus  Ctrl+Q quit"
             }
-            ShellScene::BuildRun => {
-                "F5 rerun  F6 palette  Tab next focus  Ctrl+Q quit"
-            }
+            ShellScene::BuildRun => "F5 rerun  Esc return  F6 palette  Tab next focus  Ctrl+Q quit",
             // Overlay scenes are handled by the two early-returns above;
             // these arms keep the match exhaustive without surfacing
             // unreachable hints.
             ShellScene::Palette => "Esc close  Up/Down select  Enter apply",
-            ShellScene::ComReference => {
-                "Enter apply  Tab switch mode  Up/Down select  Esc close"
-            }
+            ShellScene::ComReference => "Enter apply  Tab switch mode  Up/Down select  Esc close",
         }
     }
 
@@ -2916,12 +2908,38 @@ mod tests {
         assert_eq!(create.action, PaletteAction::CreateNewProject);
     }
 
+    fn inspector_section_lines<'a>(state: &'a ShellState, title: &str) -> &'a [String] {
+        state
+            .runtime
+            .content
+            .inspector
+            .sections
+            .iter()
+            .find(|section| section.title == title)
+            .unwrap_or_else(|| panic!("missing inspector section {title:?}"))
+            .lines
+            .as_slice()
+    }
+
+    fn lower_surface_section_lines<'a>(state: &'a ShellState, title: &str) -> &'a [String] {
+        state
+            .runtime
+            .content
+            .lower_surface
+            .sections
+            .iter()
+            .find(|section| section.title == title)
+            .unwrap_or_else(|| panic!("missing lower-surface section {title:?}"))
+            .lines
+            .as_slice()
+    }
+
     #[test]
     fn semantic_scene_marks_the_symbol_found_on_the_active_line() {
         let mut state = ShellState::default();
         state.apply_scene(ShellScene::Semantic);
 
-        let symbol_lines = &state.runtime.content.inspector.sections[1].lines;
+        let symbol_lines = inspector_section_lines(&state, "Symbols");
         assert!(symbol_lines.iter().any(|line| line == "> ComputeAnswer"));
     }
 
@@ -2932,7 +2950,7 @@ mod tests {
         state.runtime.workspace.buffers[0].lines.remove(0);
         state.refresh_content();
 
-        let diagnostics = &state.runtime.content.inspector.sections[0].lines;
+        let diagnostics = inspector_section_lines(&state, "Diagnostics");
         assert!(
             diagnostics
                 .iter()
@@ -2954,13 +2972,14 @@ mod tests {
         });
         state.apply_scene(ShellScene::BuildRun);
 
-        assert_eq!(
-            state.runtime.content.inspector.sections[0].lines[1],
-            "Runtime: prepared"
+        assert!(
+            inspector_section_lines(&state, "Run Status")
+                .iter()
+                .any(|line| line == "Runtime: prepared"),
+            "Run Status section must surface Runtime: prepared"
         );
         assert!(
-            state.runtime.content.lower_surface.sections[0]
-                .lines
+            lower_surface_section_lines(&state, "Output")
                 .iter()
                 .any(|line| line.contains("Module1.Main"))
         );
@@ -2978,10 +2997,10 @@ mod tests {
         state.refresh_content();
 
         assert_eq!(
-            state.runtime.content.inspector.sections[0].lines[0],
+            inspector_section_lines(&state, "Diagnostics")[0],
             "warning: Module1 implicit variant use"
         );
-        assert_eq!(state.runtime.content.inspector.sections[1].lines[0], "Main");
+        assert_eq!(inspector_section_lines(&state, "Symbols")[0], "Main");
     }
 
     #[test]
@@ -3025,8 +3044,7 @@ mod tests {
             .sections
             .iter()
             .flat_map(|section| {
-                std::iter::once(section.title.to_string())
-                    .chain(section.lines.iter().cloned())
+                std::iter::once(section.title.to_string()).chain(section.lines.iter().cloned())
             })
             .collect::<Vec<_>>()
             .join("\n");
@@ -3086,10 +3104,7 @@ mod tests {
     fn semantic_inspector_carries_hover_and_symbols_only() {
         let mut state = ShellState::default();
         state.apply_scene(ShellScene::Semantic);
-        assert_eq!(
-            inspector_section_titles(&state),
-            vec!["Hover", "Symbols"]
-        );
+        assert_eq!(inspector_section_titles(&state), vec!["Hover", "Symbols"]);
         assert_inspector_is_slim(&state);
     }
 
@@ -3255,8 +3270,14 @@ mod tests {
         let state = ShellState::default();
         assert_eq!(state.scene, ShellScene::Editing);
         let hint = state.status_line_hint();
-        assert!(hint.contains("F5"), "Editing hint must name F5, got {hint:?}");
-        assert!(hint.contains("F6"), "Editing hint must name F6, got {hint:?}");
+        assert!(
+            hint.contains("F5"),
+            "Editing hint must name F5, got {hint:?}"
+        );
+        assert!(
+            hint.contains("F6"),
+            "Editing hint must name F6, got {hint:?}"
+        );
     }
 
     #[test]
@@ -3267,6 +3288,10 @@ mod tests {
         assert!(
             hint.contains("F5"),
             "BuildRun hint must announce F5 rerun, got {hint:?}"
+        );
+        assert!(
+            hint.contains("Esc return"),
+            "BuildRun hint must advertise Esc return, got {hint:?}"
         );
     }
 
@@ -3736,10 +3761,8 @@ mod tests {
             ShellScene::ComReference,
         ] {
             let mut state = ShellState::default();
-            let workspace = workspace_with_buffer(buffer_with_source(
-                Path::new("dummy.bas"),
-                "before\n",
-            ));
+            let workspace =
+                workspace_with_buffer(buffer_with_source(Path::new("dummy.bas"), "before\n"));
             state.mount_workspace(workspace);
             state.apply_scene(ShellScene::Editing);
 
@@ -3780,10 +3803,8 @@ mod tests {
     #[test]
     fn f5_run_transition_does_not_wipe_in_flight_edit_or_dirty_marker() {
         let mut state = ShellState::default();
-        let workspace = workspace_with_buffer(buffer_with_source(
-            Path::new("dummy.bas"),
-            "hello\n",
-        ));
+        let workspace =
+            workspace_with_buffer(buffer_with_source(Path::new("dummy.bas"), "hello\n"));
         state.mount_workspace(workspace);
         state.apply_scene(ShellScene::Editing);
 
@@ -3816,7 +3837,10 @@ mod tests {
     fn palette_panel_title_renders_as_singular_command_palette() {
         let mut state = ShellState::default();
         state.toggle_palette();
-        assert!(state.palette_active(), "palette must be open for this check");
+        assert!(
+            state.palette_active(),
+            "palette must be open for this check"
+        );
         let panels = crate::shell::mock_data::shell_panels(&state);
         let first_line = panels
             .palette
@@ -3896,19 +3920,33 @@ mod tests {
     fn palette_selected_action_tracks_the_highlighted_row() {
         let mut state = ShellState::default();
         state.toggle_palette();
-        // Row 0 is "Open Project" per the default palette layout.
+        let commands = &state.runtime.content.palette.commands;
+
+        let open_index = commands
+            .iter()
+            .position(|command| command.label == "Open Project")
+            .expect("palette must contain Open Project");
+        state.runtime.palette_selection = open_index;
         assert!(matches!(
             state.palette_selected_action(),
             Some(PaletteAction::OpenSelectedProject)
         ));
 
-        state.cycle_palette_selection(1); // -> "Create Project"
+        let create_index = commands
+            .iter()
+            .position(|command| command.label == "Create Project")
+            .expect("palette must contain Create Project");
+        state.runtime.palette_selection = create_index;
         assert!(matches!(
             state.palette_selected_action(),
             Some(PaletteAction::CreateNewProject)
         ));
 
-        state.cycle_palette_selection(1); // -> "Save"
+        let save_index = commands
+            .iter()
+            .position(|command| command.label == "Save")
+            .expect("palette must contain Save");
+        state.runtime.palette_selection = save_index;
         assert!(matches!(
             state.palette_selected_action(),
             Some(PaletteAction::SaveActiveBuffer)
@@ -3931,7 +3969,10 @@ mod tests {
         let mut state = ShellState::default();
         let anchor = CursorPosition::new(3, 7);
         state.show_hover_popover(
-            vec![String::from("Sub Main()"), String::from("Defined in Module1")],
+            vec![
+                String::from("Sub Main()"),
+                String::from("Defined in Module1"),
+            ],
             anchor,
         );
         let popover = state
@@ -3969,10 +4010,7 @@ mod tests {
             |state: &mut ShellState| state.move_editor_cursor_down(),
         ] {
             let mut state = ShellState::default();
-            state.show_hover_popover(
-                vec![String::from("some info")],
-                CursorPosition::new(1, 1),
-            );
+            state.show_hover_popover(vec![String::from("some info")], CursorPosition::new(1, 1));
             assert!(state.hover_popover().is_some());
             mutator(&mut state);
             assert!(
@@ -3998,10 +4036,7 @@ mod tests {
             .expect("default Editing fixture has an active buffer")
             .title
             .clone();
-        state.show_hover_popover(
-            vec![String::from("hover text")],
-            CursorPosition::new(1, 1),
-        );
+        state.show_hover_popover(vec![String::from("hover text")], CursorPosition::new(1, 1));
 
         let ok = state.navigate_active_editor_to(&active_title, 5, 3);
         assert!(ok);
@@ -4020,11 +4055,23 @@ mod tests {
     #[test]
     fn navigate_unknown_title_is_a_noop() {
         let mut state = ShellState::default();
-        let before_cursor = state.runtime.workspace.active_view().unwrap().surface.cursor;
+        let before_cursor = state
+            .runtime
+            .workspace
+            .active_view()
+            .unwrap()
+            .surface
+            .cursor;
         let ok = state.navigate_active_editor_to("NoSuchBuffer.bas", 99, 99);
         assert!(!ok);
         assert_eq!(
-            state.runtime.workspace.active_view().unwrap().surface.cursor,
+            state
+                .runtime
+                .workspace
+                .active_view()
+                .unwrap()
+                .surface
+                .cursor,
             before_cursor,
             "navigation to an unknown buffer must leave cursor untouched"
         );

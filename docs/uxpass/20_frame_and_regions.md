@@ -11,6 +11,15 @@ later uxpass work (scenes, commands, visuals) cites when it assumes
 "the Explorer column is X cells wide" or "the Lower Surface is Y rows
 at Wide".
 
+## Verification Status
+
+- D9..D18 implementation claims in this doc are treated as **implemented in
+  code + unit-tested, end-to-end verification pending** unless explicitly
+  covered by W045 release-binary journeys.
+- As of `2026-04-18`, W045 journeys plus a release-binary five-minute pass
+  verify the scene-level frame interactions for Empty, Editing, BuildRun,
+  Palette overlay dispatch, and BuildRun `Esc` return.
+
 Grounded in the re-blessed W037 goldens and the `captures/` evidence
 listed below, not in the pre-W030 mockups under `docs/DesignMockup/`.
 
@@ -35,7 +44,7 @@ are all drawn from the files cited above.
    `[TopBar (3 rows) - Body (flex) - LowerSurface (optional 7..11 rows) - StatusLine (1 row)]`.
    The TopBar and StatusLine are always present; Body fills; LowerSurface
    is scene-scoped. Established by `src/shell/view.rs::split_root` and
-   pinned by the re-blessed goldens (the top bar occupies rows 1-3, the
+   Unit-test coverage: the re-blessed goldens (the top bar occupies rows 1-3, the
    status line occupies row 40, on every golden).
 2. **Body shape is already scene-scoped.** Empty collapses the body to
    a single Welcome panel (D1b). Editing / Semantic / BuildRun use three
@@ -56,13 +65,9 @@ are all drawn from the files cited above.
    `centered_rect` over `frame.width() x frame.height()`, not over the
    body rect - so the overlay *can* mask the lower surface at narrow
    widths, but never masks the top bar or status line.
-5. **The top bar is in the focus ring but has no user-actionable
-   content.** `ShellState::available_focus_regions` returns
-   `[TopBar, ...]` for every scene, which means `Tab` cycles through
-   `TopBar` even though the top bar only paints `<project> | <scene> | ...`.
-   This was surfaced as open question #4 in `10_user_journeys.md`
-   ("Is the `Focus Top` region reachable by Tab a useful surface, or an
-   artifact of treating the top bar as a region?").
+5. **Top bar focus was removed by D16.** `ShellState::available_focus_regions`
+   now omits `TopBar` on every non-overlay scene; Empty collapses to
+   `[Editor]`. This closes open question #4 from `10_user_journeys.md`.
 6. **The five-region name is already misleading.** The pre-W030 docs
    talk about "the five-region frame" counting `TopBar`, `Explorer`,
    `Editor`, `Inspector`, `LowerSurface`. With D3 the status line is a
@@ -142,8 +147,7 @@ here.
 ```
 
 - No Explorer, no Inspector, no Lower Surface (D1b / P5).
-- Focus ring is `[TopBar, Editor]`; see D16 for why the TopBar entry
-  will be removed.
+- Focus ring is `[Editor]` only.
 - Evidence: `W037/empty.txt`, `captures/cold_start/00_welcome.txt`.
 
 ### Editing / Semantic (project loaded, editing source)
@@ -185,7 +189,7 @@ here.
 |  [diagnostic] ...                          |
 |  [stdout] ...                              |
 +--------------------------------------------+
-| F5 rerun  F6 palette  Tab next focus ...   |
+| F5 rerun  Esc return  F6 palette ...       |
 +--------------------------------------------+
 ```
 
@@ -242,7 +246,7 @@ Numbered and imperative. Continues the uxpass-wide numbering from
    Empty, present on Editing / Semantic / BuildRun). The pre-W030
    phrase "five-region frame" is retired in favor of *"four-band
    vertical frame with a scene-scoped body decomposition"*; later
-   docs cite regions by role, not by count. Already in force via
+  docs cite regions by role, not by count. Implemented in code; end-to-end verification pending via
    `src/shell/view.rs::split_root`; confirmed by re-blessed W037
    goldens.
 
@@ -274,8 +278,9 @@ Numbered and imperative. Continues the uxpass-wide numbering from
     drop the Lower Surface.
 
 13. **On Empty the body is a single full-width Welcome panel; no
-    Explorer, Inspector, or Lower Surface is rendered.** Already
-    landed as D1b; restated here because it is a frame contract, not
+    Explorer, Inspector, or Lower Surface is rendered.** Implemented in
+    code (unit-tested; end-to-end verification pending); restated here
+    because it is a frame contract, not
     just an Empty-scene detail. A later scene that *needs* an
     Empty-like "nothing loaded" shape (e.g. project-load failure)
     uses this same body shape.
@@ -307,8 +312,8 @@ Numbered and imperative. Continues the uxpass-wide numbering from
     LowerSurface` on non-Empty, skipping any region that is absent
     or collapsed in the current layout). `Alt+1..4` already
     addresses the actionable regions by index, which remains the
-    direct-focus model. Answers the plan's open question #4. _In
-    force in code_ — pinned by
+    direct-focus model. Answers the plan's open question #4. _Implemented in
+    code; end-to-end verification pending_ — Unit-test coverage:
     `shell::state::tests::{top_bar_is_not_in_focus_ring_on_any_non_overlay_scene, top_bar_focus_request_is_rejected_on_every_non_overlay_scene, empty_scene_focus_ring_is_editor_only}`.
 
 17. **Split-editor panes are deferred past W050.** The Editor column

@@ -1,10 +1,8 @@
-mod shell;
-
 use std::{env, io, path::PathBuf};
 
 use ftui::prelude::{App, ScreenMode};
 
-use shell::ShellModel;
+use ox_ide::shell::ShellModel;
 
 /// CLI shape is intentionally tiny for W030-W035: an optional project path
 /// and an optional `--dev-scenes` flag that re-enables the F2/F3/F4

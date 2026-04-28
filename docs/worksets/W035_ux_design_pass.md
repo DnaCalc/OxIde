@@ -1,93 +1,240 @@
-# W035 - UX Design Pass
+# Workset W035 — UX Design Pass
 
-Status: `in progress`
-Sequence: `3.5`
-Depends on: `W030`
+## Ambition
 
-## Progress (2026-04-17)
-- [00_principles.md](/C:/Work/DnaCalc/OxIde/docs/uxpass/00_principles.md) drafted, grounded in the W037 goldens; 10 principles (P1-P10) and 8 decisions (D1-D8).
-- [10_user_journeys.md](/C:/Work/DnaCalc/OxIde/docs/uxpass/10_user_journeys.md) drafted with J1 (cold start), J2 (edit + live semantics), J3 (build + run), J4 (palette), grounded in live captures under [docs/uxpass/captures/](/C:/Work/DnaCalc/OxIde/docs/uxpass/captures/). Findings cite principle numbers; implications for later docs are enumerated.
-- **Decision D6 landed (2026-04-16):** `F2/F3/F4` scene-flips removed from the default build and gated behind `--dev-scenes` (`src/main.rs`, `src/shell/model.rs::ShellModel::with_dev_scenes`). Welcome hint on Empty reduced to `Ctrl+O open selected  Up/Down select  F5 Run  F6 Palette`; palette's `Mockup States` group is suppressed unless dev is on. Five new unit tests pin the behavior; W037 goldens and the `captures/cold_start/00_welcome.txt` evidence file re-blessed.
-- **Decision D2 landed + partial D4 / D5 (2026-04-17):** `top_bar_text` in `src/shell/mock_data.rs` rewritten to produce at most three fields per scene. Empty=`No project \| Empty`; Editing/Semantic=`<project> \| <scene> \| Ln:Col`; Run=`<project> \| Run \| <build>/<runtime>`; Palette/ComReference=`<project> \| <scene>`. Dev-only tokens removed from top bar: focus-region labels, width-class names, view/buffer counters, `Hover active`, `Overlay focus`, `Mockup-derived instrument palette`, `Truecolor ready`. `theme::palette_name()` deleted. Five new regression tests in `shell::mock_data::tests`. W037 goldens and all cold_start / thin_slice captures re-blessed.
-- **Inspector D4 + D5 sweep landed (2026-04-17):** `content_for_scene` in `src/shell/state.rs` rewritten so every scene's Inspector carries only sub-panes that are actionable, explanatory, or diagnostic to the user. Dropped: `Theme` and `Tokens` from Empty; `Session` from Editing/Palette/ComReference; `Layout` from Semantic; `Workspace` from BuildRun. BuildRun keeps the run-relevant identity in a new slim `Target` sub-pane (`Entry` + `Active buffer`). `theme::token_summary()` and the `pub const *_HEX: &str` palette-name constants deleted from `src/shell/theme.rs`; `theme` import dropped from `src/shell/mock_data.rs`; `inspector_text` simplified accordingly. Five new regression tests in `shell::state::tests` (`empty_inspector_shows_only_capabilities`, `editing_inspector_carries_diagnostics_and_symbols_only`, `semantic_inspector_carries_hover_and_symbols_only`, `build_run_inspector_carries_run_status_and_target_only`, `palette_inspector_matches_editing_slim_contract`) with a shared `assert_inspector_is_slim` helper that bans the removed titles plus free-text telemetry (`Mockup-derived`, `Dirty buffers`, `Visible views`, `Preset:`, `panel-alt`, etc.). W037 goldens and the cited uxpass captures (`cold_start/00_welcome`, `cold_start/01_after_ctrl_o`, `cold_start/01_after_tab`, `cold_start/02_thin_slice_loaded`, `thin_slice/00_loaded`, `thin_slice/05_after_typo`, `thin_slice/06_after_f5_run`, `thin_slice/07_palette_open`) re-blessed via `wtd`. 57 unit tests + 2 W037 wtd smoke tests green.
-- **Decision D1 partial (D1a) landed (2026-04-17):** `render_empty_body` in `src/shell/view.rs` rewritten from a three-column body to a two-column body (Launcher + Welcome). The Environment/Inspector column is gone from Empty; the `Capability` block already lived inside Welcome so nothing is lost (P2). `available_focus_regions` in `src/shell/state.rs` now drops `FocusRegion::Inspector` on Empty, so both `Tab` cycling and `Alt+3` respect the new shape. Three new regression tests pin the contract (`empty_scene_focus_ring_omits_inspector` — since renamed to `empty_scene_focus_ring_is_top_bar_and_editor_only` when D1b tightened the ring further — `empty_scene_alt3_focus_request_is_rejected`, `editing_scene_still_exposes_inspector_in_focus_ring`). W037 goldens re-blessed; `cold_start/00_welcome.txt` and `01_after_tab.txt` show the new two-column body. 60 unit tests + 2 W037 wtd smoke tests green. D1b (merging Launcher into Welcome for a single full-width surface) remains open — it needs a deliberate consolidation of the launcher selection state that currently drives `Ctrl+O` from the Launcher pane.
-- **Explorer slim sweep (D4 / D5 extension) landed (2026-04-17):** the Explorer tree no longer leaks internal taxonomy. In `src/shell/mock_data.rs`, `explorer_text` drops the `Layout` / `Views` / `Target` sub-panes under Project (they carried `Preset:` + `SplitEdit` labels, role tags like `[Source:view]` on module rows, and an echoed `Primary view` line on buffer entries), and suppresses the redundant second "declared" name line when the declared name equals the logical module name — the declared line is surfaced only when the two names actually differ. Contract pinned by three new tests in `shell::mock_data::tests` (`explorer_drops_layout_views_and_target_subpanes`, `explorer_drops_redundant_declared_name_line`, `explorer_surfaces_declared_name_when_it_differs_from_logical`) with a shared `assert_explorer_is_slim` helper that bans `Layout\n`, `Views\n`, `Target\n`, `Preset:`, `SplitEdit`, `[Source:view]`, `Primary view` and similar free-text telemetry from every scene. W037 `thin_slice_loaded.txt` golden and `docs/uxpass/captures/thin_slice/00_loaded.txt` re-blessed — Explorer now shows only `Project / Modules / References / Open Buffers` with module source paths wrapped across lines (D7) rather than truncated.
-- **"Default frame is honest" push (D1b + D3 + D7 + D8) landed (2026-04-17):** a single coherent widening that makes Empty's shape match its task and guarantees the status line is always present and honest.
-  - **D1b — single-panel Empty.** `render_empty_body` in `src/shell/view.rs` collapsed from a two-column body to a single full-width Welcome panel. `launcher_text` was deleted and `launcher_editor_text` in `src/shell/mock_data.rs` now renders the Recent + Start content directly into Welcome; `explorer_text` returns empty on Empty; `LauncherContentState` lost its `hint` and `capabilities` fields. `available_focus_regions` on Empty is `[TopBar, Editor]` only. Pinned by `shell::state::tests::{empty_scene_focus_ring_is_top_bar_and_editor_only, empty_scene_alt1_focus_request_is_rejected}` (plus the surviving D1a tests) and `shell::mock_data::tests::{welcome_owns_the_launcher_role_on_empty, empty_scene_emits_no_explorer_panel_text}`.
-  - **D3 — permanent status-line row.** `src/shell/view.rs` grew a `STATUS_LINE_HEIGHT = 1` constant and a `split_root()` helper producing `[TopBar(3), Body(Fill), LowerSurface?, StatusLine(1)]`, so a 1-row status line is reserved on _every_ scene. `render_status_line` paints the row in muted style with no border. Text comes from a new `ShellState::status_line_hint() -> &'static str` (delegated by `ShellModel::status_line_hint()`). Pinned by `shell::state::tests::{empty_status_line_announces_ctrl_o, editing_status_line_announces_f5_and_palette, build_run_status_line_announces_rerun, palette_overlay_status_line_is_overlay_hint, com_reference_overlay_status_line_is_overlay_hint, status_line_hint_never_exceeds_one_line}`.
-  - **D7 — wrap, don't truncate.** `render_panel` in `src/shell/view.rs` grew an `Option<WrapMode>` parameter and Explorer, Inspector, Lower Surface, Welcome, and Overlay bodies are all rendered with `Some(WrapMode::WordChar)`. The Editor deliberately stays `None` so source-code columns are preserved. Evidence: the re-blessed W037 `thin_slice_loaded.txt` shows `examples/thin-slice/ThinSliceHello.baspr` wrapping to a following `oj` line in Explorer and the full `PMR-E-OPTION-PRIVATE-MODULE-KIND-UNRESOLVED` diagnostic wrapping across multiple lines in both Inspector Diagnostics and Lower Surface Problems, rather than mid-word truncating.
-  - **D8 — Ctrl+O lives on the status line.** The canonical cold-start action is surfaced in Empty's permanent status-line row as `Ctrl+O open project  Up/Down select recent  F6 palette  Ctrl+Q quit`, not as prose inside Welcome. `shell::model::tests::welcome_hint_omits_scene_flip_bindings_in_default_build` was rewritten as `empty_status_line_announces_ctrl_o_and_omits_dev_scene_flips` (reads `model.status_line_hint()` directly).
-  - **Dead-code reap.** `WidthClass::label` (src/shell/state.rs) and `FocusRegion::label` (src/shell/state.rs) were deleted outright so the now-banned "Standard / Narrow / Wide" and "Focus Editor / Focus Inspector" labels cannot leak back into the shell by accident.
-  - **Status.** 72 unit tests + 2 W037 wtd smoke tests green; `cargo build --release` clean. W037 `empty.txt` and `thin_slice_loaded.txt` re-blessed. uxpass evidence re-captured: `cold_start/{00_welcome, 01_after_tab, 01_after_ctrl_o}.txt` and `thin_slice/{00_loaded, 01_tab_to_inspector, 02_tab_to_lower, 03_tab_to_explorer, 04_tab_back_to_editor, 05_after_typo, 06_after_f5_run, 07_palette_open}.txt`.
-- **Honest defaults push (J2-c + J2-d + J3-b + J3-c + J4-a + J4-d + J4-e) landed (2026-04-17):** a coherent six-closure code push that makes the default shell honest about what it is showing, going beyond the decision-level landings (D1–D8) into the journey-level findings that the uxpass observation pass surfaced.
-  - **J2-c — Symbols pane filters non-user symbols.** `load_semantic_state` in `src/shell/oxvba.rs` now filters `document_symbols` on `SymbolProvenanceKind::SourceModule` _and_ screens symbols whose `provenance.document_id` starts with `__OxVba` (tool-inserted helpers) and symbols whose name is a VBA intrinsic type keyword (`Boolean`, `Byte`, `Currency`, `Date`, `Decimal`, `Double`, `Integer`, `Long`, `LongLong`, `LongPtr`, `Object`, `Single`, `String`, `Variant`). The intrinsic-name screen is a defensive mitigation for an OxVba language-service defect where the type token in `Dim x As Integer` is reported as a `Variable` declared inside the enclosing Sub (debug: `name="Integer" kind=Variable provenance_kind=SourceModule provenance_doc="Module1"`). Without the screen the bug leaks `Integer` into the Symbols pane; with it the pane contains only user identifiers. New helper `is_vba_intrinsic_type_name` with its own regression test. The existing `loads_semantic_state_from_real_oxvba_workspace_session` integration test now asserts that no intrinsic type name reaches `semantic.symbols`.
-  - **J2-d — Editor title carries a dirty marker.** `editor_title` in `src/shell/mock_data.rs` appends ` *` when the active buffer's `dirty` flag is set. Welcome (Empty scene) is scene-fixed and never marked. Pinned by `shell::mock_data::tests::editor_title_gains_dirty_marker_after_edit_and_clears_without_one_otherwise`.
-  - **J3-b — Generated-document diagnostics are tagged `[generated]`.** New helper `format_diagnostic_line(&document_id, severity, message)` in `src/shell/oxvba.rs` renders diagnostics from any `__OxVba…` document as `[generated] <severity> <message>` instead of leaking the internal `__OxVbaStartupEntryShim` id. The deeper `passing` / `Problems` inconsistency (build reports `passing` while generated-helper diagnostics still stand) is W040 / W060 follow-up — labeling alone cannot reconcile it. Pinned by `shell::oxvba::tests::{is_generated_document_id_matches_oxvba_tool_helpers, format_diagnostic_line_tags_generated_documents_and_preserves_user_ids}`.
-  - **J3-c — OxVba "user slots" jargon stripped from Output.** New helper `sanitize_output_text` in `src/shell/oxvba.rs` trims the trailing `" with <digits> user slots"` suffix from every `WebHostEvent::OutputLine` before it reaches the Output pane or the build log. Only the specific jargon tail is removed; unrelated `with` clauses are preserved. The Output surface now reads `[stdout] project run completed` instead of `[stdout] project run completed with 1 user slots`. Pinned by `shell::oxvba::tests::{sanitize_output_text_strips_user_slots_suffix_from_run_completion, sanitize_output_text_preserves_unrelated_with_clauses}`; the `runs_project_through_real_oxvba_runtime_contract` integration test now asserts _no_ output or log line contains the string `user slots`.
-  - **J4-a — Palette overlay is opaque.** `render_overlay` in `src/shell/view.rs` calls `frame.buffer.fill(overlay, Cell::default())` before the Block + Paragraph render so editor glyphs underneath the overlay rect are erased rather than recoloured in place. Block's `set_style_area` preserves cell content while restyling, which is why the pre-fix captures showed `Integer` and `answer = 40 + 2` bleeding through the overlay frame. Pinned by `shell::view::tests::palette_overlay_is_opaque_over_editor_text` — it renders Editing → Palette open at 120×40, computes the overlay rect, collects the characters on every interior row, and asserts that neither `Integer` nor `answer = 40` appears.
-  - **J4-d — "Command Palettes" (plural) artefact fixed.** Co-landed with J4-a. The title in code was always singular (`Command Palette`); the trailing `s` in `captures/thin_slice/07_palette_open.txt` was the leading `s` of `As Integer` in the editor underneath bleeding through the non-opaque overlay. Once J4-a made the overlay opaque, the title reads as written.
-  - **J4-e — Unwired `Ctrl+N` removed from palette.** The `New Project` / `Ctrl+N` palette entry has been removed from `src/shell/state.rs`. An audit of the remaining palette bindings confirmed that `Ctrl+O`, `Alt+1..4`, `Ctrl+Shift+{M,C,R,T}`, `Ctrl+Tab`, and `F6` all resolve to wired `Msg` handlers today. Pinned by `shell::state::tests::palette_commands_do_not_advertise_unwired_ctrl_n_binding`.
-  - **Status.** 80 unit tests + 2 W037 wtd smoke tests green (was 72 + 2); `cargo build --release` clean; W037 goldens (`empty.txt`, `thin_slice_loaded.txt`) unchanged by the push and still pass. The six `docs/uxpass/captures/` files that reflect affected scenes (`thin_slice/05_after_typo.txt`, `thin_slice/06_after_f5_run.txt`, `thin_slice/07_palette_open.txt`) are visually stale for three specific differences — editor title now shows ` *` after the typo, Output/symbols no longer leak `user slots`/`Integer`, palette overlay is opaque — and will be recaptured on the next interactive `wtd` pass. Journey annotations in [10_user_journeys.md](/C:/Work/DnaCalc/OxIde/docs/uxpass/10_user_journeys.md) (J2-c, J2-d, J3-b, J3-c, J4-a, J4-d, J4-e) and principle annotations in [00_principles.md](/C:/Work/DnaCalc/OxIde/docs/uxpass/00_principles.md) (P1, P4, P6) cite each regression test that pins the fix.
-- **[20_frame_and_regions.md](/C:/Work/DnaCalc/OxIde/docs/uxpass/20_frame_and_regions.md) drafted (2026-04-17).** The canonical frame is retired from "five-region frame" to a **four-band vertical frame with a scene-scoped body decomposition** (D9): `[TopBar(3) — Body(Fill) — LowerSurface(optional) — StatusLine(1)]`, grounded in `src/shell/view.rs::split_root` and the re-blessed W037 goldens. Decisions D10–D18 pin: body decomposition is `scene × width_class`, not width alone (D10); width-class thresholds are `>= 160 / 120..=159 / < 120` (D11); Narrow collapses the Inspector (D12); Empty body is a single full-width Welcome panel (D13, restating D1b as a frame contract); overlays float centered over `Body + LowerSurface` but never over `TopBar` or `StatusLine` (D14); the Lower Surface is the canonical ephemeral task surface and Immediate lives there as a `LowerSurfaceMode`, not a first-class region (D15, answering plan open question #2); the Top Bar is display-only and is not a focus target (D16, answering plan open question #4); split-editor panes are deferred past W050 (D17, answering plan open question #1); region labels are user-facing nouns while internal enum names stay behind the seam (D18). D9/D10/D11/D12/D13/D14/D15/D17/D18 are all already in force in code; D16 landed alongside the doc (see below). The doc forwards six open questions to `30_scene_catalogue.md` and `50_visual_language.md`.
-- **D16 landed in code (2026-04-17).** `ShellState::available_focus_regions` in `src/shell/state.rs` no longer returns `FocusRegion::TopBar` on any non-overlay scene: Empty collapses to `[Editor]` (was `[TopBar, Editor]`) and non-Empty scenes start from `[Explorer, Editor]` (was `[TopBar, Explorer, Editor]`) before adding `Inspector` / `LowerSurface` by the existing layout guards. `Tab` now cycles only through user-actionable regions; `Alt+<n>` / direct-focus requests targeting `FocusRegion::TopBar` are rejected by the existing `focus_region` contract check. The existing test `empty_scene_focus_ring_is_top_bar_and_editor_only` was renamed `empty_scene_focus_ring_is_editor_only` and re-asserted against `[Editor]`; two new regression tests `top_bar_is_not_in_focus_ring_on_any_non_overlay_scene` and `top_bar_focus_request_is_rejected_on_every_non_overlay_scene` iterate over `Empty / Editing / Semantic / BuildRun` to pin the converse. 82 unit tests + 2 W037 wtd smoke tests green (was 80 + 2); W037 goldens are unchanged because D16 is a focus-ring-semantics change, not a visual one.
-- **W050 pre-landing — Save + Undo + Redo (2026-04-17).** Triggered by a direct user challenge after the Honest-defaults push: "are these surfaces fully live, editable, savable?" The honest answer surfaced a concrete gap — the J2-d dirty marker was honest about "you typed something" but the shell had no Save path, no undo history, no file-back-to-disk flow. This push closes the gap at the W050-C1/C2/C4 level without waiting for the full `ftui_widgets::TextArea` swap.
-  - **`BufferState` gains `source_path: Option<PathBuf>`, `line_ending: LineEnding`, `trailing_newline: bool`, and `history: BufferHistory`** (`src/shell/state.rs`). `LineEnding::detect` picks CRLF when any CRLF is present in the loaded text, LF otherwise; the flag preserves the file's on-disk convention across edits so a round-trip through OxIde does not gratuitously normalise a checkout's line endings. `ProjectSession::workspace_state` in `src/shell/session.rs` populates all four fields from the `DocumentSession` that `load_basproj` produced.
-  - **`Msg::SaveActiveBuffer` (`Ctrl+S`) and `Msg::SaveAllDirtyBuffers` (`Ctrl+Shift+S`)** in `src/shell/model.rs`. Save writes `lines.join(line_ending) [+ line_ending if trailing_newline]` to `source_path` and clears the buffer's `dirty` flag on success. No-ops silently on buffers without a `source_path` (the Welcome buffer) or buffers that are not dirty. Overlay scenes (Palette, COM reference) gate save on `!overlay_active()` so the modal-acceptance semantics stay clean; once the overlay closes the dirty marker is still there and a second `Ctrl+S` persists.
-  - **`Msg::UndoActiveBuffer` (`Ctrl+Z`) and `Msg::RedoActiveBuffer` (`Ctrl+Y`)** backed by a per-buffer `BufferHistory` (capacity-bounded ring buffer of `BufferSnapshot { lines, cursor }`, default 64 entries). Every edit primitive (`insert_char`, `insert_newline`, `backspace`) snapshots the pre-edit state into the undo stack before mutating; `Undo` pops onto the redo stack; `Redo` pops back; a new edit after undo invalidates the redo stack (standard editor convention). Default keymap uses `Ctrl+Y` for redo (Windows / Office / VBA-IDE convention); a future VBA-IDE profile can layer `Ctrl+Shift+Z`.
-  - **Cross-scene edit preservation bug found and fixed.** The existing `apply_scene` rebuilt `runtime.workspace` from `runtime.session_workspace` (the clean snapshot captured at mount time) on every transition — so opening the Palette overlay silently destroyed every in-flight edit. The dirty marker from J2-d survived the overlay but the content didn't, a direct P4 violation. `apply_scene` now clones the current workspace when transitioning to / from `Palette` / `ComReference` scenes so overlays are truly non-destructive. Pinned by `shell::state::tests::opening_palette_overlay_preserves_in_flight_buffer_edits`.
-  - **Palette and status-line wiring.** `src/shell/state.rs` adds four new palette entries (`Save` / `Ctrl+S`, `Save All` / `Ctrl+Shift+S`, `Undo` / `Ctrl+Z`, `Redo` / `Ctrl+Y`); per J4-e each resolves to a wired `Msg`. The Editing/Semantic status-line hint changes from `F5 run  F6 palette  Ctrl+Tab next view  Tab next focus  Ctrl+Q quit` to `Ctrl+S save  F5 run  Ctrl+Z undo  F6 palette  Tab next focus  Ctrl+Q quit` — dropping `Ctrl+Tab next view` (views are a pre-W050 artifact scheduled for W050-C5 split-pane redesign) to fit the two new tokens.
-  - **Known limitations** — deliberately scoped out of this push, to be picked up by W050 proper: no selection, no clipboard copy/paste, no find-in-buffer, no syntax highlighting, no split panes, no file watcher / reload-on-disk-change prompt, no real-MRU on the Recent list, no session restore. The Editor surface itself is still a `Paragraph` over `buffer.lines` — swapping it for `ftui_widgets::TextArea` remains the big W050-C1 lift.
-  - **Tests.** 104 unit tests pass (was 82 after the D16 landing; +22 for save/undo/redo/history/line-ending/overlay-preservation): `shell::state::tests::{save_active_buffer_writes_dirty_lines_to_disk_and_clears_dirty, save_active_buffer_is_a_noop_on_a_clean_buffer, save_active_buffer_is_a_noop_when_no_source_path, save_preserves_lf_line_ending_when_original_was_lf, save_preserves_no_trailing_newline_when_original_had_none, save_all_dirty_buffers_persists_every_dirty_buffer, undo_restores_previous_lines_and_cursor, undo_on_empty_history_is_a_noop, redo_reapplies_undone_edit, new_edit_after_undo_clears_redo_history, buffer_history_capacity_bounds_memory, line_ending_detect_picks_crlf_when_any_crlf_is_present, opening_palette_overlay_preserves_in_flight_buffer_edits, palette_advertises_save_all_undo_redo_with_wired_bindings, editing_status_line_announces_ctrl_s_save_and_ctrl_z_undo}` plus `shell::model::tests::{maps_ctrl_s_to_save_active_buffer, maps_ctrl_shift_s_to_save_all_dirty_buffers, maps_ctrl_z_to_undo_active_buffer, maps_ctrl_y_to_redo_active_buffer, save_dispatches_through_model_and_clears_dirty_marker, save_is_suppressed_while_palette_overlay_is_open, undo_and_redo_round_trip_through_the_model}`. `cargo check --release` is clean.
-  - **Golden drift — wtd smoke needs re-bless.** The W037 wtd smoke suite currently runs against the _release_ binary at `target/release/ox-ide.exe`, which is stale (two orphaned `ox-ide.exe` processes from a previous wtd run hold the exe lock; `cargo build --release` fails with `os error 5: Access is denied`). The debug-mode test suite covers every behavior change; once the user terminates the orphans and re-runs `UPDATE_GOLDENS=1 cargo test --features wtd --test wtd_smoke`, the `thin_slice_loaded.txt` golden will pick up the new status-line text (the only at-rest pixel that changed). The `empty.txt` golden is unaffected — Empty's status line is unchanged. This is the same release-link-blocker that was flagged pre-compaction; resolving it is a user gate, not a code gate.
-- **Audit fixes (2026-04-17).** A deliberate self-audit of the save-path push caught three docs-vs-code mismatches, a latent bug that had escaped the earlier "overlay transitions preserved" fix, a missing palette-dispatch capability, and three test weaknesses. All nine were closed in the same pass.
-  - **(1) D16 tense.** `20_frame_and_regions.md` said `available_focus_regions` "will drop" TopBar; it already does. Rewritten in present tense with the three pinning-test citations inline (`top_bar_is_not_in_focus_ring_on_any_non_overlay_scene`, `top_bar_focus_request_is_rejected_on_every_non_overlay_scene`, `empty_scene_focus_ring_is_editor_only`).
-  - **(2) Test count.** `00_principles.md` Save-path paragraph said "fifteen new regression tests"; actual count was twenty-two. Corrected.
-  - **(3) Misleading test comment.** `save_is_suppressed_while_palette_overlay_is_open` referenced "the palette's Enter-key handler" — which did not exist at the time. Comment rewritten; Enter handler subsequently added (see (5)), so the comment now describes real behavior.
-  - **(4) F5 wiped in-flight edits.** The earlier overlay-only fix still let `apply_scene(BuildRun)` (triggered by F5) rebuild the workspace from the clean `session_workspace` snapshot — so typing X and pressing F5 silently destroyed the edit and ran the build against the on-disk (un-edited) file. Generalised the fix: `apply_scene` now preserves the live workspace on every non-Empty transition when a session is mounted. Mock-mode behavior (`ShellState::default()`, no session) still re-derives per-scene mock fixtures so the existing `semantic_scene_supports_two_views_on_the_same_buffer` style tests remain green. `session_workspace` is now the live-vs-mock discriminator; `workspace_for_scene_from_loaded` is dead code and removed. Pinned by `shell::state::tests::{f5_run_transition_does_not_wipe_in_flight_edit_or_dirty_marker, every_non_empty_scene_transition_preserves_in_flight_edits}`.
-  - **(5) Palette was display-only.** The palette listed commands with shortcuts but had no Enter-key dispatch path — entries were read-only. Closed: new `PaletteAction` enum carries a dispatchable action per palette row; new `ShellRuntimeState::palette_selection` tracks the highlighted row; `Up` / `Down` cycle with wrap-around; `Enter` closes the overlay and routes the selected `PaletteAction` to the corresponding `Msg` through `apply_selected_palette_command` in `src/shell/model.rs`. The palette now renders a `>` marker on the selected row (same convention as the COM reference helper and the Empty-scene launcher). `ShellState::toggle_palette` resets the selection to zero on every open so entry is predictable. Pinned by `shell::state::tests::{palette_selection_resets_to_zero_on_each_open, palette_up_down_cycling_wraps_around_the_command_list, palette_selected_action_returns_none_when_palette_closed, palette_selected_action_tracks_the_highlighted_row}` plus model-level end-to-end `shell::model::tests::{palette_enter_dispatches_save_and_clears_dirty_marker, palette_enter_dispatches_undo_and_restores_pre_edit_lines}`.
-  - **(6) Ctrl+Tab discovery.** The Editing status-line hint had lost `Ctrl+Tab next view` to make room for `Ctrl+S save` / `Ctrl+Z undo`. The binding still worked but the affordance was off the screen. Restored: the hint now reads `Ctrl+S save  F5 run  Ctrl+Z undo  F6 palette  Ctrl+Tab next view  Tab next focus  Ctrl+Q quit` (93 chars; fits the 120-col baseline).
-  - **(7) LF round-trip assertion.** `save_preserves_lf_line_ending_when_original_was_lf` only checked `!contains(&b'\r')`. Strengthened to a byte-exact `assert_eq!(actual, b"Zline one\nline two\n", ...)` so a regression that corrupts content while staying LF-only would still trip.
-  - **(8) Singular "Command Palette" title.** The J4-d bleed-through fix (J4-a co-benefit) was asserted only indirectly. Added `shell::state::tests::palette_panel_title_renders_as_singular_command_palette` which renders the panel and asserts the first line is exactly `Command Palette` and the body nowhere contains `Command Palettes`.
-  - **(9) Release-build blocker / wtd golden drift.** The two orphaned `ox-ide.exe` processes holding the exe lock were terminated (`taskkill /F /PID 42496 /PID 36948`); `cargo build --release` is clean; wtd smoke ran `UPDATE_GOLDENS=1` to re-bless `tests/wtd/goldens/W037/thin_slice_loaded.txt` against the fresh binary. The re-blessed golden reflects the full landed state: `[generated]`-tagged diagnostics (J3-b), `Integer` filtered from Symbols (J2-c), new status-line hint with Save / Undo / Ctrl+Tab tokens, dirty marker available on edit.
-  - **Status.** 113 unit tests + 2 W037 wtd smoke tests green (was 104 + 2 pre-audit; +9 new tests). Release build clean.
-- **"Navigate and read like an IDE" leap (2026-04-17)** — user-driven push to close "the editor doesn't feel like an editor" by layering four interlocked capabilities on top of the save / undo foundation. All are W050 / W060 pre-landings.
-  - **Line-numbers gutter.** A muted right-aligned gutter (`"  1 │ "`) prefixes every source line in the Editor panel. Width auto-scales from the buffer's line count (3 cols at ≤999 lines, 4 at ≤9999, etc.). The cursor-positioning path in `view.rs::editor_cursor_position` now shifts the visible cursor by `highlight::gutter_total_width(...)` so F1/F12/typing all land on the correct cell.
-  - **VBA syntax highlighting.** New `src/shell/highlight.rs` module: a first-pass VBA lexer (`tokenize` → `Vec<Token>`) classifying `Keyword`, `TypeKeyword`, `Identifier`, `Number`, `String`, `Comment`, `Punctuation`, `Whitespace`. Case-insensitive keyword match; double-quote escape handled (`""` in a string literal); `Rem` keyword turns the rest of the line into a comment. `build_editor_text(lines, total)` produces an `ftui::text::Text` ready for `Paragraph::new`: gutter span (muted) + source tokens with per-kind styles from `theme.rs::style_keyword / style_type_keyword / style_string / style_number / style_comment / style_gutter`. A new `render_editor_panel` in `view.rs` bypasses `render_panel` for the Editor column so the styled `Text` reaches the Paragraph unmodified. Welcome (Empty scene) keeps its plain-string path — prose is not code. Pinned by 11 lexer tests in `shell::highlight::tests`.
-  - **Hover popover (F1).** New `HoverPopoverState { lines, anchor }` on `ShellRuntimeState`; `ShellState::{show_hover_popover, close_hover_popover, hover_popover}`. New `PaletteAction::ToggleHoverPopover` routed via `Msg::ToggleHoverPopover`. Key binding: `F1` on Editor focus (mapped by `is_actionable_key` / match arm) fetches `HostWorkspaceSession::hover` through a new `super::oxvba::fetch_hover_at_cursor` helper, installs a popover, and the view's new `render_hover_popover` paints a bordered block anchored near the cursor (below if it fits, above if not; clamped to the editor rect). The popover auto-dismisses on any cursor movement; `Esc` cascades (first close: popover; second close: scene overlay). Opaque background via `frame.buffer.fill(rect, Cell::default())` before the Block renders (same J4-a treatment as the Palette). Pinned by `shell::state::tests::{hover_popover_is_absent_by_default, show_hover_popover_stores_lines_and_anchor, close_hover_popover_returns_true_only_when_one_was_open, cursor_movement_dismisses_hover_popover}` plus model-level end-to-end `shell::model::tests::{maps_f1_to_toggle_hover_popover, esc_closes_hover_popover_before_scene_overlay, f1_opens_hover_popover_over_real_oxvba_workspace_when_hover_resolves, f1_a_second_time_closes_the_popover}`.
-  - **Goto-definition (F12).** New `PaletteAction::GotoDefinition` + `Msg::GotoDefinition`. New `super::oxvba::fetch_goto_definition` calling `HostWorkspaceSession::go_to_definition`, returning a `GotoDefinitionTarget { target_title, target_line, target_column }` — the title is the leaf filename so it matches `BufferState::title`. New `ShellState::navigate_active_editor_to(title, line, col)` performs the navigation: same-buffer targets just move the cursor + scroll; cross-buffer targets switch the active view (repoint an existing view onto the target buffer, or reuse the first view if none points at it yet). Closes any hover popover as a side effect — the cursor just moved, so stale hover info must go. Pinned by `shell::state::tests::{navigate_same_buffer_moves_cursor_and_closes_popover, navigate_unknown_title_is_a_noop, navigate_to_other_buffer_switches_active_view}` plus `shell::model::tests::{maps_f12_to_goto_definition, f12_navigates_cursor_to_definition_in_real_oxvba_workspace}`.
-  - **Palette + status-line additions.** `Hover F1` and `Goto Definition F12` rows added to the palette `commands` list, each resolving to its wired `PaletteAction`. Editing status-line hint is now `Ctrl+S save  F1 hover  F5 run  F12 goto def  Ctrl+Z undo  F6 palette  Tab next focus  Ctrl+Q quit` — `Ctrl+Tab next view` dropped from the hint to fit (`Ctrl+Tab` remains wired, and the palette carries it so discovery is preserved). Pinned by `palette_advertises_hover_and_goto_definition_with_wired_bindings` and `editing_status_line_announces_hover_and_goto_definition`.
-  - **Status.** 140 unit tests + 2 W037 wtd smoke tests green (was 113 + 2 pre-leap; +27 new regression tests across lexer, popover state, navigation, key mappings, and end-to-end against the thin-slice fixture). W037 `thin_slice_loaded.txt` re-blessed: the Editor column now renders `"  1 │ Attribute VB_Name = \"Module1\""` through `"  8 │ End Sub"` — line numbers visible, source indented behind the gutter, the status-line row carries the new F1 / F12 tokens. The `.vt` golden captures the syntax highlighting (colour bytes that the text golden cannot show).
-- Next: `30_scene_catalogue.md` — now that D9-D18 pin the frame, the scenes (Empty, Editing, Semantic, BuildRun, Debug, Palette, overlay stack) can be specified against a stable four-band frame: each scene declares its Inspector sub-panes, its Lower Surface mode order, its status-line contract (already in force via D3), and its transitions to / from neighboring scenes. `30_scene_catalogue.md` will answer the frame-and-regions doc's forwarded open questions #1-#3 (Inspector sub-panes, Lower Surface modes, Debug shape). After that: `40_command_model.md`, `50_visual_language.md`, and the `60_reconciliation.md` exit gate.
+OxIde's UX is re-derived from first principles against the W030 foundation,
+reconciled back into the authoritative product and design docs, and
+backed by a set of observable user journeys with live `wtd` evidence.
 
-## 1. Purpose
-Run a deliberate, time-boxed "blank sheet" UX design pass that re-derives the
-OxIde shell UX from first principles against the W010-W030 anchors, then
-reconciles the result back into `PRODUCT_DIRECTION.md` and
-`docs/DESIGN_TUI.md`. This keeps the accumulated pre-W030 design docs from
-ossifying shapes that were drafted before the shell ran against real OxVba
-semantics.
+At the end of this workset, a new contributor reading
+`PRODUCT_DIRECTION.md` + `docs/DESIGN_TUI.md` sees a shell whose shape,
+bindings, and naming match what the running binary actually does — and
+every decision in the uxpass doc suite (D1…D18+) is either in force in
+code or traceable to the bead that lands it.
 
-## 2. Governing Truth
-1. [PRODUCT_DIRECTION.md](/C:/Work/DnaCalc/OxIde/PRODUCT_DIRECTION.md)
-2. [ARCHITECTURE.md](/C:/Work/DnaCalc/OxIde/ARCHITECTURE.md)
-3. [DESIGN_TUI.md](/C:/Work/DnaCalc/OxIde/docs/DESIGN_TUI.md)
-4. [docs/uxpass/README.md](/C:/Work/DnaCalc/OxIde/docs/uxpass/README.md)
+## Dependencies
 
-## 3. Intended Execution Lanes
-1. principles and user journeys (`docs/uxpass/00_principles.md`, `10_user_journeys.md`)
-2. frame, regions, and scene catalogue (`docs/uxpass/20_frame_and_regions.md`, `30_scene_catalogue.md`)
-3. command model and keymap direction (`docs/uxpass/40_command_model.md`)
-4. visual language and degradation policy (`docs/uxpass/50_visual_language.md`)
-5. reconciliation back into PRODUCT_DIRECTION.md and DESIGN_TUI.md (`docs/uxpass/60_reconciliation.md`)
+- **W030** — service integration (direct OxVba host embedding). Without
+  it there is no real shell to observe.
+- **W037** — WinTermDriver harness. Every bead's `wtd` journey depends
+  on the harness being present.
 
-## 4. Rollout Intention
-This workset should land before W040 starts. It runs paper-first: each scene
-sketched as ASCII in the uxpass docs, then optionally prototyped in
-`mock_data.rs` and captured via the W037 harness once that exists. Decisions
-are numbered and cited by later worksets rather than re-debated.
+## Design
 
-## 5. Closure Condition
-This workset closes when the seven `docs/uxpass/*.md` deliverables exist, the
-reconciliation doc has been merged back into `PRODUCT_DIRECTION.md` and
-`docs/DESIGN_TUI.md`, and `WORKSET_REGISTER.md` links the uxpass directory as
-the UX source-of-truth addendum.
+### The uxpass doc suite
+
+The UX design pass produces seven markdown files under
+`docs/uxpass/`:
+
+1. `00_principles.md` — tie-breakers (P1…P10). Grounds every later
+   decision. *In force.*
+2. `10_user_journeys.md` — J1…J4 at minimum, keystroke by keystroke,
+   with committed `wtd` captures. *In force.*
+3. `20_frame_and_regions.md` — retires the "five-region frame" in
+   favour of a four-band vertical frame with a scene-scoped body
+   decomposition; D9…D18. *In force.*
+4. `30_scene_catalogue.md` — per-scene contract: Inspector sub-panes,
+   Lower Surface mode order, status-line tokens, transitions. *Pending.*
+5. `40_command_model.md` — unified action registry, chord / mnemonic
+   rules, keymap profiles (default + VBA-IDE-compatible). *Pending.*
+6. `50_visual_language.md` — palette, density, border language,
+   degradation policy. *Pending.*
+7. `60_reconciliation.md` — diff vs `PRODUCT_DIRECTION.md` and
+   `docs/DESIGN_TUI.md`; lists exactly what changes in those two docs.
+   **Exit gate.** *Draft landed.*
+
+### Decisions landed in force
+
+D1…D18 are annotated inline in the uxpass docs (00_principles.md
+decisions section, 20_frame_and_regions.md decisions section). New
+decisions made in the pending docs continue the numbering.
+
+### The reconciliation exit
+
+The pass is complete when:
+- All seven uxpass docs exist and are internally consistent.
+- `PRODUCT_DIRECTION.md` and `docs/DESIGN_TUI.md` have been edited to
+  match the uxpass output (the retired "five-region frame" language is
+  gone; the frame / scene / command / visual statements match
+  decisions D9…D18+).
+- Every landed decision has a `wtd` journey or pinning test cited
+  from its uxpass annotation.
+
+### Evidence already on disk
+
+- `docs/uxpass/captures/cold_start/*.txt` — cold-start journey
+  evidence.
+- `docs/uxpass/captures/thin_slice/*.txt` — thin-slice journey
+  evidence.
+- `tests/wtd/goldens/W037/{empty,thin_slice_loaded}.{txt,vt}` —
+  baseline goldens that the uxpass decisions re-bless.
+
+Three thin-slice captures (`05_after_typo.txt`, `06_after_f5_run.txt`,
+`07_palette_open.txt`) are visually stale for three specific differences
+landed in recent code pushes (dirty marker, user-slots jargon strip,
+opaque palette overlay) and are scheduled for recapture as one of the
+beads below.
+
+## Beads
+
+### W035-B01 — Draft `30_scene_catalogue.md`
+
+**Feature.**
+
+- **Goal.** A contributor opens `docs/uxpass/30_scene_catalogue.md` and
+  reads a complete per-scene specification: for each of Empty, Editing,
+  Semantic, BuildRun, Palette, ComReference, Debug — the Inspector
+  sub-panes in order, the Lower Surface mode in default and its
+  transitions, the status-line token set (already in force via D3),
+  and the explicit transitions in/out.
+- **Design.** New file under `docs/uxpass/`. Section per scene. Each
+  scene carries an ASCII frame sketch, a bullet list of Inspector
+  sub-panes with their contract, a Lower Surface mode-cycle list, a
+  status-line token table, and a transitions table. Cites D9…D18.
+  Resolves the three open questions forwarded from
+  `20_frame_and_regions.md` (Inspector sub-panes, Lower Surface modes,
+  Debug shape).
+- **Tests.** Unit contract: none (doctrine bead). The doc is proven by
+  its citations — every claim points at a test or capture already in
+  the repo.
+- **Evidence.** Read-through checklist:
+  - Each scene cites at least one `wtd` capture or golden that shows
+    the shape.
+  - Transitions are exhaustive (no scene lacks an entry path and an
+    exit path).
+  - Open questions from `20_frame_and_regions.md` are explicitly
+    closed with decision numbers (D19, D20, …).
+- **Closure.**
+  - [ ] File exists and is internally consistent.
+  - [ ] Cited captures exist under `docs/uxpass/captures/` or
+    `tests/wtd/goldens/`.
+  - [ ] `00_principles.md` "Open questions" list updated to note
+    which questions this doc closed.
+
+### W035-B02 — Draft `40_command_model.md`
+
+**Feature.**
+
+- **Goal.** A contributor opens `docs/uxpass/40_command_model.md` and
+  finds the unified action registry, the palette's role as the
+  canonical command-discovery surface, chord / mnemonic rules, and the
+  default + VBA-IDE-compatible keymap profiles with the exact
+  keystroke ↔ action mapping for every listed affordance.
+- **Design.** Sections: action registry shape; palette as discovery +
+  dispatch; chord state machine (for `Ctrl+K Ctrl+O` style sequences);
+  mnemonic sequences (`Alt+I, M` style); two keymap profiles
+  side-by-side; mouse → action overlay.
+- **Tests.** Unit contract: none in this doc (doctrine bead). The
+  contract lands in W090 when the code is written.
+- **Evidence.** Read-through checklist:
+  - Every binding listed in any uxpass or workset doc is present in at
+    least one profile here.
+  - Every palette entry the shell currently ships has an action name.
+  - The chord and mnemonic sections cite what W090 must implement.
+- **Closure.**
+  - [ ] File exists.
+  - [ ] Cross-check: every binding the current shell advertises is in
+    the default profile table.
+
+### W035-B03 — Draft `50_visual_language.md`
+
+**Feature.**
+
+- **Goal.** A contributor opens `docs/uxpass/50_visual_language.md` and
+  finds the canonical palette (truecolor + 16-colour fallback),
+  typography conventions, density rules, border language, motion and
+  animation policy, and the degradation policy under weak terminals.
+- **Design.** Palette tables referencing `src/shell/theme.rs` as the
+  source of RGB truth (values live there; the doc cites them). Border
+  language (which regions use which style), density budget (what
+  counts as chrome), motion policy (what animates, what must not),
+  degradation rules (what the shell does at 16-colour, no-mouse,
+  no-truecolor).
+- **Tests.** Unit contract: none (doctrine bead).
+- **Evidence.** Read-through checklist:
+  - Palette table matches `src/shell/theme.rs` byte-for-byte.
+  - Degradation rules name the `ftui_core::capabilities` hooks W100
+    will call.
+
+### W035-B04 — Re-capture stale `thin_slice` evidence
+
+**Feature.**
+
+- **Goal.** The three `docs/uxpass/captures/thin_slice/*.txt` files
+  that are visually stale (`05_after_typo.txt`,
+  `06_after_f5_run.txt`, `07_palette_open.txt`) are re-blessed against
+  the current release binary so the uxpass narrative docs cite
+  accurate captures.
+- **Design.** Interactive `wtd` pass: launch `oxide-smoke` against
+  thin-slice, drive each journey (typo → capture; F5 → capture; F6 →
+  capture), write the captures.
+- **Tests.** Unit contract: none. The captures themselves are the
+  evidence.
+- **Evidence.**
+  - Each re-blessed capture contains the expected landed behaviour
+    (dirty marker visible, no `user slots` jargon, palette title
+    singular with no editor bleed-through).
+  - Five-minute user pass on the release binary during capture run
+    surfaces no new silent affordances.
+- **Closure.**
+  - [ ] 3 files re-blessed.
+  - [ ] Each `10_user_journeys.md` citation of these files rendered
+    readable against the new content.
+
+### W035-B05 — Write `60_reconciliation.md`
+
+**Feature.**
+
+- **Goal.** A contributor opens `docs/uxpass/60_reconciliation.md` and
+  sees a concrete diff: what changes in `PRODUCT_DIRECTION.md` and
+  `docs/DESIGN_TUI.md` to align with the uxpass output, what stays,
+  and what gets amended. Lists every "five-region frame" occurrence
+  that must retire, every frame/scene/command/visual statement that
+  must update, and every new section that must appear.
+- **Design.** Single file. Section per target doc
+  (`PRODUCT_DIRECTION.md` then `docs/DESIGN_TUI.md`). Each section
+  lists concrete edits: "Replace passage X with Y"; "Delete passage
+  Z"; "Add new section W citing decision D<N>".
+- **Tests.** Unit contract: none.
+- **Evidence.** Read-through checklist:
+  - Every decision D1…D<latest> either appears in the diff or has an
+    explicit "no change required" note.
+  - A `rg "five-region" <target docs>` expected-diff is listed.
+
+### W035-B06 — Apply reconciliation to `PRODUCT_DIRECTION.md` and `docs/DESIGN_TUI.md`
+
+**Feature.** (Doctrine bead.)
+
+- **Goal.** `PRODUCT_DIRECTION.md` and `docs/DESIGN_TUI.md` match the
+  uxpass output. The retired phrases are gone; the new decisions are
+  reflected.
+- **Design.** Apply every edit listed in `60_reconciliation.md`
+  mechanically. No new reasoning — the reasoning lives in the
+  reconciliation doc.
+- **Tests.** Unit contract: none (doctrine bead).
+- **Evidence.**
+  - `rg "five-region" PRODUCT_DIRECTION.md docs/DESIGN_TUI.md` returns
+    zero hits.
+  - Spot-check: each decision D1…D<latest> is either in force in the
+    target doc or explicitly cited in the reconciliation's "no change"
+    list.
+- **Closure.**
+  - [ ] Both target docs updated.
+  - [ ] `rg "five-region"` clean across the repo (except inside
+    `20_frame_and_regions.md` which discusses the retirement).
+  - [ ] Workset W035 can close.
+
+## Out-of-scope
+
+- **Code changes to implement pending decisions.** Decisions already
+  in force in code are documented; decisions still to land in code
+  (split-editor panes per D17; `--dev-scenes` probe page per W100) are
+  captured in later worksets. W035 is the *design* pass, not the
+  implementation.
+- **Retroactive softening of "landed 2026-04-17" prose in the uxpass
+  narrative docs.** Handled by the follow-on cleanup/backfill pass
+  (W045), not by the core W035 design-authoring beads.
+- **Follow-on UX worksets.** `W038` (UX development lab) owns the
+  tooling that makes UX work cheap; `W090` owns the command system
+  implementation; `W100` owns capability probing; `W110` owns polish
+  and recovery. W035 hands them concrete design inputs and stops.

@@ -78,8 +78,7 @@ fn top_bar_text(state: &ShellState) -> String {
         },
         ShellScene::BuildRun => format!(
             "{project} | {scene} | {} / {}",
-            state.runtime.execution.build_status,
-            state.runtime.execution.runtime_status
+            state.runtime.execution.build_status, state.runtime.execution.runtime_status
         ),
     }
 }
@@ -109,8 +108,7 @@ fn editor_title(state: &ShellState) -> String {
     // Mirror the `editor_text` effective-scene rule so overlay scenes
     // inherit the backing scene's title (Welcome on Empty, the
     // buffer title on Editing).
-    let effective_scene = if matches!(state.scene, ShellScene::Palette | ShellScene::ComReference)
-    {
+    let effective_scene = if matches!(state.scene, ShellScene::Palette | ShellScene::ComReference) {
         state.runtime.previous_scene
     } else {
         state.scene
@@ -139,8 +137,7 @@ fn editor_text(state: &ShellState) -> String {
     // that targets loaded source files. Choose the effective scene
     // for text rendering the same way `view.rs` chooses the
     // effective scene for body *shape*.
-    let effective_scene = if matches!(state.scene, ShellScene::Palette | ShellScene::ComReference)
-    {
+    let effective_scene = if matches!(state.scene, ShellScene::Palette | ShellScene::ComReference) {
         state.runtime.previous_scene
     } else {
         state.scene
@@ -574,12 +571,8 @@ mod tests {
             target_name: String::from("Exe"),
             project: Some(WorkspaceProjectState {
                 workspace_kind: WorkspaceProjectTargetKind::BasProj,
-                workspace_target: PathBuf::from(
-                    "examples/thin-slice/ThinSliceHello.basproj",
-                ),
-                project_file: Some(PathBuf::from(
-                    "examples/thin-slice/ThinSliceHello.basproj",
-                )),
+                workspace_target: PathBuf::from("examples/thin-slice/ThinSliceHello.basproj"),
+                project_file: Some(PathBuf::from("examples/thin-slice/ThinSliceHello.basproj")),
                 project_dir: PathBuf::from("examples/thin-slice"),
                 output_type: String::from("Exe"),
                 modules: vec![WorkspaceProjectModuleState {
@@ -830,8 +823,8 @@ mod tests {
     /// banned tokens, and has at most three `|`-separated fields.
     fn assert_top_bar_is_slim(top_bar: &str) {
         for banned in [
-            "Focus",           // D5: internal region label
-            "Standard",        // D4: width-class name
+            "Focus",    // D5: internal region label
+            "Standard", // D4: width-class name
             "Wide",
             "Narrow",
             "Truecolor ready", // redundant with Environment pane

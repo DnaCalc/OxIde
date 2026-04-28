@@ -1,0 +1,26 @@
+version: 1
+name: oxide-uxlab-smoke
+defaults:
+  terminalSize:
+    cols: 120
+    rows: 34
+profiles:
+  oxide-uxlab-smoke:
+    type: custom
+    executable: 'C:\Work\DnaCalc\OxIde\target\release\oxide-uxlab.exe'
+    cwd: 'C:\Work\DnaCalc\OxIde'
+    args:
+      - '--suite'
+      - 'lab-smoke'
+      - '--scenario'
+      - 'lab-smoke-editing'
+      - '--viewport'
+      - 'standard'
+      - '--once'
+tabs:
+  - name: uxlab-smoke
+    layout:
+      type: pane
+      name: oxide-uxlab-smoke-pane
+      session:
+        profile: oxide-uxlab-smoke

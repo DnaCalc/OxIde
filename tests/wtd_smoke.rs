@@ -1,5 +1,5 @@
-//! W037 smoke scenario: verify OxIde renders the empty scene and the thin-slice
-//! loaded scene under WinTermDriver, and that both match committed goldens.
+//! W037/W038 smoke scenarios: verify OxIde renders committed shell goldens and
+//! the UX lab once runner exposes its smoke frame under WinTermDriver.
 //!
 //! Gated behind the `wtd` cargo feature so the default `cargo test` loop stays
 //! fast. Run with:
@@ -12,16 +12,33 @@
 //!
 //! See docs/TESTING_WTD.md for the full loop.
 
+#[path = "wtd/backfill.rs"]
+mod backfill;
+#[path = "wtd/firehorse.rs"]
+mod firehorse;
 mod support;
 
+use support::LabScenarioJourney;
 use support::{Harness, assert_golden_text, assert_golden_vt};
 
 const WORKSPACE_YAML: &str = ".wtd/oxide-smoke.yaml";
 const WORKSPACE_NAME: &str = "oxide-smoke";
 const WORKSET: &str = "W037";
+const UXLAB_WORKSET: &str = "W038";
+const UXLAB_WORKSPACE_YAML: &str = ".wtd/oxide-uxlab-smoke.yaml";
+const UXLAB_WORKSPACE_NAME: &str = "oxide-uxlab-smoke";
 
 const EMPTY_PANE: &str = "empty/oxide-empty-pane";
 const THIN_SLICE_PANE: &str = "thin-slice/oxide-thin-pane";
+const UXLAB_SMOKE_PANE: &str = "uxlab-smoke/oxide-uxlab-smoke-pane";
+const UXLAB_SMOKE_JOURNEY: LabScenarioJourney = LabScenarioJourney::new(
+    UXLAB_WORKSPACE_YAML,
+    UXLAB_WORKSPACE_NAME,
+    UXLAB_SMOKE_PANE,
+    "lab-smoke",
+    "lab-smoke-editing",
+    "standard",
+);
 
 /// The empty-scene welcome pane must render its launcher, welcome body, and
 /// environment side pane before we compare against the golden.
@@ -57,4 +74,26 @@ fn thin_slice_loaded_matches_golden() {
 
     assert_golden_text(WORKSET, "thin_slice_loaded", &text);
     assert_golden_vt(WORKSET, "thin_slice_loaded", &vt);
+}
+
+/// The W038 Phase 1 lab runner must expose a stable smoke frame through the
+/// same release-binary WTD path future Fire Horse scenarios will reuse.
+#[test]
+fn uxlab_once_smoke_renders_visible_contracts() {
+    let harness = Harness::open_lab_once(&UXLAB_SMOKE_JOURNEY);
+
+    let text = harness.capture_lab_once_text(
+        &UXLAB_SMOKE_JOURNEY,
+        &[
+            "Lab Smoke Editing",
+            "viewport: standard 120x34",
+            "F6 Command Lens",
+        ],
+    );
+    let vt = harness.capture_lab_once_vt(&UXLAB_SMOKE_JOURNEY);
+    assert!(text.contains("Project Spine | Code Canvas | Context Dock"));
+    assert!(text.contains("Debug.Print \"W038 lab smoke\""));
+
+    assert_golden_text(UXLAB_WORKSET, "uxlab_once_smoke", &text);
+    assert_golden_vt(UXLAB_WORKSET, "uxlab_once_smoke", &vt);
 }

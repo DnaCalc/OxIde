@@ -1,0 +1,34 @@
+Identity Rail | OxIde | NorthwindPricing | Run Lane | Target ExcelDesktop | run.start active                            
+------------------------------------------------------------------------------------------------------------------------
+Run Lane | staged execution timeline from MockRunEventProjection                                                        
+Step                 | Status | target | message                                      | Context Dock                    
+------------------------------------------------------------------------------------------------------------------------
+Prepare              | complete | ExcelDesktop | Prepare is Complete                  | complete                        
+Analyze              | complete | ExcelDesktop | Analyze is Complete                  | complete                        
+Build                | active | ExcelDesktop | Build is Active                        | active step                     
+Execute              | pending | ExcelDesktop | Execute is Pending                    | pending                         
+Result               | pending | ExcelDesktop | Result is Pending                     | pending                         
+------------------------------------------------------------------------------------------------------------------------
+Activity: Run Timeline | Output | Immediate                                                                             
+Prepare complete at 10ms | Prepare is Complete                                                                          
+Analyze complete at 180ms | Analyze is Complete                                                                         
+Build active at 430ms | Build is Active                                                                                 
+Execute pending at 0ms | Execute is Pending                                                                             
+Result pending at 0ms | Result is Pending                                                                               
+------------------------------------------------------------------------------------------------------------------------
+F8 Stop Run  Ctrl+G Immediate  Esc Return                                                                               
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        

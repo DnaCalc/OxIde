@@ -1,0 +1,1138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OxIde Fire Horse TUI Mockups</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --base: #090b0f;
+        --canvas: #0e1117;
+        --raised: #151a22;
+        --rail: #11161f;
+        --border: #2a303a;
+        --border-hot: #6d3b29;
+        --text: #e8eaed;
+        --muted: #8b96a6;
+        --dim: #566171;
+        --ember: #ff6b2c;
+        --gold: #ffc857;
+        --azure: #45b7f5;
+        --mint: #5ee0a0;
+        --rose: #ff5d7a;
+        --violet: #9b8cff;
+        --selection: #26384a;
+        --shadow: rgba(0, 0, 0, 0.38);
+        --mono: "Cascadia Mono", "JetBrains Mono", "SFMono-Regular", Consolas,
+          "Liberation Mono", monospace;
+        --sans: Inter, "Segoe UI", system-ui, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 18% -10%, rgba(255, 107, 44, 0.15), transparent 28rem),
+          radial-gradient(circle at 86% 4%, rgba(69, 183, 245, 0.1), transparent 30rem),
+          var(--base);
+        color: var(--text);
+        font-family: var(--sans);
+      }
+
+      main {
+        width: min(1500px, calc(100vw - 48px));
+        margin: 0 auto;
+        padding: 38px 0 64px;
+      }
+
+      .intro {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 28px;
+        align-items: end;
+        margin-bottom: 30px;
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: clamp(34px, 4vw, 64px);
+        line-height: 0.95;
+        letter-spacing: 0;
+      }
+
+      .subtitle {
+        max-width: 850px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 17px;
+        line-height: 1.55;
+      }
+
+      .token-strip {
+        display: grid;
+        grid-template-columns: repeat(7, 34px);
+        gap: 8px;
+        padding: 10px;
+        background: rgba(21, 26, 34, 0.74);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 18px 48px var(--shadow);
+      }
+
+      .swatch {
+        width: 34px;
+        height: 34px;
+        border-radius: 5px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+      }
+
+      .mockup {
+        margin: 36px 0 54px;
+      }
+
+      .mockup-title {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 20px;
+        margin: 0 0 14px;
+      }
+
+      .mockup-title h2 {
+        margin: 0;
+        font-size: 20px;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+
+      .mockup-title p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .terminal {
+        position: relative;
+        min-height: 720px;
+        overflow: hidden;
+        border: 1px solid color-mix(in srgb, var(--border) 70%, var(--ember));
+        border-radius: 8px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 34%),
+          var(--canvas);
+        box-shadow: 0 26px 72px var(--shadow);
+        font-family: var(--mono);
+      }
+
+      .terminal.light {
+        color-scheme: light;
+        --base: #f7f5ef;
+        --canvas: #fffdf8;
+        --raised: #ece7dc;
+        --rail: #f0ece4;
+        --border: #c9c1b4;
+        --border-hot: #c9886a;
+        --text: #1d232a;
+        --muted: #68727f;
+        --dim: #87919c;
+        --ember: #d9571e;
+        --gold: #9a6700;
+        --azure: #006d9c;
+        --mint: #1f7a52;
+        --rose: #c9344f;
+        --violet: #6857c8;
+        --selection: #dcebfa;
+        --shadow: rgba(67, 50, 29, 0.24);
+      }
+
+      .rail {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-height: 34px;
+        padding: 0 16px;
+        background: var(--rail);
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+      }
+
+      .identity {
+        justify-content: space-between;
+      }
+
+      .brand {
+        color: var(--text);
+        font-weight: 800;
+      }
+
+      .scene {
+        color: var(--ember);
+        font-weight: 700;
+      }
+
+      .rail .muted,
+      .muted {
+        color: var(--muted);
+      }
+
+      .rail .ok,
+      .ok {
+        color: var(--mint);
+      }
+
+      .warn {
+        color: var(--gold);
+      }
+
+      .err {
+        color: var(--rose);
+      }
+
+      .hot {
+        color: var(--ember);
+      }
+
+      .info {
+        color: var(--azure);
+      }
+
+      .violet {
+        color: var(--violet);
+      }
+
+      .screen {
+        display: grid;
+        min-height: 686px;
+        grid-template-rows: 34px minmax(0, 1fr) 34px 30px;
+      }
+
+      .body {
+        display: grid;
+        grid-template-columns: 280px minmax(520px, 1fr) 300px;
+        min-height: 0;
+      }
+
+      .spine,
+      .canvas,
+      .dock,
+      .deck,
+      .launchpad,
+      .console-fit {
+        min-width: 0;
+      }
+
+      .spine {
+        padding: 16px 12px;
+        border-right: 1px solid var(--border);
+        background: color-mix(in srgb, var(--rail) 76%, var(--canvas));
+      }
+
+      .canvas {
+        position: relative;
+        padding: 18px 22px;
+        background: var(--canvas);
+      }
+
+      .dock {
+        padding: 16px 14px;
+        border-left: 1px solid var(--border);
+        background: color-mix(in srgb, var(--raised) 78%, var(--canvas));
+      }
+
+      .deck {
+        display: grid;
+        grid-template-columns: 210px minmax(0, 1fr) 170px;
+        align-items: center;
+        gap: 16px;
+        min-height: 34px;
+        padding: 0 16px;
+        background: var(--rail);
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+      }
+
+      .key-rail {
+        overflow: hidden;
+        padding: 6px 16px;
+        background: color-mix(in srgb, var(--rail) 86%, var(--base));
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .key-rail b {
+        color: var(--text);
+      }
+
+      .section-label {
+        margin: 0 0 12px;
+        color: var(--muted);
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .tree,
+      .list {
+        display: grid;
+        gap: 7px;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 10px;
+        min-height: 27px;
+        padding: 3px 8px;
+        border-radius: 5px;
+        color: var(--muted);
+      }
+
+      .row.active {
+        color: var(--text);
+        background: var(--selection);
+        box-shadow: inset 3px 0 0 var(--ember);
+      }
+
+      .row.soft {
+        background: rgba(255, 255, 255, 0.035);
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 20px;
+        padding: 1px 7px;
+        border: 1px solid color-mix(in srgb, var(--border) 70%, currentColor);
+        border-radius: 999px;
+        color: currentColor;
+        font-size: 12px;
+      }
+
+      .code {
+        display: grid;
+        gap: 2px;
+        font-size: 15px;
+        line-height: 1.5;
+      }
+
+      .code-line {
+        display: grid;
+        grid-template-columns: 46px 18px 1fr;
+        min-height: 23px;
+      }
+
+      .ln {
+        color: var(--dim);
+        text-align: right;
+      }
+
+      .gutter {
+        color: var(--dim);
+        text-align: center;
+      }
+
+      .kw {
+        color: #7cc7ff;
+        font-weight: 700;
+      }
+
+      .type {
+        color: #67c9bf;
+      }
+
+      .num {
+        color: #ffc26b;
+      }
+
+      .str {
+        color: #8ad17b;
+      }
+
+      .fn {
+        color: var(--azure);
+      }
+
+      .diagnostic-line {
+        display: inline-block;
+        padding-bottom: 1px;
+        border-bottom: 2px solid var(--gold);
+        color: color-mix(in srgb, var(--text) 82%, var(--gold));
+      }
+
+      .lens {
+        margin: 7px 0 10px 64px;
+        width: min(600px, calc(100% - 74px));
+        border: 1px solid color-mix(in srgb, var(--azure) 65%, var(--border));
+        background: color-mix(in srgb, var(--raised) 92%, var(--azure));
+        box-shadow: 0 12px 32px var(--shadow);
+      }
+
+      .lens-title,
+      .lens-actions {
+        padding: 6px 10px;
+      }
+
+      .lens-title {
+        color: var(--text);
+      }
+
+      .lens-actions {
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+      }
+
+      .dock-card {
+        margin-bottom: 16px;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.035);
+      }
+
+      .dock-card h3 {
+        margin: 0 0 9px;
+        color: var(--text);
+        font-size: 14px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .metric {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        padding: 4px 0;
+        color: var(--muted);
+      }
+
+      .launch-screen {
+        display: grid;
+        min-height: 686px;
+        grid-template-rows: 38px minmax(0, 1fr) 30px;
+      }
+
+      .launchpad {
+        display: grid;
+        grid-template-columns: 1.5fr 0.9fr;
+        gap: 34px;
+        align-content: start;
+        padding: 52px 72px;
+      }
+
+      .launch-title {
+        margin: 0 0 26px;
+        font-size: 42px;
+        line-height: 1.1;
+      }
+
+      .launch-title span {
+        color: var(--ember);
+      }
+
+      .panel {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--raised) 85%, transparent);
+        box-shadow: 0 18px 46px var(--shadow);
+      }
+
+      .panel-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border);
+        color: var(--muted);
+      }
+
+      .panel-body {
+        padding: 12px 14px;
+      }
+
+      .recent-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr 0.55fr 0.8fr;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .recent-grid div {
+        min-height: 26px;
+      }
+
+      .selected-line {
+        margin: 0 -8px;
+        padding: 5px 8px;
+        border-radius: 5px;
+        background: var(--selection);
+        box-shadow: inset 3px 0 0 var(--ember);
+      }
+
+      .stack {
+        display: grid;
+        gap: 16px;
+      }
+
+      .action-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 7px 0;
+        color: var(--text);
+      }
+
+      .checks {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px 14px;
+      }
+
+      .check {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        color: var(--muted);
+      }
+
+      .command-screen,
+      .focus-screen {
+        position: relative;
+      }
+
+      .dimmed {
+        filter: saturate(0.72) brightness(0.58);
+      }
+
+      .overlay {
+        position: absolute;
+        inset: 88px 115px 82px;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) 34px;
+        border: 1px solid color-mix(in srgb, var(--azure) 64%, var(--border));
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--raised) 94%, var(--azure));
+        box-shadow: 0 28px 78px rgba(0, 0, 0, 0.62);
+        z-index: 5;
+      }
+
+      .overlay-header {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .filter {
+        color: var(--text);
+        font-size: 18px;
+      }
+
+      .overlay-body {
+        display: grid;
+        grid-template-columns: 0.9fr 1.1fr;
+        min-height: 0;
+      }
+
+      .commands {
+        padding: 14px;
+        border-right: 1px solid var(--border);
+      }
+
+      .preview {
+        padding: 16px 18px;
+      }
+
+      .command-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        padding: 8px 10px;
+        border-radius: 5px;
+        color: var(--muted);
+      }
+
+      .command-row.active {
+        background: var(--selection);
+        color: var(--text);
+        box-shadow: inset 3px 0 0 var(--azure);
+      }
+
+      .overlay-footer {
+        padding: 7px 14px;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+      }
+
+      .run-body {
+        display: grid;
+        grid-template-columns: 270px minmax(520px, 1fr) 310px;
+      }
+
+      .run-lane {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 18px;
+      }
+
+      .step {
+        padding: 9px 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.035);
+      }
+
+      .step.active {
+        border-color: var(--ember);
+        background: color-mix(in srgb, var(--ember) 18%, transparent);
+        box-shadow: inset 0 -2px 0 var(--ember);
+      }
+
+      .timeline {
+        display: grid;
+        gap: 8px;
+      }
+
+      .timeline-row {
+        display: grid;
+        grid-template-columns: 80px 88px 64px 1fr;
+        gap: 14px;
+        padding: 5px 8px;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.026);
+      }
+
+      .debug-marker {
+        background: color-mix(in srgb, var(--ember) 15%, transparent);
+        box-shadow: inset 4px 0 0 var(--ember);
+      }
+
+      .console-fit {
+        display: grid;
+        grid-template-columns: 1fr 0.72fr;
+        gap: 28px;
+        padding: 44px 58px;
+      }
+
+      .fit-grid {
+        display: grid;
+        gap: 12px;
+      }
+
+      .fit-row {
+        display: grid;
+        grid-template-columns: 130px 1fr auto;
+        gap: 18px;
+        align-items: center;
+        padding: 11px 12px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.035);
+      }
+
+      .bar {
+        height: 8px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--border) 80%, var(--base));
+      }
+
+      .bar span {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, var(--azure), var(--mint));
+      }
+
+      .focus-terminal {
+        max-width: 840px;
+        min-height: 680px;
+        margin: 0 auto;
+      }
+
+      .focus-body {
+        display: grid;
+        grid-template-rows: minmax(0, 1fr) 40px;
+      }
+
+      .focus-body .canvas {
+        border: 0;
+      }
+
+      @media (max-width: 980px) {
+        main {
+          width: min(100vw - 24px, 1500px);
+        }
+
+        .intro,
+        .launchpad,
+        .console-fit {
+          grid-template-columns: 1fr;
+        }
+
+        .body,
+        .run-body {
+          grid-template-columns: 220px minmax(420px, 1fr);
+        }
+
+        .dock {
+          display: none;
+        }
+
+        .overlay {
+          inset: 70px 28px 74px;
+        }
+      }
+
+      body.capture main {
+        width: 1500px;
+        padding: 18px 0;
+      }
+
+      body.capture .intro {
+        display: none;
+      }
+
+      body.capture .mockup {
+        display: none;
+        margin: 0;
+      }
+
+      body.capture .mockup.capture-active {
+        display: block;
+      }
+
+      body.capture .terminal {
+        box-shadow: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="intro">
+        <div>
+          <h1>OxIde Fire Horse TUI Mockups</h1>
+          <p class="subtitle">
+            Full-colour 2026 console IDE studies based on
+            DESIGN_TUI_2026_FIRE_HORSE.md. These are visual targets for
+            FrankenTui or the UX lab: rails over boxes, source-centered
+            semantics, warmer run/debug states, and a richer Command Lens.
+          </p>
+        </div>
+        <div class="token-strip" aria-label="Graphite Ember palette">
+          <span class="swatch" style="background: #0e1117"></span>
+          <span class="swatch" style="background: #151a22"></span>
+          <span class="swatch" style="background: #ff6b2c"></span>
+          <span class="swatch" style="background: #ffc857"></span>
+          <span class="swatch" style="background: #45b7f5"></span>
+          <span class="swatch" style="background: #5ee0a0"></span>
+          <span class="swatch" style="background: #ff5d7a"></span>
+        </div>
+      </section>
+
+      <section class="mockup" id="launchpad">
+        <div class="mockup-title">
+          <h2>01 Launchpad</h2>
+          <p>Empty scene as a confident IDE entry point, not a blank pane.</p>
+        </div>
+        <div class="terminal launch-screen">
+          <div class="rail identity">
+            <div>
+              <span class="brand">OxIde</span>
+              <span class="muted"> no project</span>
+              <span class="scene"> Launchpad</span>
+            </div>
+            <div>
+              <span class="ok">Console fit: good</span>
+              <span class="muted"> 132 x 42</span>
+            </div>
+          </div>
+          <div class="launchpad">
+            <div>
+              <h2 class="launch-title"><span>OxIde</span><br />VBA work.</h2>
+              <div class="panel">
+                <div class="panel-header">
+                  <span>Recent work</span>
+                  <span class="muted">Enter opens selected</span>
+                </div>
+                <div class="panel-body recent-grid">
+                  <div class="selected-line">> Payroll.basproj</div>
+                  <div class="selected-line info">win-console</div>
+                  <div class="selected-line ok">clean</div>
+                  <div class="selected-line muted">today</div>
+                  <div>  Inventory.basproj</div>
+                  <div class="violet">library</div>
+                  <div class="warn">2 warn</div>
+                  <div class="muted">Friday</div>
+                  <div>  Scratch.basproj</div>
+                  <div class="muted">no target</div>
+                  <div class="hot">draft</div>
+                  <div class="muted">Apr 18</div>
+                </div>
+              </div>
+            </div>
+            <div class="stack">
+              <div class="panel">
+                <div class="panel-header">
+                  <span>Start</span>
+                  <span class="hot">Fire Horse</span>
+                </div>
+                <div class="panel-body">
+                  <div class="action-row"><span>Open Project</span><span class="muted">Ctrl+O</span></div>
+                  <div class="action-row"><span>Create Project</span><span class="muted">Ctrl+N</span></div>
+                  <div class="action-row"><span>Clone / Import</span><span class="muted">Ctrl+Shift+O</span></div>
+                  <div class="action-row"><span>Console Fit</span><span class="muted">F10</span></div>
+                </div>
+              </div>
+              <div class="panel">
+                <div class="panel-header">
+                  <span>Terminal</span>
+                  <span class="ok">ready</span>
+                </div>
+                <div class="panel-body checks">
+                  <div class="check"><span>truecolor</span><span class="ok">ok</span></div>
+                  <div class="check"><span>glyphs</span><span class="ok">ok</span></div>
+                  <div class="check"><span>mouse</span><span class="ok">ok</span></div>
+                  <div class="check"><span>modified keys</span><span class="ok">ok</span></div>
+                  <div class="check"><span>sync render</span><span class="warn">unknown</span></div>
+                  <div class="check"><span>motion</span><span class="muted">normal</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="key-rail"><b>F6</b> Command Lens  <b>Enter</b> open  <b>Ctrl+O</b> open project  <b>Ctrl+N</b> create  <b>Ctrl+Q</b> quit</div>
+        </div>
+      </section>
+
+      <section class="mockup" id="editing-lens">
+        <div class="mockup-title">
+          <h2>02 Editing With Semantic Lens</h2>
+          <p>Source stays central; semantic intelligence appears where the eye already is.</p>
+        </div>
+        <div class="terminal screen">
+          <div class="rail identity">
+            <div><span class="brand">OxIde</span> Payroll.basproj <span class="info">target: win-console</span> <span class="ok">clean</span> <span class="scene">Edit</span></div>
+            <div class="muted">Ln 42 Col 17</div>
+          </div>
+          <div class="body">
+            <aside class="spine">
+              <p class="section-label">Project Spine</p>
+              <div class="tree">
+                <div class="row active"><span>></span><span>Payroll</span><span class="pill ok">run</span></div>
+                <div class="row"><span></span><span>Modules</span><span>4</span></div>
+                <div class="row active"><span></span><span>Module1.bas</span><span class="pill">open</span></div>
+                <div class="row"><span></span><span>Pricing.bas</span><span></span></div>
+                <div class="row"><span></span><span>Invoices.bas</span><span></span></div>
+                <div class="row"><span></span><span>Forms</span><span>1</span></div>
+                <div class="row"><span></span><span>References</span><span class="warn">1</span></div>
+                <div class="row"><span></span><span>Targets</span><span class="ok">win</span></div>
+              </div>
+            </aside>
+            <section class="canvas">
+              <p class="section-label">Code Canvas</p>
+              <div class="code">
+                <div class="code-line"><span class="ln">37</span><span class="gutter"></span><span><span class="kw">Option</span> <span class="kw">Explicit</span></span></div>
+                <div class="code-line"><span class="ln">38</span><span class="gutter"></span><span><span class="kw">Public</span> <span class="kw">Sub</span> Main()</span></div>
+                <div class="code-line"><span class="ln">39</span><span class="gutter"></span><span>    <span class="kw">Dim</span> invoiceId <span class="kw">As</span> <span class="type">Long</span></span></div>
+                <div class="code-line"><span class="ln">40</span><span class="gutter"></span><span>    <span class="kw">Dim</span> answer <span class="kw">As</span> <span class="type">Currency</span></span></div>
+                <div class="code-line"><span class="ln">41</span><span class="gutter">?</span><span>    invoiceId = <span class="num">42</span></span></div>
+                <div class="code-line"><span class="ln">42</span><span class="gutter">></span><span>    answer = <span class="diagnostic-line"><span class="fn">PriceFor</span>(invoiceId)</span></span></div>
+              </div>
+              <div class="lens">
+                <div class="lens-title"><span class="fn">PriceFor</span>(id <span class="kw">As</span> <span class="type">Long</span>) <span class="kw">As</span> <span class="type">Currency</span></div>
+                <div class="lens-actions">defined in Pricing.bas:12  <span class="info">F12 go</span>  <span class="info">Shift+F12 refs</span>  <span class="info">F1 pin</span></div>
+              </div>
+              <div class="code">
+                <div class="code-line"><span class="ln">43</span><span class="gutter"></span><span>    Debug.Print answer</span></div>
+                <div class="code-line"><span class="ln">44</span><span class="gutter"></span><span><span class="kw">End</span> <span class="kw">Sub</span></span></div>
+              </div>
+            </section>
+            <aside class="dock">
+              <p class="section-label">Context Dock</p>
+              <div class="dock-card">
+                <h3>Diagnostics</h3>
+                <div class="metric"><span>Errors</span><span class="ok">0</span></div>
+                <div class="metric"><span>Warnings</span><span class="warn">2</span></div>
+                <div class="metric"><span>Nearest</span><span class="warn">line 42</span></div>
+              </div>
+              <div class="dock-card">
+                <h3>Symbol</h3>
+                <div class="metric"><span>Name</span><span class="info">PriceFor</span></div>
+                <div class="metric"><span>Kind</span><span>Function</span></div>
+                <div class="metric"><span>Return</span><span class="type">Currency</span></div>
+                <div class="metric"><span>Refs</span><span class="violet">7</span></div>
+              </div>
+              <div class="dock-card">
+                <h3>Quick Actions</h3>
+                <div class="metric"><span>Open definition</span><span>F12</span></div>
+                <div class="metric"><span>References</span><span>Shift+F12</span></div>
+                <div class="metric"><span>Pin watch</span><span>Ctrl+W</span></div>
+              </div>
+            </aside>
+          </div>
+          <div class="deck"><span>Activity: Problems</span><span><span class="ok">0 errors</span>  <span class="warn">2 warnings</span>  nearest: PriceFor may use stale reference</span><span class="muted">analysis 42ms</span></div>
+          <div class="key-rail"><b>Ctrl+S</b> save  <b>F1</b> lens  <b>F5</b> run  <b>F12</b> go def  <b>Shift+F12</b> refs  <b>F6</b> Command Lens</div>
+        </div>
+      </section>
+
+      <section class="mockup" id="command-lens">
+        <div class="mockup-title">
+          <h2>03 Command Lens</h2>
+          <p>A rich command surface with preview, availability, and consequences.</p>
+        </div>
+        <div class="terminal command-screen">
+          <div class="dimmed screen">
+            <div class="rail identity">
+              <div><span class="brand">OxIde</span> Payroll.basproj <span class="scene">Edit</span></div>
+              <div class="muted">Ln 42 Col 17</div>
+            </div>
+            <div class="body">
+              <aside class="spine"><p class="section-label">Project Spine</p></aside>
+              <section class="canvas"><p class="section-label">Code Canvas</p></section>
+              <aside class="dock"><p class="section-label">Context Dock</p></aside>
+            </div>
+            <div class="deck"><span>Activity: clean</span><span>last run passed 3s ago</span><span></span></div>
+            <div class="key-rail"><b>F6</b> Command Lens</div>
+          </div>
+          <div class="overlay">
+            <div class="overlay-header">
+              <div class="filter">&gt; run target</div>
+              <div class="muted">Command Lens</div>
+            </div>
+            <div class="overlay-body">
+              <div class="commands">
+                <p class="section-label">Actions</p>
+                <div class="command-row active"><span>Run Project</span><span class="ok">F5</span></div>
+                <div class="command-row"><span>Run With...</span><span>Ctrl+F5</span></div>
+                <div class="command-row"><span>Stop Run</span><span class="muted">disabled</span></div>
+                <div class="command-row"><span>Configure Target</span><span>Ctrl+K T</span></div>
+                <div class="command-row"><span>Switch Target</span><span>Ctrl+K Shift+T</span></div>
+                <p class="section-label" style="margin-top: 18px">Recent</p>
+                <div class="command-row"><span>Open Project</span><span>Ctrl+O</span></div>
+                <div class="command-row"><span>Console Fit</span><span>F10</span></div>
+              </div>
+              <div class="preview">
+                <p class="section-label">Preview</p>
+                <h3 style="margin: 0 0 12px; color: var(--text)">Run Project</h3>
+                <p class="muted">Runs Payroll.basproj using target <span class="info">win-console</span>. Saves dirty buffers first if auto-save-on-run is enabled.</p>
+                <div class="dock-card">
+                  <h3>Will do</h3>
+                  <div class="metric"><span>Analyze project</span><span class="ok">ready</span></div>
+                  <div class="metric"><span>Build target</span><span>win-console</span></div>
+                  <div class="metric"><span>Open Activity Deck</span><span>Run Timeline</span></div>
+                </div>
+                <div class="dock-card">
+                  <h3>Unavailable command</h3>
+                  <div class="metric"><span>Stop Run</span><span class="muted">no active run</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="overlay-footer"><b>Enter</b> run  <b>Tab</b> preview  <b>Ctrl+Enter</b> alternate  <b>Esc</b> close</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mockup" id="run-lane">
+        <div class="mockup-title">
+          <h2>04 Run Lane</h2>
+          <p>Run and build as a structured workflow, not just output in a spare pane.</p>
+        </div>
+        <div class="terminal screen">
+          <div class="rail identity">
+            <div><span class="brand">OxIde</span> Payroll.basproj <span class="info">target: win-console</span> <span class="scene">Run</span></div>
+            <div><span class="hot">execute active</span> <span class="muted">1.2s</span></div>
+          </div>
+          <div class="run-body">
+            <aside class="spine">
+              <p class="section-label">Project Spine</p>
+              <div class="tree">
+                <div class="row active"><span>></span><span>win-console</span><span class="pill hot">run</span></div>
+                <div class="row"><span></span><span>Module1.Main</span><span class="ok">entry</span></div>
+                <div class="row"><span></span><span>Pricing.bas</span><span></span></div>
+                <div class="row"><span></span><span>References</span><span class="ok">ok</span></div>
+              </div>
+            </aside>
+            <section class="canvas">
+              <div class="run-lane">
+                <div class="step ok">prepare<br /><span class="muted">ok</span></div>
+                <div class="step ok">analyze<br /><span class="muted">ok</span></div>
+                <div class="step ok">build<br /><span class="muted">ok</span></div>
+                <div class="step active">execute<br /><span class="hot">active</span></div>
+                <div class="step">result<br /><span class="muted">pending</span></div>
+              </div>
+              <p class="section-label">Build Timeline</p>
+              <div class="timeline">
+                <div class="timeline-row"><span class="muted">0.00s</span><span>prepare</span><span class="ok">ok</span><span>target win-console</span></div>
+                <div class="timeline-row"><span class="muted">0.05s</span><span>analyze</span><span class="warn">warn</span><span>2 warnings, no blocking errors</span></div>
+                <div class="timeline-row"><span class="muted">0.21s</span><span>build</span><span class="ok">ok</span><span>emitted Payroll.exe</span></div>
+                <div class="timeline-row"><span class="muted">0.33s</span><span>stdout</span><span class="info">line</span><span>project run completed</span></div>
+                <div class="timeline-row"><span class="muted">1.20s</span><span>runtime</span><span class="hot">live</span><span>waiting for process exit</span></div>
+              </div>
+            </section>
+            <aside class="dock">
+              <p class="section-label">Context Dock</p>
+              <div class="dock-card">
+                <h3>Run Status</h3>
+                <div class="metric"><span>Build</span><span class="ok">passed</span></div>
+                <div class="metric"><span>Runtime</span><span class="hot">active</span></div>
+                <div class="metric"><span>Target</span><span>win-console</span></div>
+                <div class="metric"><span>Entry</span><span>Module1.Main</span></div>
+              </div>
+              <div class="dock-card">
+                <h3>Actions</h3>
+                <div class="metric"><span>Stop</span><span>F8</span></div>
+                <div class="metric"><span>Rerun</span><span>F5</span></div>
+                <div class="metric"><span>Return</span><span>Esc</span></div>
+              </div>
+            </aside>
+          </div>
+          <div class="deck"><span>Run: execute active</span><span><span class="ok">prepare ok</span> > <span class="ok">analyze ok</span> > <span class="ok">build ok</span> > <span class="hot">execute active</span></span><span>stdout 12 lines</span></div>
+          <div class="key-rail"><b>F8</b> stop  <b>F5</b> rerun  <b>Esc</b> return  <b>Ctrl+G</b> Immediate  <b>F6</b> Command Lens</div>
+        </div>
+      </section>
+
+      <section class="mockup" id="debug">
+        <div class="mockup-title">
+          <h2>05 Debug Cockpit</h2>
+          <p>A distinct work posture that keeps source continuity while exposing runtime state.</p>
+        </div>
+        <div class="terminal screen">
+          <div class="rail identity">
+            <div><span class="brand">OxIde</span> Payroll.basproj <span class="scene">Debug</span> <span class="warn">paused</span></div>
+            <div><span class="hot">breakpoint hit</span> <span class="muted">Module1.Main:42</span></div>
+          </div>
+          <div class="body">
+            <aside class="spine">
+              <p class="section-label">Debug Spine</p>
+              <div class="tree">
+                <div class="row active"><span>o</span><span>Module1:42</span><span class="hot">hit</span></div>
+                <div class="row"><span>o</span><span>Pricing:12</span><span></span></div>
+                <div class="row"><span></span><span>Watches</span><span>3</span></div>
+                <div class="row"><span></span><span>Trace</span><span class="muted">18</span></div>
+              </div>
+            </aside>
+            <section class="canvas">
+              <p class="section-label">Code Canvas</p>
+              <div class="code">
+                <div class="code-line"><span class="ln">38</span><span class="gutter"></span><span><span class="kw">Public</span> <span class="kw">Sub</span> Main()</span></div>
+                <div class="code-line"><span class="ln">39</span><span class="gutter"></span><span>    <span class="kw">Dim</span> answer <span class="kw">As</span> <span class="type">Integer</span></span></div>
+                <div class="code-line"><span class="ln">40</span><span class="gutter"></span><span>    answer = <span class="fn">PriceFor</span>(invoiceId)</span></div>
+                <div class="code-line"><span class="ln">41</span><span class="gutter"></span><span>    Debug.Print answer</span></div>
+                <div class="code-line debug-marker"><span class="ln">42</span><span class="gutter hot">></span><span><span class="kw">End</span> <span class="kw">Sub</span>  <span class="hot">breakpoint hit</span></span></div>
+              </div>
+              <div class="lens" style="border-color: var(--ember)">
+                <div class="lens-title"><span class="hot">Paused</span> at Module1.Main:42</div>
+                <div class="lens-actions"><span class="info">F5 continue</span>  <span class="info">F8 step</span>  <span class="info">Shift+F8 out</span>  <span class="info">F9 toggle breakpoint</span></div>
+              </div>
+            </section>
+            <aside class="dock">
+              <p class="section-label">Debug Dock</p>
+              <div class="dock-card">
+                <h3>Call Stack</h3>
+                <div class="row active"><span>></span><span>Main</span><span>42</span></div>
+                <div class="row"><span></span><span>PriceFor</span><span>12</span></div>
+              </div>
+              <div class="dock-card">
+                <h3>Locals</h3>
+                <div class="metric"><span>answer</span><span class="num">42</span></div>
+                <div class="metric"><span>invoiceId</span><span class="num">1034</span></div>
+                <div class="metric"><span>status</span><span class="str">"ready"</span></div>
+              </div>
+              <div class="dock-card">
+                <h3>Watches</h3>
+                <div class="metric"><span>invoice.Total</span><span class="num">129.50</span></div>
+                <div class="metric"><span>PriceFor(id)</span><span class="err">scope error</span></div>
+              </div>
+            </aside>
+          </div>
+          <div class="deck"><span>Debug Deck: Immediate</span><span>? answer  <span class="ok">= 42</span></span><span class="muted">runtime paused</span></div>
+          <div class="key-rail"><b>F5</b> continue  <b>F8</b> step  <b>Shift+F8</b> step out  <b>F9</b> breakpoint  <b>Ctrl+G</b> Immediate  <b>Esc</b> edit</div>
+        </div>
+      </section>
+
+      <section class="mockup" id="console-fit">
+        <div class="mockup-title">
+          <h2>06 Console Fit</h2>
+          <p>The terminal capability check as a polished first-class product surface.</p>
+        </div>
+        <div class="terminal light launch-screen">
+          <div class="rail identity">
+            <div><span class="brand">OxIde</span> Console Fit</div>
+            <div><span class="ok">healthy</span> <span class="muted">132 x 42</span></div>
+          </div>
+          <div class="console-fit">
+            <div>
+              <h2 class="launch-title">Terminal fit is <span>good</span>.</h2>
+              <div class="fit-grid">
+                <div class="fit-row"><span>Color</span><div class="bar"><span style="width: 100%"></span></div><span class="ok">truecolor</span></div>
+                <div class="fit-row"><span>Glyphs</span><div class="bar"><span style="width: 96%"></span></div><span class="ok">ok</span></div>
+                <div class="fit-row"><span>Keyboard</span><div class="bar"><span style="width: 92%"></span></div><span class="ok">modified keys</span></div>
+                <div class="fit-row"><span>Mouse</span><div class="bar"><span style="width: 88%"></span></div><span class="ok">click + wheel</span></div>
+                <div class="fit-row"><span>Render</span><div class="bar"><span style="width: 68%; background: linear-gradient(90deg, var(--gold), var(--mint))"></span></div><span class="warn">sync unknown</span></div>
+                <div class="fit-row"><span>Size</span><div class="bar"><span style="width: 91%"></span></div><span class="ok">premium</span></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><span>Recommended</span><span class="hot">Paper Ember</span></div>
+              <div class="panel-body">
+                <div class="action-row"><span>Use a truecolor terminal</span><span class="ok">met</span></div>
+                <div class="action-row"><span>Keep width at 120+ columns</span><span class="ok">met</span></div>
+                <div class="action-row"><span>Use strong box-drawing font</span><span class="ok">met</span></div>
+                <div class="action-row"><span>Enable reduced motion</span><span class="muted">off</span></div>
+                <div class="action-row"><span>Open detailed report</span><span class="muted">Enter</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="key-rail"><b>Enter</b> rerun checks  <b>F6</b> Command Lens  <b>Esc</b> return</div>
+        </div>
+      </section>
+
+      <section class="mockup" id="focus-mode">
+        <div class="mockup-title">
+          <h2>07 Compact Focus Mode</h2>
+          <p>Small terminal support as an intentional source-first mode.</p>
+        </div>
+        <div class="terminal screen focus-terminal">
+          <div class="rail identity">
+            <div><span class="brand">OxIde</span> Payroll <span class="scene">Focus</span></div>
+            <div class="muted">92 x 30</div>
+          </div>
+          <div class="focus-body">
+            <section class="canvas">
+              <p class="section-label">Code Canvas</p>
+              <div class="code">
+                <div class="code-line"><span class="ln">38</span><span class="gutter"></span><span><span class="kw">Public</span> <span class="kw">Sub</span> Main()</span></div>
+                <div class="code-line"><span class="ln">39</span><span class="gutter"></span><span>    <span class="kw">Dim</span> answer <span class="kw">As</span> <span class="type">Currency</span></span></div>
+                <div class="code-line"><span class="ln">40</span><span class="gutter">></span><span>    answer = <span class="fn">PriceFor</span>(invoiceId)</span></div>
+                <div class="code-line"><span class="ln">41</span><span class="gutter"></span><span>    Debug.Print answer</span></div>
+                <div class="code-line"><span class="ln">42</span><span class="gutter"></span><span><span class="kw">End</span> <span class="kw">Sub</span></span></div>
+              </div>
+              <div class="lens">
+                <div class="lens-title">Project, Context, and Activity open as temporary docks.</div>
+                <div class="lens-actions"><span class="info">Alt+1 project</span>  <span class="info">Alt+3 context</span>  <span class="info">Alt+4 activity</span></div>
+              </div>
+            </section>
+            <div class="deck"><span>Activity: clean</span><span>last run passed</span><span class="muted">3s ago</span></div>
+          </div>
+          <div class="key-rail"><b>F6</b> Command Lens  <b>Alt+1</b> Project  <b>Alt+3</b> Context  <b>Alt+4</b> Activity  <b>F10</b> Fit</div>
+        </div>
+      </section>
+    </main>
+    <script>
+      const captureId = new URLSearchParams(window.location.search).get("screen");
+      if (captureId) {
+        document.body.classList.add("capture");
+        for (const section of document.querySelectorAll(".mockup")) {
+          section.classList.toggle("capture-active", section.id === captureId);
+        }
+      }
+    </script>
+  </body>
+</html>

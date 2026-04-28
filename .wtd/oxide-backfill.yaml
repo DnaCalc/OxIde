@@ -1,0 +1,30 @@
+version: 1
+name: oxide-backfill
+defaults:
+  terminalSize:
+    cols: 120
+    rows: 40
+profiles:
+  oxide-backfill-empty:
+    type: custom
+    executable: 'C:\Work\DnaCalc\OxIde\target\release\ox-ide.exe'
+    cwd: 'C:\Work\DnaCalc\OxIde\target\test-workspaces\wtd-backfill'
+  oxide-backfill-thin-slice:
+    type: custom
+    executable: 'C:\Work\DnaCalc\OxIde\target\release\ox-ide.exe'
+    cwd: 'C:\Work\DnaCalc\OxIde\target\test-workspaces\wtd-backfill'
+    args:
+      - 'C:\Work\DnaCalc\OxIde\target\test-workspaces\wtd-backfill\ThinSliceHello.basproj'
+tabs:
+  - name: empty
+    layout:
+      type: pane
+      name: oxide-empty-pane
+      session:
+        profile: oxide-backfill-empty
+  - name: thin-slice
+    layout:
+      type: pane
+      name: oxide-thin-pane
+      session:
+        profile: oxide-backfill-thin-slice

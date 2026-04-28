@@ -1,43 +1,54 @@
 # OxIde Worksets
 
-This folder contains the ordered workset packets for the current green-field
-implementation sequence.
+Per-workset design documents. See [`BEADS.md`](../BEADS.md) for the
+working method and the workset template; see
+[`WORKSET_REGISTER.md`](../WORKSET_REGISTER.md) for the ordered
+sequence.
 
-It is not a live execution tracker.
-For ordered workset truth use [WORKSET_REGISTER.md](/C:/Work/DnaCalc/OxIde/docs/WORKSET_REGISTER.md).
-For live execution state use [.beads/issues.jsonl](/C:/Work/DnaCalc/OxIde/.beads/issues.jsonl) through `br`.
+## Spec Shape
 
-## Current Rules
-1. Worksets are planning and provenance packets, not the owner of ready or blocked state.
-2. `.beads/` owns live execution truth.
-3. Worksets explain scope, dependency order, and rollout intent.
-4. New workset packets should be added only when the next execution sequence has been defined.
+Every workset spec at `W<NNN>_<slug>.md` follows the template from
+`BEADS.md` §4.1:
 
-## Current State
-1. `W010` through `W030` record the implemented foundation sequence.
-2. `W035`, `W037`, and `W038` are prerequisite worksets before W040 (UX re-derivation, WTD harness, UX development lab).
-3. `W040` through `W070` define the original forward execution sequence.
-4. `W080` through `W110` define the follow-on sequence toward a feature-complete shell.
-5. Live execution state still belongs only in `.beads/`.
+```
+# Workset W<NNN> — <Ambition phrase>
 
-## Ordered Sequence
-1. `W010` - shell mockup scaffold and design proof
-2. `W020` - runtime shell foundation
-3. `W030` - service integration
-4. `W035` - fresh UX design pass
-5. `W037` - WinTermDriver test harness foundation
-6. `W038` - UX development lab
-7. `W040` - project and workspace management
-8. `W050` - file and document services
-9. `W060` - full language-service UX
-10. `W070` - run/debug/immediate shell surfaces
-11. `W080` - debug surfaces
-12. `W090` - command system and keymap profiles
-13. `W100` - terminal capability and onboarding
-14. `W110` - polish, accessibility, and recovery
+## Ambition
+## Dependencies
+## Design
+## Beads
+## Out-of-scope
+```
 
-## Use These Instead
-1. Use [PRODUCT_DIRECTION.md](/C:/Work/DnaCalc/OxIde/PRODUCT_DIRECTION.md) for product and UX authority.
-2. Use [ARCHITECTURE.md](/C:/Work/DnaCalc/OxIde/ARCHITECTURE.md) for seam and implementation direction.
-3. Use [WORKSET_REGISTER.md](/C:/Work/DnaCalc/OxIde/docs/WORKSET_REGISTER.md) for ordered workset truth.
-4. Use [BEADS.md](/C:/Work/DnaCalc/OxIde/docs/BEADS.md) for the local bead method.
+No `Progress` section. No `Status:` preamble. Progress lives in git
+log and in `.beads/` closure records.
+
+## Tier 1 — Current Shape
+
+Specs executors will touch next. Rewritten to the current template:
+
+- `W035_ux_design_pass.md`
+- `W037_wtd_harness.md`
+- `W038_ux_development_lab.md`
+- `W039_firehorse_terminal_ux_proof.md`
+- `W040_project_workspace_management.md`
+- `W045_wtd_demo_backfill.md`
+- `W050_file_document_services.md`
+- `W060_full_language_service_ux.md`
+- `W070_run_debug_immediate_surfaces.md`
+- `W080_debug_surfaces.md`
+- `W090_command_system.md`
+- `W100_terminal_capability.md`
+- `W110_polish_and_recovery.md`
+
+## Tier 2 — Historical
+
+Closed retrospective specs kept for provenance. They predate the
+current bead schema and are not reshaped:
+
+- `W010_shell_mockup_scaffold.md`
+- `W020_runtime_shell_foundation.md`
+- `W030_service_integration.md`
+
+New work against these areas starts with a new workset in the
+current template.

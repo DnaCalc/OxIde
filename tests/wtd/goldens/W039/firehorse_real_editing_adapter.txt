@@ -1,0 +1,34 @@
+Identity Rail | OxIde | ThinSliceHello | Editing | Target Exe | Ready | Ln 1 Col 1                                      
+------------------------------------------------------------------------------------------------------------------------
+Project Spine        | Code Canvas | Module1.bas                                      | Context Dock                    
+------------------------------------------------------------------------------------------------------------------------
+  ThinSliceHello     |   1   Attribute VB_Name = "Module1"                            | Diagnostic                      
+>   Module1.bas      |   2                                                            | Symbol                          
+    Exe              |   3   Option Explicit                                          | Run Status                      
+                     |   4                                                            | References                      
+                     |   5   Public Sub Main()                                        | HostWorkspaceSession::hover | Un
+                     |   6       Dim answer As Integer                                | HostWorkspaceSession::references
+                     |   7       answer = 40 + 2                                      | ActionRegistry | Unavailable sea
+                     |   8   End Sub                                                  |                                 
+                     |                                                                |                                 
+                     | Source Lens unavailable | HostWorkspaceSession::hover          | Unavailable seam                
+                     | No source lens projection available from current ShellState    | W060 handoff                    
+                     | Actions: semantic.hover display only                           | Pinned: unavailable             
+------------------------------------------------------------------------------------------------------------------------
+Activity: Problems | Output | References | Watch/Trace                                                                  
+Output ready | Last semantic pass: HostWorkspaceSession::diagnostics                                                    
+------------------------------------------------------------------------------------------------------------------------
+Ctrl+S Save  F6 Command Lens  F1 Semantic Lens  F5 Run  Ctrl+. Quick Fix                                                
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        

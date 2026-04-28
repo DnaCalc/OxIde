@@ -55,7 +55,9 @@ pub fn load_from_dir(dir: &Path) -> io::Result<SessionSnapshot> {
     let path = dir.join(SESSION_FILE_NAME);
     let raw = match fs::read_to_string(&path) {
         Ok(raw) => raw,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(SessionSnapshot::default()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Ok(SessionSnapshot::default());
+        }
         Err(error) => return Err(error),
     };
     let parsed = serde_json::from_str::<SessionSnapshot>(&raw).map_err(io::Error::other)?;
@@ -134,10 +136,7 @@ mod tests {
             snapshot.recent_projects.first().map(String::as_str),
             Some("C:/tmp/39.basproj")
         );
-        assert_eq!(
-            snapshot.last_opened.as_deref(),
-            Some("C:/tmp/39.basproj")
-        );
+        assert_eq!(snapshot.last_opened.as_deref(), Some("C:/tmp/39.basproj"));
         let dedup_count = snapshot
             .recent_projects
             .iter()
