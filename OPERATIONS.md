@@ -1,6 +1,7 @@
 # OPERATIONS.md - OxIde Operations
 
 ## 1. Purpose
+
 This document defines the local execution model for OxIde.
 
 It is intentionally lightweight.
@@ -12,6 +13,7 @@ Its job is to keep OxIde execution coherent around:
 - `.beads/` as the live execution-state surface
 
 ## 2. Precedence
+
 Distinguish between:
 1. repo guardrails, and
 2. plan and execution authority.
@@ -34,6 +36,7 @@ Rule:
 - `.beads/` is authoritative for live execution state
 
 ## 3. Operating Principles
+
 1. Prefer a clean architecture over accidental structure.
 2. Keep plans aligned to the intended product and architecture, not to incidental implementation detail.
 3. Keep OxIde project/session/editor/UI ownership explicit.
@@ -46,6 +49,7 @@ Rule:
 10. Keep execution anchored to the authoritative docs.
 
 ## 4. Execution Model
+
 Execution in OxIde is:
 1. `docs/WORKSET_REGISTER.md`
 2. `workset -> epic -> bead`
@@ -59,6 +63,7 @@ Interpretation rule:
 5. `.beads/` owns live execution state.
 
 ## 5. Tool Split
+
 `br` is the mutation tool.
 
 Use it to:
@@ -79,6 +84,7 @@ Agent rule:
 2. do not use `.beads/` files as an editable planning surface.
 
 ## 6. Workset Rule
+
 Worksets exist to make planned execution scope explicit.
 
 They should state:
@@ -94,6 +100,7 @@ They should not carry:
 3. duplicate bead status.
 
 ## 7. Current OxIde Execution Posture
+
 OxIde execution starts from the authoritative product and architecture docs.
 
 That means:
@@ -103,15 +110,17 @@ That means:
 4. implementation details do not outrank the governing docs.
 
 ## 8. Closure Rule
+
 A bead closes only when:
 1. the stated reviewable outcome exists,
 2. the required code/docs/tests exist,
 3. any newly discovered follow-up work is added back into the graph,
 4. touched truth surfaces are updated.
 
-Do not close a bead because “enough progress happened”.
+Do not close a bead because "enough progress happened".
 
 ## 9. UX Pass And WTD Suite
+
 The W035 UX design pass and the W037 WinTermDriver test harness are
 bead-managed like any other execution scope:
 1. W035 produces the `docs/uxpass/*.md` deliverables and reconciles them
@@ -124,6 +133,7 @@ bead-managed like any other execution scope:
    into epics, and executed through `br` / `bv` like the rest.
 
 ## 10. Relationship To Other Docs
+
 1. `PRODUCT_DIRECTION.md`
    - product and UX authority
 2. `ARCHITECTURE.md`
@@ -131,7 +141,7 @@ bead-managed like any other execution scope:
 3. `docs/WORKSET_REGISTER.md`
    - ordered workset authority
 4. `docs/BEADS.md`
-   - local bead working method
+   - local workset + bead working method
 5. `docs/worksets/*`
    - scope and provenance packets for major execution lanes
 6. `docs/uxpass/*`

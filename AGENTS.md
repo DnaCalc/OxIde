@@ -1,24 +1,24 @@
 # AGENTS.md — OxIde
 
-This file defines the repo-local guardrails for OxIde agent work.
+Repo-local safety rules for agent work.
 
 For the live execution model, workset doctrine, and bead method, use:
-- [OPERATIONS.md](/C:/Work/DnaCalc/OxIde/OPERATIONS.md)
-- [docs/BEADS.md](/C:/Work/DnaCalc/OxIde/docs/BEADS.md)
-- [docs/WORKSET_REGISTER.md](/C:/Work/DnaCalc/OxIde/docs/WORKSET_REGISTER.md)
+- [`OPERATIONS.md`](/C:/Work/DnaCalc/OxIde/OPERATIONS.md)
+- [`docs/BEADS.md`](/C:/Work/DnaCalc/OxIde/docs/BEADS.md)
+- [`docs/WORKSET_REGISTER.md`](/C:/Work/DnaCalc/OxIde/docs/WORKSET_REGISTER.md)
 
-For product and architecture authority, use:
-- [PRODUCT_DIRECTION.md](/C:/Work/DnaCalc/OxIde/PRODUCT_DIRECTION.md)
-- [ARCHITECTURE.md](/C:/Work/DnaCalc/OxIde/ARCHITECTURE.md)
+For product and architectural authority, use:
+- [`PRODUCT_DIRECTION.md`](/C:/Work/DnaCalc/OxIde/PRODUCT_DIRECTION.md)
+- [`ARCHITECTURE.md`](/C:/Work/DnaCalc/OxIde/ARCHITECTURE.md)
 
 ## 1. Absolute File Deletion Rule
 
-You may NOT delete any file or directory unless the user gives the exact delete
-command in this session.
+You may NOT delete any file or directory unless the user gives the
+exact delete command in this session.
 
 This is a hard invariant.
 
-That includes:
+Includes:
 - files you just created,
 - generated files,
 - temporary files,
@@ -27,12 +27,13 @@ That includes:
 If removal seems appropriate:
 1. stop,
 2. ask for the exact command,
-3. do not run or propose a destructive command without that explicit approval.
+3. do not run or propose a destructive command without that explicit
+   approval.
 
 ## 2. Irreversible Actions
 
-Absolutely forbidden unless the user gives the exact command and explicit
-approval in the same message:
+Absolutely forbidden unless the user gives the exact command and
+explicit approval in the same message:
 - `git reset --hard`
 - `git clean -fd`
 - `rm -rf`
@@ -45,73 +46,32 @@ If destructive approval is given, record:
 
 ## 3. Public Posting Rule
 
-Any public post on GitHub or elsewhere must be individually approved by the
-user before posting.
+Any public post on GitHub or elsewhere must be individually approved
+by the user before posting.
 
 Every approved public post must begin with:
 
 *Posted by Codex on behalf of @govert*
 
-## 4. Current Repo Direction
+## 4. Development Method
 
-OxIde is a standalone terminal-native IDE for OxVba.
+All execution follows the workset + bead model defined in
+[`OPERATIONS.md`](/C:/Work/DnaCalc/OxIde/OPERATIONS.md) and
+[`docs/BEADS.md`](/C:/Work/DnaCalc/OxIde/docs/BEADS.md).
 
-Important current direction:
-- FrankenTui is the shell and editor foundation
-- OxIde owns UX, shell flow, buffers/views/layouts, and editor orchestration
-- OxVba owns project truth and semantic meaning
-- direct host/session integration is preferred over CLI- or LSP-shaped editor semantics
-- current direction is authoritative
+Worksets partition ambition, scope, and sequence. Beads are the
+atomic execution unit (goal / design / tests / evidence / closure)
+and close only when every item on their closure checklist ticks.
+Commit messages describe only behaviours the author has personally
+seen on the running release binary.
 
-## 5. Development Rules
+Use `br` to mutate bead state. Use `bv` only in non-interactive /
+robot-style ways from agent sessions. Do not edit `.beads/` files
+directly, and do not create a parallel TODO or blocker system.
 
-- Primary implementation language: Rust.
-- Primary console shell and editing foundation: FrankenTui.
-- This is not a general JS/TS repo. Introduce JS/TS only for a specific,
-  documented need.
-- Prefer small, explicit edits over bulk transformation scripts.
-- Do not run ad hoc codemods or large regex transformations.
-- Prefer a clean architecture over backward-compatibility shims.
-- Do not proliferate new files unless they represent a real architectural split.
+Do not treat workset docs as live blocker trackers. Workset specs own
+scope and design intent; `.beads/` owns live execution state.
 
-## 6. Beads Rule
-
-All execution-state tracking goes through `.beads/`.
-
-Rules:
-- do not edit `.beads/` files directly,
-- use `br` to mutate bead state,
-- use `bv` only in non-interactive/robot-style ways from agent sessions,
-- do not create parallel TODO systems or ad hoc blocker notes.
-
-## 7. Landing The Plane
-
-When landing a session that should persist remotely:
-1. ensure follow-up work is in beads,
-2. run appropriate quality gates for changed code,
-3. commit code and `.beads/`,
-4. push,
-5. verify the branch is up to date with `origin/main`.
-
-Use `OPERATIONS.md` and `docs/BEADS.md` for the detailed execution model.
-
-## 8. Multi-Agent Coordination
-
-If Agent Mail is available, use it when parallel work would otherwise risk
-conflicting edits.
-
-Basic rule:
-- reserve files before editing when multiple agents may touch the same area.
-
-## 9. Current Source Of Truth Map
-
-Use:
-- `PRODUCT_DIRECTION.md` for product and UX authority
-- `ARCHITECTURE.md` for implementation seams and architectural direction
-- `OPERATIONS.md` for execution doctrine
-- `docs/WORKSET_REGISTER.md` for ordered workset truth
-- `.beads/` for live execution state
-
-Do not treat:
-- workset docs as live blocker trackers,
-- incidental implementation details as architectural authority
+For product and architectural authority see
+[`PRODUCT_DIRECTION.md`](/C:/Work/DnaCalc/OxIde/PRODUCT_DIRECTION.md)
+and [`ARCHITECTURE.md`](/C:/Work/DnaCalc/OxIde/ARCHITECTURE.md).
