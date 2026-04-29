@@ -1,0 +1,24 @@
+version: 1
+name: oxide-audit-lab-first-class
+defaults:
+  terminalSize:
+    cols: 160
+    rows: 42
+profiles:
+  oxide-audit-lab-first-class:
+    type: custom
+    executable: 'C:\Work\DnaCalc\OxIde\target\release\oxide-uxlab.exe'
+    cwd: 'C:\Work\DnaCalc\OxIde'
+    args:
+      - '--audit'
+      - '--suite'
+      - 'firehorse'
+      - '--viewport'
+      - 'first-class'
+tabs:
+  - name: audit-lab
+    layout:
+      type: pane
+      name: oxide-audit-lab-first-class-pane
+      session:
+        profile: oxide-audit-lab-first-class

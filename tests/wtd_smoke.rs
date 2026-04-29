@@ -12,6 +12,8 @@
 //!
 //! See docs/TESTING_WTD.md for the full loop.
 
+#[path = "wtd/audit_lab.rs"]
+mod audit_lab;
 #[path = "wtd/backfill.rs"]
 mod backfill;
 #[path = "wtd/firehorse.rs"]

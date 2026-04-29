@@ -1,0 +1,22 @@
+version: 1
+name: oxide-audit-lab-studio
+defaults:
+  terminalSize:
+    cols: 190
+    rows: 48
+profiles:
+  oxide-audit-lab-studio:
+    type: custom
+    executable: 'C:\Work\DnaCalc\OxIde\target\release\oxide-uxlab.exe'
+    cwd: 'C:\Work\DnaCalc\OxIde'
+    args:
+      - '--audit'
+      - '--suite'
+      - 'firehorse'
+tabs:
+  - name: audit-lab
+    layout:
+      type: pane
+      name: oxide-audit-lab-studio-pane
+      session:
+        profile: oxide-audit-lab-studio

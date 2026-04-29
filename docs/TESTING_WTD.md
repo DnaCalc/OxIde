@@ -45,6 +45,10 @@ Scenario YAMLs live under `.wtd/`:
 - `.wtd/oxide-smoke.yaml` — thin-slice happy path (W037 baseline).
 - `.wtd/oxide-uxlab-smoke.yaml` — W038 `oxide-uxlab --once` smoke
   path and reusable lab capture convention.
+- `.wtd/oxide-audit-lab-studio.yaml` — W041 interactive Audit Lab in
+  Studio.
+- `.wtd/oxide-audit-lab-first-class.yaml` — W041 interactive Audit Lab
+  in First-class.
 - `.wtd/oxide-edit.yaml` — editor scenarios (W050).
 - `.wtd/oxide-diagnostics.yaml` — error / fix cycle (W060).
 - `.wtd/oxide-run.yaml` — build / run / immediate (W070).
@@ -70,6 +74,9 @@ WTD tests should declare a `LabScenarioJourney` from
 Horse journeys on the same suite/id/viewport contract as the W038 smoke
 scenario.
 
+Interactive Audit Lab tests use the same `Harness::open` path and drive
+the release `oxide-uxlab` cockpit through `tests/wtd/audit_lab.rs`.
+
 ## 4. Golden Snapshot Discipline
 
 - Goldens live at `tests/wtd/goldens/<workset>/<scenario>.vt` with a
@@ -94,6 +101,8 @@ terminal:
 ```text
 cargo build --release --bin ox-vt
 target\release\ox-vt.exe replay tests\wtd\goldens\W039\firehorse_editing_lens_standard.vt
+cargo build --release --bin oxide-uxlab
+cargo test --features wtd --test wtd_smoke audit_lab
 ```
 
 `replay` writes the captured VT bytes directly to stdout. Run it in a

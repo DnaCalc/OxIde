@@ -1,0 +1,16 @@
+{
+  "suite_id": "firehorse",
+  "scenario_ids": [
+    "firehorse-editing-lens-standard",
+    "firehorse-command-lens-standard"
+  ],
+  "viewports": [
+    "studio",
+    "first-class"
+  ],
+  "evaluation": [
+    "functional",
+    "aesthetic"
+  ],
+  "output_root": "target/ux_audit_lab/agent_run"
+}

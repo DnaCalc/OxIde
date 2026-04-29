@@ -4,6 +4,7 @@
 //! fixed viewport classes, and provider composition. Rendering and
 //! interactive browsing land in later beads.
 
+pub mod audit;
 pub mod firehorse;
 
 use std::collections::HashMap;
@@ -397,7 +398,7 @@ impl fmt::Display for LabRunError {
             Self::MissingOnceSelection => {
                 write!(
                     f,
-                    "interactive UX lab is not implemented yet; use --once or --list"
+                    "interactive base UX lab is not implemented yet; use --audit for the audit cockpit, or use --once/--list"
                 )
             }
             Self::MissingScenario => write!(f, "--once requires --scenario <id>"),
@@ -429,8 +430,29 @@ impl fmt::Display for LabRunError {
 
 impl Error for LabRunError {}
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LabRunOutcome {
+    Success,
+    AuditGateConcern,
+    AuditGateBlocked,
+}
+
+impl LabRunOutcome {
+    pub const fn exit_code(self) -> u8 {
+        match self {
+            Self::Success => 0,
+            Self::AuditGateConcern | Self::AuditGateBlocked => 1,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LabCliMode {
+    Batch,
+    Brief,
+    Evaluate,
+    Export,
+    Matrix,
     Once,
     List,
 }
@@ -441,6 +463,11 @@ pub struct LabCliSelection {
     pub scenario: Option<String>,
     pub viewport: Option<ViewportClass>,
     pub mode: Option<LabCliMode>,
+    pub audit: bool,
+    pub json: bool,
+    pub evaluate: Option<String>,
+    pub batch: Option<String>,
+    pub export: Option<String>,
     pub mockup: bool,
     pub ansi: bool,
 }
@@ -451,12 +478,20 @@ impl LabCliSelection {
         let mut scenario = None;
         let mut viewport = None;
         let mut mode = None;
+        let mut audit = false;
+        let mut json = false;
+        let mut evaluate = None;
+        let mut batch = None;
+        let mut export = None;
         let mut mockup = false;
         let mut ansi = false;
         let mut args = args.into_iter();
 
         while let Some(arg) = args.next() {
             match arg.as_str() {
+                "--audit" => {
+                    audit = true;
+                }
                 "--suite" => {
                     suite = Some(next_value(&mut args, "--suite")?);
                 }
@@ -472,6 +507,27 @@ impl LabCliSelection {
                 }
                 "--once" => {
                     mode = Some(LabCliMode::Once);
+                }
+                "--brief" => {
+                    mode = Some(LabCliMode::Brief);
+                }
+                "--evaluate" => {
+                    evaluate = Some(next_value(&mut args, "--evaluate")?);
+                    mode = Some(LabCliMode::Evaluate);
+                }
+                "--batch" => {
+                    batch = Some(next_value(&mut args, "--batch")?);
+                    mode = Some(LabCliMode::Batch);
+                }
+                "--export" => {
+                    export = Some(next_value(&mut args, "--export")?);
+                    mode = Some(LabCliMode::Export);
+                }
+                "--matrix" => {
+                    mode = Some(LabCliMode::Matrix);
+                }
+                "--json" => {
+                    json = true;
                 }
                 "--mockup" => {
                     mockup = true;
@@ -494,6 +550,11 @@ impl LabCliSelection {
             scenario,
             viewport,
             mode,
+            audit,
+            json,
+            evaluate,
+            batch,
+            export,
             mockup,
             ansi,
         })
@@ -507,16 +568,27 @@ fn next_value(
     args.next().ok_or(LabRunError::MissingValue { flag })
 }
 
-pub fn run_cli<I, W>(
+pub fn run_cli<I, W>(args: I, registry: &LabScenarioRegistry<'_>, out: W) -> Result<(), LabRunError>
+where
+    I: IntoIterator<Item = String>,
+    W: Write,
+{
+    run_cli_with_outcome(args, registry, out).map(|_| ())
+}
+
+pub fn run_cli_with_outcome<I, W>(
     args: I,
     registry: &LabScenarioRegistry<'_>,
     mut out: W,
-) -> Result<(), LabRunError>
+) -> Result<LabRunOutcome, LabRunError>
 where
     I: IntoIterator<Item = String>,
     W: Write,
 {
     let selection = LabCliSelection::parse(args)?;
+    if selection.audit {
+        return audit::run_audit_cli(&selection, registry, out);
+    }
     match selection.mode {
         Some(LabCliMode::List) => {
             writeln!(out, "OxIde UX lab scenarios")
@@ -536,7 +608,7 @@ where
             for row in rows {
                 writeln!(out, "{row}").map_err(|error| LabRunError::Io(error.to_string()))?;
             }
-            Ok(())
+            Ok(LabRunOutcome::Success)
         }
         Some(LabCliMode::Once) => {
             let suite = selection.suite.ok_or(LabRunError::MissingSuite)?;
@@ -558,8 +630,17 @@ where
                 write!(out, "{}", rendered.text)
                     .map_err(|error| LabRunError::Io(error.to_string()))?;
             }
-            Ok(())
+            Ok(LabRunOutcome::Success)
         }
+        Some(
+            LabCliMode::Batch
+            | LabCliMode::Brief
+            | LabCliMode::Evaluate
+            | LabCliMode::Export
+            | LabCliMode::Matrix,
+        ) => Err(LabRunError::UnknownArgument {
+            value: "audit-only mode requires --audit".to_string(),
+        }),
         None => Err(LabRunError::MissingOnceSelection),
     }
 }

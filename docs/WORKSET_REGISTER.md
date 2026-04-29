@@ -47,17 +47,19 @@ and evidence shape before work starts).
    projection contracts, command/action matrix, OxVba seam mapping)
 8. `W040` — project and workspace management shell over OxVba-owned
    truth
-9. `W045` — WTD demo backfill and affordance wiring audit
-10. `W050` — file and document lifecycle services in the TUI shell
-11. `W060` — full language-service UX over direct OxVba semantics
-12. `W070` — run / debug / immediate shell surfaces over OxVba
+9. `W041` — Fire Horse UX Audit Lab (`oxide-uxlab` audit cockpit over
+   personas, scenarios, mockups, state/action mappings, and OxVba seams)
+10. `W045` — WTD demo backfill and affordance wiring audit
+11. `W050` — file and document lifecycle services in the TUI shell
+12. `W060` — full language-service UX over direct OxVba semantics
+13. `W070` — run / debug / immediate shell surfaces over OxVba
     execution contracts
-13. `W080` — debug surfaces (callstack / locals / watches /
+14. `W080` — debug surfaces (callstack / locals / watches /
     breakpoints, step control)
-14. `W090` — command system and keymap profiles
-15. `W100` — terminal capability and onboarding (probe, degradation,
+15. `W090` — command system and keymap profiles
+16. `W100` — terminal capability and onboarding (probe, degradation,
     status-line hints)
-16. `W110` — polish, accessibility, and recovery; WTD regression
+17. `W110` — polish, accessibility, and recovery; WTD regression
     suite locked
 
 ## Workset Specs
@@ -70,6 +72,7 @@ and evidence shape before work starts).
 - [W038_ux_development_lab.md](worksets/W038_ux_development_lab.md)
 - [W039_firehorse_terminal_ux_proof.md](worksets/W039_firehorse_terminal_ux_proof.md)
 - [W040_project_workspace_management.md](worksets/W040_project_workspace_management.md)
+- [W041_firehorse_ux_audit_lab.md](worksets/W041_firehorse_ux_audit_lab.md)
 - [W045_wtd_demo_backfill.md](worksets/W045_wtd_demo_backfill.md)
 - [W050_file_document_services.md](worksets/W050_file_document_services.md)
 - [W060_full_language_service_ux.md](worksets/W060_full_language_service_ux.md)
