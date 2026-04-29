@@ -1,0 +1,42 @@
+  OXIDE FIRE HORSE UX LAB   Run Lane   target:ExcelDesktop   No cursor                                                                                          
+  NorthwindPricing   ok Ready   viewport:first-class 160x42   scenario:firehorse-run-lane-standard                                                              
+                                                                                                                                                                
+┌───────────Run Timeline────────────┐┌──────────────────────────Code Canvas  PriceFor.bas───────────────────────────┐┌───────────────Run Context───────────────┐
+│Prepare  complete   10ms           ││VBA    PriceFor.bas                                                           ││Run state is fixture-backed in W039.     │
+│  target: ExcelDesktop             ││                                                                              ││Active: Build on ExcelDesktop            │
+│  Prepare is Complete              ││   1     Option Explicit                                                      ││Build is Active                          │
+│                                   ││   3     Public Function PriceFor(productId As Long) As Currency              ││W070 owns real execution and Immediate   │
+│Analyze  complete  180ms           ││   4         Dim basePrice As Currency                                        ││behavior.                                │
+│  target: ExcelDesktop             ││   5         basePrice = LookupPrice(productId)                               ││                                         │
+│  Analyze is Complete              ││   6         PriceFor = ApplyRegionalDiscount(basePrice)                      ││                                         │
+│                                   ││   8  !      Debug.Print FormatCurrency(PriceFor)                             ││                                         │
+│Build    active    430ms           ││   9     End Function                                                         ││                                         │
+│  target: ExcelDesktop             ││                                                                              ││                                         │
+│  Build is Active                  ││                                                                              ││                                         │
+│                                   ││                                                                              ││                                         │
+│Execute  pending     0ms           ││                                                                              ││                                         │
+│  target: ExcelDesktop             ││                                                                              ││                                         │
+│  Execute is Pending               ││                                                                              ││                                         │
+│                                   ││                                                                              ││                                         │
+│Result   pending     0ms           ││                                                                              ││                                         │
+│  target: ExcelDesktop             ││                                                                              ││                                         │
+│  Result is Pending                ││                                                                              ││                                         │
+│                                   ││                                                                              ││                                         │
+│                                   ││                                                                              ││                                         │
+│                                   ││                                                                              ││                                         │
+│                                   ││                                                                              ││                                         │
+│                                   ││                                                                              ││                                         │
+│                                   ││                                                                              ││                                         │
+│                                   ││                                                                              ││                                         │
+│                                   ││                                                                              ││                                         │
+└───────────────────────────────────┘└──────────────────────────────────────────────────────────────────────────────┘└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────Activity Deck / Run Timeline─────────────────────────────────────────────────────────────────┐
+│active: Run Timeline                                                                                                                                          │
+│Run Timeline (5)  |  Output (3)  |  Immediate                                                                                                                 │
+│                                                                                                                                                              │
+│Prepare complete  Prepare is Complete                                                                                                                         │
+│Analyze complete  Analyze is Complete                                                                                                                         │
+│Build active  Build is Active                                                                                                                                 │
+│Execute pending  Execute is Pending                                                                                                                           │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+F8 Stop Run   Ctrl+G Immediate   Esc Return                                                                                                                     

@@ -1,0 +1,42 @@
+  OXIDE FIRE HORSE UX LAB   Launchpad   target:none   No cursor                                                                                                 
+  No project   ok Ready   viewport:first-class 160x42   scenario:firehorse-launchpad-standard                                                                   
+                                                                                                                                                                
+┌──────────────Start Surface──────────────┐┌──────────────────────────Recent Workspaces───────────────────────────┐┌───────────────Fit / Context───────────────┐
+│Open Project        Ctrl+O               ││RECENT   NorthwindPricing | ExcelDesktop | healthy | 2h ago           ││Capability posture: modern desktop terminal│
+│Create Project      Ctrl+N               ││RECENT   RibbonLab | ExcelAddIn | warning | yesterday                 ││preferred                                  │
+│Import Workbook     Ctrl+I               ││                                                                      ││Fallbacks stay honest, but do not define   │
+│Console Fit         F10                  ││                                                                      ││the high-end UX.                           │
+│                                         ││                                                                      ││ProjectSession unavailable: No project is  │
+│Start rows are commands with visible     ││                                                                      ││mounted in Launchpad.                      │
+│disabled reasons once W040 owns project  ││                                                                      ││                                           │
+│actions.                                 ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+│                                         ││                                                                      ││                                           │
+└─────────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────┘└───────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────Recent / Start Signals────────────────────────────────────────────────────────────────────┐
+│active: Output                                                                                                                                                │
+│Recent (3)                                                                                                                                                    │
+│                                                                                                                                                              │
+│SessionStore::recent_workspaces: NorthwindPricing | ExcelDesktop | healthy | 2h ago                                                                           │
+│SessionStore::recent_workspaces: RibbonLab | ExcelAddIn | warning | yesterday                                                                                 │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Ctrl+O Open Project   Ctrl+N Create Project   Ctrl+Shift+O Import   F10 Console Fit   Ctrl+Q Quit                                                               

@@ -1,0 +1,42 @@
+  OXIDE FIRE HORSE UX LAB   Console Fit   target:none   No cursor                                                                                               
+  Console Fit   ok Ready   viewport:first-class 160x42   scenario:firehorse-console-fit-light                                                                   
+                                                                                                                                                                
+┌───────────────────────Capability Signals────────────────────────┐┌──────────────────Recommendations───────────────────┐┌──────────Fallback Preview───────────┐
+│Truecolor pass; glyph fallback warning; input latency pass       ││truecolor: Use Graphite Ember or Paper Ember themes.││truecolor: preferred                 │
+│                                                                 ││box-glyphs: Prefer ASCII rail fallback for dense    ││unicode rails: preferred             │
+│truecolor      pass  24-bit color supported                      ││scenes.                                             ││ascii fallback: explicit             │
+│box-glyphs     warn  Heavy separators may degrade in this host   ││alternate-screen: Safe for WTD capture.             ││labels: always visible               │
+│alternate-screen pass  ConPTY alternate screen available         ││                                                    ││W100 owns live probing               │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+│                                                                 ││                                                    ││                                     │
+└─────────────────────────────────────────────────────────────────┘└────────────────────────────────────────────────────┘└─────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────Capability Activity──────────────────────────────────────────────────────────────────────┐
+│active: Output                                                                                                                                                │
+│Signals (3)                                                                                                                                                   │
+│                                                                                                                                                              │
+│TerminalCapabilityProbe: truecolor: Pass - Use Graphite Ember or Paper Ember themes.                                                                          │
+│TerminalCapabilityProbe: box-glyphs: Warn - Prefer ASCII rail fallback for dense scenes.                                                                      │
+│TerminalCapabilityProbe: alternate-screen: Pass - Safe for WTD capture.                                                                                       │
+│                                                                                                                                                              │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Enter Open Report   Enter Rerun Checks   Esc Return                                                                                                             

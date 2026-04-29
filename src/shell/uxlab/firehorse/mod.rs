@@ -6,6 +6,7 @@
 
 pub mod adapter;
 pub mod fixtures;
+pub mod mockup;
 pub mod projection;
 pub mod renderer;
 
@@ -31,22 +32,7 @@ impl LabScenarioProvider for FireHorseScenarioProvider {
         scenario_id: &str,
         viewport: ViewportClass,
     ) -> Result<LabRenderedFrame, LabRenderError> {
-        let scenario = FIRE_HORSE_SCENARIOS
-            .iter()
-            .find(|scenario| scenario.id == scenario_id)
-            .copied()
-            .ok_or_else(|| LabRenderError::UnknownScenario {
-                suite: self.suite(),
-                id: scenario_id.to_string(),
-            })?;
-        let projection = if scenario.id == adapter::REAL_EDITING_SCENARIO_ID {
-            adapter::thin_slice_editing_projection()
-        } else {
-            projection_for_scenario(scenario_id).ok_or_else(|| LabRenderError::UnknownScenario {
-                suite: self.suite(),
-                id: scenario_id.to_string(),
-            })?
-        };
+        let (scenario, projection) = scenario_projection(scenario_id)?;
 
         if scenario.id == "firehorse-launchpad-standard" {
             Ok(renderer::render_launchpad_frame(
@@ -99,6 +85,28 @@ impl LabScenarioProvider for FireHorseScenarioProvider {
         } else {
             Ok(render_fixture_summary(scenario, viewport, &projection))
         }
+    }
+
+    fn render_mockup(
+        &self,
+        scenario_id: &str,
+        viewport: ViewportClass,
+    ) -> Result<LabRenderedFrame, LabRenderError> {
+        let (scenario, projection) = scenario_projection(scenario_id)?;
+        Ok(mockup::render_mockup_frame(scenario, viewport, &projection))
+    }
+
+    fn render_mockup_terminal_stream(
+        &self,
+        scenario_id: &str,
+        viewport: ViewportClass,
+    ) -> Result<Vec<u8>, LabRenderError> {
+        let (scenario, projection) = scenario_projection(scenario_id)?;
+        Ok(mockup::render_mockup_terminal_stream(
+            scenario,
+            viewport,
+            &projection,
+        ))
     }
 }
 
@@ -170,6 +178,29 @@ pub static FIRE_HORSE_SCENARIOS: [LabScenarioDescriptor; 8] = [
         tags: &["firehorse", "real-editing", "adapter", "w039"],
     },
 ];
+
+fn scenario_projection(
+    scenario_id: &str,
+) -> Result<(LabScenarioDescriptor, FireHorseProjection), LabRenderError> {
+    let scenario = FIRE_HORSE_SCENARIOS
+        .iter()
+        .find(|scenario| scenario.id == scenario_id)
+        .copied()
+        .ok_or_else(|| LabRenderError::UnknownScenario {
+            suite: "firehorse",
+            id: scenario_id.to_string(),
+        })?;
+    let projection = if scenario.id == adapter::REAL_EDITING_SCENARIO_ID {
+        adapter::thin_slice_editing_projection()
+    } else {
+        projection_for_scenario(scenario_id).ok_or_else(|| LabRenderError::UnknownScenario {
+            suite: "firehorse",
+            id: scenario_id.to_string(),
+        })?
+    };
+
+    Ok((scenario, projection))
+}
 
 fn render_fixture_summary(
     scenario: LabScenarioDescriptor,

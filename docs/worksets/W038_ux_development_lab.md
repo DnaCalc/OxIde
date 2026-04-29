@@ -176,13 +176,19 @@ Review viewport classes:
 The visual review pack should compare:
 
 - approved colourful mockup PNG;
-- replayed or live terminal output from W039/W038 capture paths;
+- replayed or live terminal output from the FrankenTui mockup path;
 - plain text golden for contract review;
 - short notes on what was kept, what was lost, and what needs redesign.
 
 Editing Lens, Command Lens, Run Lane, and Debug Cockpit are the first
 review scenes. Launchpad, Console Fit, and Compact Focus follow after
 the core working surfaces feel right.
+
+The W039 text renderer remains useful as a contract surface, but it is
+not sufficient UX evidence. Phase 3a therefore adds a separate
+`oxide-uxlab --mockup` path that draws Fire Horse scenes with real
+FrankenTui widgets and can emit either plain cell text or an ANSI
+terminal stream with `--ansi`.
 
 ### Phase 4: interactive lab
 
@@ -529,6 +535,46 @@ polluting the shipping shell.
   - [ ] Fire Horse renderer has explicit high-end layout behavior.
   - [ ] Updated captures/goldens are reviewed.
   - [ ] No product renderer path changes.
+
+### W038-B15 — Fire Horse real FrankenTui mockup renderer
+
+**Feature (UX-lab renderer).**
+
+- **Goal.** Reviewers can run every Fire Horse scenario through
+  `oxide-uxlab --mockup` and see a real FrankenTui terminal mockup,
+  with Block/Flex/Paragraph layout, first-class/studio density, and an
+  optional ANSI stream suitable for live terminal review.
+- **Design.** Keep the existing W039 string renderer as the stable text
+  contract path for goldens. Add a separate mockup render mode on the
+  W038 lab provider contract:
+  - `--mockup` selects the FrankenTui mockup renderer;
+  - `--ansi` emits the styled terminal stream from FrankenTui's
+    presenter;
+  - without `--ansi`, `--mockup` emits plain cell text for review
+    artifacts and simple diffs.
+  The Fire Horse provider owns the mockup implementation and covers
+  Launchpad, Editing Lens, Command Lens, Run Lane, Debug Cockpit,
+  Console Fit, Compact Focus, and the real Editing adapter. No
+  production renderer path changes.
+- **Tests.**
+  - Unit contract: `--mockup` produces different output from the W039
+    contract renderer and includes FrankenTui block chrome.
+  - Unit contract: `--mockup --ansi` emits terminal escape sequences
+    and Fire Horse identity text.
+  - Unit contract: every Fire Horse scenario renders through the
+    mockup path with review surfaces visible.
+- **Evidence.**
+  - Fresh release binary can render at least Editing Lens Studio with
+    `oxide-uxlab --mockup`.
+  - Review captures under
+    `docs/firehorse_mockups/frankentui_terminal_review/` include text
+    and ANSI artifacts for the complete Fire Horse scenario set.
+- **Closure.**
+  - [ ] `--mockup` and `--mockup --ansi` work through `oxide-uxlab`.
+  - [ ] All Fire Horse scenarios render through the mockup path.
+  - [ ] Review artifacts cover the complete scenario set.
+  - [ ] Existing W039 text-contract path remains intact.
+  - [ ] No production renderer path changes.
 
 ### W038-B09 — Interactive `oxide-uxlab` scenario browser
 

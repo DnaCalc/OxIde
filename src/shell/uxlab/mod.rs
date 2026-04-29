@@ -106,6 +106,22 @@ pub trait LabScenarioProvider {
         scenario_id: &str,
         viewport: ViewportClass,
     ) -> Result<LabRenderedFrame, LabRenderError>;
+
+    fn render_mockup(
+        &self,
+        scenario_id: &str,
+        viewport: ViewportClass,
+    ) -> Result<LabRenderedFrame, LabRenderError> {
+        self.render(scenario_id, viewport)
+    }
+
+    fn render_mockup_terminal_stream(
+        &self,
+        scenario_id: &str,
+        viewport: ViewportClass,
+    ) -> Result<Vec<u8>, LabRenderError> {
+        Ok(self.render_mockup(scenario_id, viewport)?.text.into_bytes())
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -222,6 +238,44 @@ impl<'registry> LabScenarioRegistry<'registry> {
         let viewport = viewport.unwrap_or(descriptor.default_viewport);
         provider
             .render(descriptor.id, viewport)
+            .map_err(LabRunError::Render)
+    }
+
+    pub fn render_mockup(
+        &self,
+        suite: &str,
+        id: &str,
+        viewport: Option<ViewportClass>,
+    ) -> Result<LabRenderedFrame, LabRunError> {
+        let descriptor = self
+            .find(suite, id)
+            .ok_or_else(|| self.unknown_scenario(suite, id))?;
+        let provider = self
+            .providers_by_id
+            .get(descriptor.id)
+            .expect("registered descriptor must have a provider");
+        let viewport = viewport.unwrap_or(descriptor.default_viewport);
+        provider
+            .render_mockup(descriptor.id, viewport)
+            .map_err(LabRunError::Render)
+    }
+
+    pub fn render_mockup_terminal_stream(
+        &self,
+        suite: &str,
+        id: &str,
+        viewport: Option<ViewportClass>,
+    ) -> Result<Vec<u8>, LabRunError> {
+        let descriptor = self
+            .find(suite, id)
+            .ok_or_else(|| self.unknown_scenario(suite, id))?;
+        let provider = self
+            .providers_by_id
+            .get(descriptor.id)
+            .expect("registered descriptor must have a provider");
+        let viewport = viewport.unwrap_or(descriptor.default_viewport);
+        provider
+            .render_mockup_terminal_stream(descriptor.id, viewport)
             .map_err(LabRunError::Render)
     }
 
@@ -387,6 +441,8 @@ pub struct LabCliSelection {
     pub scenario: Option<String>,
     pub viewport: Option<ViewportClass>,
     pub mode: Option<LabCliMode>,
+    pub mockup: bool,
+    pub ansi: bool,
 }
 
 impl LabCliSelection {
@@ -395,6 +451,8 @@ impl LabCliSelection {
         let mut scenario = None;
         let mut viewport = None;
         let mut mode = None;
+        let mut mockup = false;
+        let mut ansi = false;
         let mut args = args.into_iter();
 
         while let Some(arg) = args.next() {
@@ -415,6 +473,12 @@ impl LabCliSelection {
                 "--once" => {
                     mode = Some(LabCliMode::Once);
                 }
+                "--mockup" => {
+                    mockup = true;
+                }
+                "--ansi" => {
+                    ansi = true;
+                }
                 "--list" => {
                     mode = Some(LabCliMode::List);
                 }
@@ -430,6 +494,8 @@ impl LabCliSelection {
             scenario,
             viewport,
             mode,
+            mockup,
+            ansi,
         })
     }
 }
@@ -475,8 +541,23 @@ where
         Some(LabCliMode::Once) => {
             let suite = selection.suite.ok_or(LabRunError::MissingSuite)?;
             let scenario = selection.scenario.ok_or(LabRunError::MissingScenario)?;
-            let rendered = registry.render(&suite, &scenario, selection.viewport)?;
-            write!(out, "{}", rendered.text).map_err(|error| LabRunError::Io(error.to_string()))?;
+            if selection.mockup && selection.ansi {
+                let stream = registry.render_mockup_terminal_stream(
+                    &suite,
+                    &scenario,
+                    selection.viewport,
+                )?;
+                out.write_all(&stream)
+                    .map_err(|error| LabRunError::Io(error.to_string()))?;
+            } else {
+                let rendered = if selection.mockup {
+                    registry.render_mockup(&suite, &scenario, selection.viewport)?
+                } else {
+                    registry.render(&suite, &scenario, selection.viewport)?
+                };
+                write!(out, "{}", rendered.text)
+                    .map_err(|error| LabRunError::Io(error.to_string()))?;
+            }
             Ok(())
         }
         None => Err(LabRunError::MissingOnceSelection),
@@ -597,7 +678,7 @@ fn write_text(frame: &mut Frame<'_>, x: u16, y: u16, text: &str) {
     }
 }
 
-fn frame_to_text(frame: &Frame<'_>) -> String {
+pub(crate) fn frame_to_text(frame: &Frame<'_>) -> String {
     let mut output = String::new();
     for y in 0..frame.height() {
         if y > 0 {
@@ -817,5 +898,84 @@ mod tests {
         assert!(text.contains("lab-smoke/lab-smoke-editing"));
         assert!(text.contains("standard 120x34"));
         assert!(text.contains("w038-phase-1"));
+    }
+
+    #[test]
+    fn mockup_flag_uses_frankentui_firehorse_renderer_without_replacing_contract_output() {
+        let registry = LabScenarioRegistry::built_in();
+        let mut contract_output = Vec::new();
+        let mut mockup_output = Vec::new();
+
+        run_cli(
+            [
+                "--suite",
+                "firehorse",
+                "--scenario",
+                "firehorse-editing-lens-standard",
+                "--viewport",
+                "standard",
+                "--once",
+            ]
+            .into_iter()
+            .map(String::from),
+            &registry,
+            &mut contract_output,
+        )
+        .expect("contract Fire Horse render should succeed");
+
+        run_cli(
+            [
+                "--suite",
+                "firehorse",
+                "--scenario",
+                "firehorse-editing-lens-standard",
+                "--viewport",
+                "standard",
+                "--once",
+                "--mockup",
+            ]
+            .into_iter()
+            .map(String::from),
+            &registry,
+            &mut mockup_output,
+        )
+        .expect("mockup Fire Horse render should succeed");
+
+        let contract = String::from_utf8(contract_output).expect("utf8 contract output");
+        let mockup = String::from_utf8(mockup_output).expect("utf8 mockup output");
+        assert!(contract.contains("Fire Horse Editing Lens"));
+        assert!(contract.contains("Identity Rail"));
+        assert!(mockup.contains("OXIDE FIRE HORSE UX LAB"));
+        assert!(mockup.contains("┌"));
+        assert_ne!(contract, mockup);
+    }
+
+    #[test]
+    fn mockup_ansi_flag_emits_terminal_stream() {
+        let registry = LabScenarioRegistry::built_in();
+        let mut output = Vec::new();
+
+        run_cli(
+            [
+                "--suite",
+                "firehorse",
+                "--scenario",
+                "firehorse-editing-lens-standard",
+                "--viewport",
+                "studio",
+                "--once",
+                "--mockup",
+                "--ansi",
+            ]
+            .into_iter()
+            .map(String::from),
+            &registry,
+            &mut output,
+        )
+        .expect("mockup ansi render should succeed");
+
+        let text = String::from_utf8(output).expect("utf8 ansi stream");
+        assert!(text.contains("\u{1b}["));
+        assert!(text.contains("OXIDE FIRE HORSE UX LAB"));
     }
 }

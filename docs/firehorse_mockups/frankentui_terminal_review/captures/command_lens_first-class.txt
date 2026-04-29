@@ -1,0 +1,42 @@
+  OXIDE FIRE HORSE UX LAB   Command Lens   target:ExcelDesktop   Ln 6 Col 18                                                                                    
+  NorthwindPricing   ok Ready   viewport:first-class 160x42   scenario:firehorse-command-lens-standard                                                          
+                                                                                                                                                                
+┌───────────Project Spine───────────┐┌──────────────────────────Code Canvas  PriceFor.bas───────────────────────────┐┌──────────────Context Dock───────────────┐
+│>  proj NorthwindPricing active    ││VBA    PriceFor.bas                                                           ││Context Dock                             │
+│>* mod    PriceFor.bas active      ││                                                                              ││Diagnostic  warning OXVBA-W060           │
+│   mod    Orders.bas               ││   1     Option Explicit                                                      ││line 8: Argument to FormatCurrency is    │
+│   form   CustomerView.frm         ││   3     Public Function PriceFor(productId As Long) As Currency              ││inferred as Variant; inspect return type.│
+│   tgt    ExcelDeskto┌──────────────────────────────────────────────────Command Lens───────────────────────────────────────────────────┐ession::diagnostics   │
+│   ref    VBA        │filter: run    selected: run.start                                                                               │                      │
+│                     │                                                                                                                 │                      │
+│                     │ACTIONS                                                                                                          │ceFor(productId As    │
+│                     │> Run Project              F5           run.start              enabled                                           │                      │
+│                     │  Stop Run                 F8           run.stop               disabled: No active run                           │ession::hover         │
+│                     │  Configure Target         Ctrl+K T     target.configure       enabled                                           │                      │
+│                     │  Switch Target            Ctrl+K Shift+T target.switch          enabled                                         │                      │
+│                     │                                                                                                                 │                      │
+│                     │PREVIEW                                                                                                          │                      │
+│                     │Run Project                                                                                                      │                      │
+│                     │Target: ExcelDesktop                                                                                             │                      │
+│                     │Runs the current OxVba project through the configured host.                                                      │                      │
+│                     │                                                                                                                 │                      │
+│                     │Enter Run selected   Ctrl+Enter Alternate   Esc Close                                                            │                      │
+│                     │                                                                                                                 │                      │
+│                     │                                                                                                                 │                      │
+│                     │                                                                                                                 │                      │
+│                     │                                                                                                                 │                      │
+│                     │                                                                                                                 │                      │
+│                     │                                                                                                                 │                      │
+│                     │                                                                                                                 │                      │
+│                     │                                                                                                                 │                      │
+└─────────────────────│                                                                                                                 │──────────────────────┘
+┌─────────────────────│                                                                                                                 │──────────────────────┐
+│active: Problems     └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                      │
+│Problems (1)  |  Output (0)  |  References (4)                                                                                                                │
+│                                                                                                                                                              │
+│OXVBA-W060 doc://NorthwindPricing/PriceFor.bas:8  Argument to FormatCurrency is inferred as Variant; inspect return type.                                     │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+text Type to filter   Enter Run selected   Tab Preview   Esc Close                                                                                              

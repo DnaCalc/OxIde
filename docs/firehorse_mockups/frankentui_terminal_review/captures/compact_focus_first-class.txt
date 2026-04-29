@@ -1,0 +1,42 @@
+  OXIDE FIRE HORSE UX LAB   Compact Focus   target:ExcelDesktop   Ln 8 Col 9                                                                                    
+  NorthwindPricing   ok Ready   viewport:first-class 160x42   scenario:firehorse-focus-compact                                                                  
+                                                                                                                                                                
+┌────────────────────────────────────────────────Code Canvas  PriceFor.bas  project/context/activity peek docks────────────────────────────────────────────────┐
+│VBA    PriceFor.bas                                                                                                                                           │
+│                                                                                                                                                              │
+│   1     Option Explicit                                                                                                                                      │
+│   3     Public Function PriceFor(productId As Long) As Currency                                                                                              │
+│   4         Dim basePrice As Currency                                                                                                                        │
+│   5         basePrice = LookupPrice(productId)                                                                                                               │
+│   6         PriceFor = ApplyRegionalDiscount(basePrice)                                                                                                      │
+│   8 >!      Debug.Print FormatCurrency(PriceFor)                                                                                                             │
+│   9     End Function                                                                                                                                         │
+│                                                                                                                                                              │
+│SOURCE LENS  Compact source lens                                                                                                                              │
+│source: LayoutPolicy / compact-focus-affordances                                                                                                              │
+│  Project, Context, and Activity are temporary docks.                                                                                                         │
+│actions: focus.project  focus.context  focus.activity                                                                                                         │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────Activity Rail─────────────────────────────────────────────────────────────────────────┐
+│active: Problems                                                                                                                                              │
+│Problems (1)                                                                                                                                                  │
+│                                                                                                                                                              │
+│OXVBA-W060 doc://NorthwindPricing/PriceFor.bas:8  Argument to FormatCurrency is inferred as Variant; inspect return type.                                     │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Alt+1 Project   Alt+2 Code   Alt+3 Context   Alt+4 Activity   F6 Command                                                                                        

@@ -139,6 +139,33 @@ and fixtures may live in lab-only modules, but scenario selection,
 viewport naming, process launch, and capture plumbing stay owned by
 W038.
 
+Corrective note from W038-B15: the original W039 renderer is now the
+plain text **contract renderer**. It proves scenario identity,
+projection coverage, and named surface contracts, but it is not the
+high-fidelity UX mockup surface. Real terminal UX review uses the
+W038-owned mode:
+
+```text
+cargo run --release --bin oxide-uxlab -- \
+  --suite firehorse \
+  --scenario firehorse-editing-lens-standard \
+  --viewport studio \
+  --once \
+  --mockup
+
+cargo run --release --bin oxide-uxlab -- \
+  --suite firehorse \
+  --scenario firehorse-editing-lens-standard \
+  --viewport studio \
+  --once \
+  --mockup \
+  --ansi
+```
+
+Downstream UX review should cite the `--mockup` artifacts for layout,
+density, and emotional fit against the colourful Fire Horse mockups,
+and cite the original W039 text goldens only for contract verification.
+
 In tests, W039 journeys should declare a `LabScenarioJourney` from
 `tests/support/mod.rs`, open it with `Harness::open_lab_once`, and
 capture with `capture_lab_once_text` / `capture_lab_once_vt`. Fire Horse
@@ -447,10 +474,14 @@ visual language has cell-safe fallbacks.
   Canvas with source lens, Context Dock, Activity Deck, and Key Rail
   are all visible and legible at the standard WTD size.
 - **Design.** Implement the Fire Horse renderer for the full surface
-  set. Use FrankenTui primitives; no CSS-like shadows. Source lens
-  becomes a bordered/railed cell-safe block anchored under the source
-  span. Key Rail is one row and no-wrap. The renderer is reached through
-  the W038 `oxide-uxlab --once` path, not a custom Fire Horse runner.
+  set. The original renderer remains the text-contract renderer for
+  WTD goldens. W038-B15 adds the real FrankenTui mockup mode for UX
+  review: `oxide-uxlab --once --mockup` for plain cell text and
+  `--mockup --ansi` for a styled terminal stream. Use FrankenTui
+  primitives; no CSS-like shadows. Source lens becomes a bordered/railed
+  cell-safe block anchored under the source span. Key Rail is one row
+  and no-wrap. Both renderer modes are reached through the W038
+  `oxide-uxlab --once` path, not a custom Fire Horse runner.
 - **Tests.**
   - Unit contract: projection renders required named regions.
   - Unit contract: Key Rail text fits the configured standard width or
