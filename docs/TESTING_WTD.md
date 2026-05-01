@@ -110,7 +110,36 @@ terminal pane where alternate-screen controls, colour, and cursor
 movement are acceptable. The command does not interpret the capture as
 product truth and does not modify goldens.
 
-## 6. Local And CI Loop
+## 6. Audit Lab Operator Shortcuts
+
+`oxide-uxlab` can generate a temporary WTD workspace for the current
+Fire Horse design realization. This is the preferred quick path when a
+reviewer wants to see the real ConPTY-rendered surface without remembering
+the checked-in `.wtd/oxide-firehorse-*.yaml` files:
+
+```text
+target\release\oxide-uxlab.exe --audit --suite firehorse --wtd-open
+target\release\oxide-uxlab.exe --audit --suite firehorse --scenario firehorse-editing-lens-standard --viewport studio --wtd-open
+```
+
+`--wtd-open` leaves the WTD workspace open and prints the target path plus
+the matching `wtd capture` commands.
+
+For durable evidence, use `--wtd-capture <root>`. The root must be under
+`target/ux_audit_lab` or `docs/firehorse_mockups/ux_audit_lab`; the
+command creates a unique run directory, writes the generated workspace,
+waits for a stable frame, and stores both flattened text and byte-exact
+VT:
+
+```text
+target\release\oxide-uxlab.exe --audit --suite firehorse --scenario firehorse-editing-lens-standard --viewport studio --wtd-capture target/ux_audit_lab/wtd_design --json
+```
+
+The command is an operator wrapper over the same WTD mechanism used by
+the `cargo test --features wtd` journeys. It does not replace the WTD
+goldens; it makes ad-hoc viewing and evidence capture easier.
+
+## 7. Local And CI Loop
 
 - Default: `cargo test` runs unit tests only. The `wtd` suite is
   gated behind a `wtd` cargo feature to keep the default loop fast.
@@ -121,7 +150,7 @@ product truth and does not modify goldens.
   (captures, diffs) are uploaded so reviewers can inspect failures
   visually.
 
-## 7. Risks And Known Gaps
+## 8. Risks And Known Gaps
 
 - `wtd` is Windows-only. Not a problem today (OxIde targets Windows
   first) but a future porting tax.
@@ -131,7 +160,7 @@ product truth and does not modify goldens.
   prior `wtd` run can prevent the next `cargo build --release`. The
   current workaround is `taskkill /F /IM ox-ide.exe` before rebuild.
 
-## 8. Pointers
+## 9. Pointers
 
 - `wtd` source: `C:/Work/WinTermDriver`.
 - `wtd` CLI reference: see the project README; `wtd open`, `wtd

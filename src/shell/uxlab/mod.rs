@@ -455,6 +455,8 @@ pub enum LabCliMode {
     Matrix,
     Once,
     List,
+    WtdCapture,
+    WtdOpen,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -468,6 +470,7 @@ pub struct LabCliSelection {
     pub evaluate: Option<String>,
     pub batch: Option<String>,
     pub export: Option<String>,
+    pub wtd_capture: Option<String>,
     pub mockup: bool,
     pub ansi: bool,
 }
@@ -483,6 +486,7 @@ impl LabCliSelection {
         let mut evaluate = None;
         let mut batch = None;
         let mut export = None;
+        let mut wtd_capture = None;
         let mut mockup = false;
         let mut ansi = false;
         let mut args = args.into_iter();
@@ -523,6 +527,13 @@ impl LabCliSelection {
                     export = Some(next_value(&mut args, "--export")?);
                     mode = Some(LabCliMode::Export);
                 }
+                "--wtd-capture" => {
+                    wtd_capture = Some(next_value(&mut args, "--wtd-capture")?);
+                    mode = Some(LabCliMode::WtdCapture);
+                }
+                "--wtd-open" | "--wtd-view" => {
+                    mode = Some(LabCliMode::WtdOpen);
+                }
                 "--matrix" => {
                     mode = Some(LabCliMode::Matrix);
                 }
@@ -555,6 +566,7 @@ impl LabCliSelection {
             evaluate,
             batch,
             export,
+            wtd_capture,
             mockup,
             ansi,
         })
@@ -637,7 +649,9 @@ where
             | LabCliMode::Brief
             | LabCliMode::Evaluate
             | LabCliMode::Export
-            | LabCliMode::Matrix,
+            | LabCliMode::Matrix
+            | LabCliMode::WtdCapture
+            | LabCliMode::WtdOpen,
         ) => Err(LabRunError::UnknownArgument {
             value: "audit-only mode requires --audit".to_string(),
         }),
@@ -979,6 +993,35 @@ mod tests {
         assert!(text.contains("lab-smoke/lab-smoke-editing"));
         assert!(text.contains("standard 120x34"));
         assert!(text.contains("w038-phase-1"));
+    }
+
+    #[test]
+    fn wtd_flags_are_audit_only_modes() {
+        let open = LabCliSelection::parse(
+            ["--audit", "--suite", "firehorse", "--wtd-open"]
+                .into_iter()
+                .map(String::from),
+        )
+        .expect("wtd open selection");
+        assert_eq!(open.mode, Some(LabCliMode::WtdOpen));
+
+        let capture = LabCliSelection::parse(
+            [
+                "--audit",
+                "--suite",
+                "firehorse",
+                "--wtd-capture",
+                "target/ux_audit_lab/wtd",
+            ]
+            .into_iter()
+            .map(String::from),
+        )
+        .expect("wtd capture selection");
+        assert_eq!(capture.mode, Some(LabCliMode::WtdCapture));
+        assert_eq!(
+            capture.wtd_capture.as_deref(),
+            Some("target/ux_audit_lab/wtd")
+        );
     }
 
     #[test]

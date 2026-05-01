@@ -7,6 +7,7 @@ pub mod registry;
 pub mod schema;
 pub mod score;
 pub mod view;
+pub mod wtd;
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -47,6 +48,12 @@ where
         Some(LabCliMode::Batch) => write_batch(selection, &audit_registry, lab_registry, &mut out),
         Some(LabCliMode::Export) => {
             write_export(selection, &audit_registry, lab_registry, &mut out)
+        }
+        Some(LabCliMode::WtdCapture) => {
+            write_wtd_capture(selection, &audit_registry, &mut out).map(|_| LabRunOutcome::Success)
+        }
+        Some(LabCliMode::WtdOpen) => {
+            write_wtd_open(selection, &audit_registry, &mut out).map(|_| LabRunOutcome::Success)
         }
         Some(LabCliMode::List) => {
             write_list(selection, &audit_registry, &mut out).map(|_| LabRunOutcome::Success)
@@ -541,6 +548,81 @@ where
         }
     }
     Ok(outcome)
+}
+
+fn write_wtd_open<W>(
+    selection: &LabCliSelection,
+    audit_registry: &UxAuditRegistry,
+    out: &mut W,
+) -> Result<(), LabRunError>
+where
+    W: Write,
+{
+    let suite_id = selection.suite.as_deref().unwrap_or("firehorse");
+    let suite = audit_registry
+        .suite(suite_id)
+        .ok_or_else(|| unknown_audit_suite(suite_id, audit_registry))?;
+    let result = wtd::open_design(selection, suite)?;
+
+    if selection.json {
+        write_json(out, "audit_wtd_open", result)
+    } else {
+        writeln!(
+            out,
+            "WTD design view opened: {}",
+            result.plan.workspace_name
+        )
+        .map_err(|error| LabRunError::Io(error.to_string()))?;
+        writeln!(out, "target: {}", result.plan.target)
+            .map_err(|error| LabRunError::Io(error.to_string()))?;
+        writeln!(out, "workspace: {}", result.plan.workspace_path)
+            .map_err(|error| LabRunError::Io(error.to_string()))?;
+        writeln!(out, "capture text: {}", result.plan.capture_text_command)
+            .map_err(|error| LabRunError::Io(error.to_string()))?;
+        writeln!(out, "capture VT: {}", result.plan.capture_vt_command)
+            .map_err(|error| LabRunError::Io(error.to_string()))
+    }
+}
+
+fn write_wtd_capture<W>(
+    selection: &LabCliSelection,
+    audit_registry: &UxAuditRegistry,
+    out: &mut W,
+) -> Result<(), LabRunError>
+where
+    W: Write,
+{
+    let root =
+        selection
+            .wtd_capture
+            .as_ref()
+            .map(PathBuf::from)
+            .ok_or(LabRunError::MissingValue {
+                flag: "--wtd-capture",
+            })?;
+    let suite_id = selection.suite.as_deref().unwrap_or("firehorse");
+    let suite = audit_registry
+        .suite(suite_id)
+        .ok_or_else(|| unknown_audit_suite(suite_id, audit_registry))?;
+    let result = wtd::capture_design(selection, suite, &root)?;
+
+    if selection.json {
+        write_json(out, "audit_wtd_capture", result)
+    } else {
+        writeln!(
+            out,
+            "WTD design capture: {} files written to {}",
+            result.files_written.len(),
+            result.root
+        )
+        .map_err(|error| LabRunError::Io(error.to_string()))?;
+        writeln!(out, "target: {}", result.plan.target)
+            .map_err(|error| LabRunError::Io(error.to_string()))?;
+        for file in &result.files_written {
+            writeln!(out, "- {file}").map_err(|error| LabRunError::Io(error.to_string()))?;
+        }
+        Ok(())
+    }
 }
 
 fn write_cockpit_once<W>(selection: &LabCliSelection, out: &mut W) -> Result<(), LabRunError>
