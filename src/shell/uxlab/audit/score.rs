@@ -1,6 +1,7 @@
 use super::fixtures::design_brief_for;
 use super::model::*;
 use crate::shell::uxlab::{LabRunError, LabScenarioRegistry, ViewportClass};
+use unicode_width::UnicodeWidthStr;
 
 pub fn scorecard_for(
     suite: &UxAuditSuite,
@@ -32,9 +33,14 @@ pub fn scorecard_for(
         scenario.firehorse_scenario_id,
         Some(viewport),
     )?;
-    let preflight = preflight(&rendered.text, &stream, &scenario.reference_artifacts);
+    let preflight = preflight(
+        &rendered.text,
+        &stream,
+        &scenario.reference_artifacts,
+        viewport,
+    );
     let functional = functional_results(suite, scenario);
-    let aesthetic = aesthetic_results(suite, scenario, &preflight);
+    let aesthetic = aesthetic_results(suite, scenario, viewport, &preflight);
     let gate = gate_for(functional.iter().chain(aesthetic.iter()));
     let brief = design_brief_for(suite, scenario.firehorse_scenario_id, viewport.name())
         .expect("scorecard scenario should have a design brief");
@@ -80,17 +86,19 @@ fn preflight(
     text: &str,
     ansi_stream: &[u8],
     artifacts: &[AuditArtifactRef],
+    viewport: ViewportClass,
 ) -> UxObjectivePreflight {
     let lines = text.lines().collect::<Vec<_>>();
+    let viewport_width = viewport.wtd_size().width as usize;
     let width = lines
         .iter()
-        .map(|line| line.len())
+        .map(|line| UnicodeWidthStr::width(*line))
         .max()
         .unwrap_or_default();
     let non_empty_lines = lines.iter().filter(|line| !line.trim().is_empty()).count();
     let dense_lines = lines
         .iter()
-        .filter(|line| line.trim().len() > width.saturating_div(2))
+        .filter(|line| UnicodeWidthStr::width(line.trim()) > viewport_width.saturating_div(2))
         .count();
 
     UxObjectivePreflight {
@@ -176,8 +184,10 @@ fn functional_results(suite: &UxAuditSuite, scenario: &UxAuditScenario) -> Vec<U
 fn aesthetic_results(
     suite: &UxAuditSuite,
     scenario: &UxAuditScenario,
+    viewport: ViewportClass,
     preflight: &UxObjectivePreflight,
 ) -> Vec<UxCriterionResult> {
+    let viewport_width = viewport.wtd_size().width as usize;
     suite
         .criteria
         .iter()
@@ -234,11 +244,21 @@ fn aesthetic_results(
                         )
                     }
                 }
-                AuditCategory::TextFit => (
-                    AuditStatus::Pass,
-                    AuditConfidence::Objective,
-                    "rendered lines stay within fixed viewport width",
-                ),
+                AuditCategory::TextFit => {
+                    if preflight.max_line_width <= viewport_width {
+                        (
+                            AuditStatus::Pass,
+                            AuditConfidence::Objective,
+                            "rendered lines stay within fixed viewport width",
+                        )
+                    } else {
+                        (
+                            AuditStatus::Fail,
+                            AuditConfidence::Objective,
+                            "rendered lines exceed fixed viewport width",
+                        )
+                    }
+                }
                 AuditCategory::EmotionalFit => (
                     AuditStatus::Concern,
                     AuditConfidence::ManualRequired,
@@ -310,5 +330,42 @@ mod tests {
                     && result.status == AuditStatus::Concern)
         );
         assert!(scorecard.objective_preflight.has_ansi_stream);
+        assert_eq!(
+            scorecard.objective_preflight.max_line_width,
+            ViewportClass::Studio.wtd_size().width as usize
+        );
+    }
+
+    #[test]
+    fn preflight_uses_terminal_cell_width_for_box_drawing() {
+        let preflight = preflight("┌──┐\nwide\n", b"\x1b[0m", &[], ViewportClass::Standard);
+
+        assert_eq!(preflight.width, 4);
+        assert_eq!(preflight.max_line_width, 4);
+    }
+
+    #[test]
+    fn text_fit_fails_when_render_exceeds_viewport_width() {
+        let suite = firehorse_audit_suite();
+        let scenario = suite
+            .find_scenario("firehorse-editing-lens-standard")
+            .expect("scenario");
+        let viewport_width = ViewportClass::Studio.wtd_size().width as usize;
+        let preflight = UxObjectivePreflight {
+            width: (viewport_width + 1) as u16,
+            height: 1,
+            non_empty_lines: 1,
+            dense_lines: 1,
+            max_line_width: viewport_width + 1,
+            has_ansi_stream: true,
+            has_reference_image: true,
+            has_terminal_capture: true,
+        };
+
+        let results = aesthetic_results(&suite, scenario, ViewportClass::Studio, &preflight);
+
+        assert!(results.iter().any(|result| {
+            result.criterion_id == "aesthetic.text_fit" && result.status == AuditStatus::Fail
+        }));
     }
 }

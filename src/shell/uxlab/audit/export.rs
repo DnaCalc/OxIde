@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use serde::Serialize;
 
@@ -304,9 +304,37 @@ pub fn scenario_markdown(
 }
 
 pub fn is_audit_export_root(path: &Path) -> bool {
-    let normalized = path.to_string_lossy().replace('\\', "/");
-    normalized.contains("docs/firehorse_mockups/ux_audit_lab")
-        || normalized.contains("target/ux_audit_lab")
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let candidate = if path.is_absolute() {
+        normalize_path(path)
+    } else {
+        normalize_path(&cwd.join(path))
+    };
+    let allowed_roots = [
+        cwd.join("docs/firehorse_mockups/ux_audit_lab"),
+        cwd.join("target/ux_audit_lab"),
+    ];
+
+    allowed_roots
+        .iter()
+        .map(|root| normalize_path(root))
+        .any(|root| candidate.starts_with(root))
+}
+
+fn normalize_path(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                normalized.pop();
+            }
+            Component::Normal(part) => normalized.push(part),
+            Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
+            Component::RootDir => normalized.push(component.as_os_str()),
+        }
+    }
+    normalized
 }
 
 fn review_readme(
@@ -443,5 +471,11 @@ mod tests {
             "target/ux_audit_lab/export-smoke"
         )));
         assert!(!is_audit_export_root(Path::new("docs")));
+        assert!(!is_audit_export_root(Path::new(
+            "docs/firehorse_mockups/ux_audit_lab_sibling/export"
+        )));
+        assert!(!is_audit_export_root(Path::new(
+            "target/ux_audit_lab_sibling/export"
+        )));
     }
 }

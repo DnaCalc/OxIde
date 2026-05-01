@@ -732,6 +732,7 @@ dependencies = [
  "oxvba-web-shell",
  "serde",
  "serde_json",
+ "unicode-width",
 ]
 
 [[package]]
