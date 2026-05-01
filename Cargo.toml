@@ -6,7 +6,9 @@ description = "Console micro-IDE companion for OxVba"
 publish = false
 
 [dependencies]
+ab_glyph = "0.2"
 ftui = { path = "../../FrankenTui.NET/.external/frankentui/crates/ftui", default-features = false, features = ["crossterm"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
 oxvba-languageservice = { path = ".external/oxvba-frozen/crates/oxvba-languageservice" }
 oxvba-project = { path = ".external/oxvba-frozen/crates/oxvba-project" }
 oxvba-web-host = { path = ".external/oxvba-frozen/crates/oxvba-web-host" }

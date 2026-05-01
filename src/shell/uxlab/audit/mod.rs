@@ -7,6 +7,7 @@ pub mod registry;
 pub mod schema;
 pub mod score;
 pub mod view;
+pub mod visual;
 pub mod wtd;
 
 use std::io::Write;
@@ -48,6 +49,10 @@ where
         Some(LabCliMode::Batch) => write_batch(selection, &audit_registry, lab_registry, &mut out),
         Some(LabCliMode::Export) => {
             write_export(selection, &audit_registry, lab_registry, &mut out)
+        }
+        Some(LabCliMode::VisualReview) => {
+            write_visual_review(selection, &audit_registry, lab_registry, &mut out)
+                .map(|_| LabRunOutcome::Success)
         }
         Some(LabCliMode::WtdCapture) => {
             write_wtd_capture(selection, &audit_registry, &mut out).map(|_| LabRunOutcome::Success)
@@ -581,6 +586,46 @@ where
             .map_err(|error| LabRunError::Io(error.to_string()))?;
         writeln!(out, "capture VT: {}", result.plan.capture_vt_command)
             .map_err(|error| LabRunError::Io(error.to_string()))
+    }
+}
+
+fn write_visual_review<W>(
+    selection: &LabCliSelection,
+    audit_registry: &UxAuditRegistry,
+    lab_registry: &LabScenarioRegistry<'_>,
+    out: &mut W,
+) -> Result<(), LabRunError>
+where
+    W: Write,
+{
+    let root =
+        selection
+            .visual_review
+            .as_ref()
+            .map(PathBuf::from)
+            .ok_or(LabRunError::MissingValue {
+                flag: "--visual-review",
+            })?;
+    let suite_id = selection.suite.as_deref().unwrap_or("firehorse");
+    let suite = audit_registry
+        .suite(suite_id)
+        .ok_or_else(|| unknown_audit_suite(suite_id, audit_registry))?;
+    let result = visual::export_visual_review(selection, suite, lab_registry, &root)?;
+
+    if selection.json {
+        write_json(out, "audit_visual_review", result)
+    } else {
+        writeln!(
+            out,
+            "Visual review: {} files written to {}",
+            result.files_written.len(),
+            result.root
+        )
+        .map_err(|error| LabRunError::Io(error.to_string()))?;
+        for file in &result.files_written {
+            writeln!(out, "- {file}").map_err(|error| LabRunError::Io(error.to_string()))?;
+        }
+        Ok(())
     }
 }
 

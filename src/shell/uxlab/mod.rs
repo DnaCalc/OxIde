@@ -455,6 +455,7 @@ pub enum LabCliMode {
     Matrix,
     Once,
     List,
+    VisualReview,
     WtdCapture,
     WtdOpen,
 }
@@ -470,6 +471,7 @@ pub struct LabCliSelection {
     pub evaluate: Option<String>,
     pub batch: Option<String>,
     pub export: Option<String>,
+    pub visual_review: Option<String>,
     pub wtd_capture: Option<String>,
     pub mockup: bool,
     pub ansi: bool,
@@ -486,6 +488,7 @@ impl LabCliSelection {
         let mut evaluate = None;
         let mut batch = None;
         let mut export = None;
+        let mut visual_review = None;
         let mut wtd_capture = None;
         let mut mockup = false;
         let mut ansi = false;
@@ -527,6 +530,10 @@ impl LabCliSelection {
                     export = Some(next_value(&mut args, "--export")?);
                     mode = Some(LabCliMode::Export);
                 }
+                "--visual-review" | "--png-review" => {
+                    visual_review = Some(next_value(&mut args, "--visual-review")?);
+                    mode = Some(LabCliMode::VisualReview);
+                }
                 "--wtd-capture" => {
                     wtd_capture = Some(next_value(&mut args, "--wtd-capture")?);
                     mode = Some(LabCliMode::WtdCapture);
@@ -566,6 +573,7 @@ impl LabCliSelection {
             evaluate,
             batch,
             export,
+            visual_review,
             wtd_capture,
             mockup,
             ansi,
@@ -650,6 +658,7 @@ where
             | LabCliMode::Evaluate
             | LabCliMode::Export
             | LabCliMode::Matrix
+            | LabCliMode::VisualReview
             | LabCliMode::WtdCapture
             | LabCliMode::WtdOpen,
         ) => Err(LabRunError::UnknownArgument {
@@ -1021,6 +1030,30 @@ mod tests {
         assert_eq!(
             capture.wtd_capture.as_deref(),
             Some("target/ux_audit_lab/wtd")
+        );
+    }
+
+    #[test]
+    fn visual_review_flag_is_audit_only_mode() {
+        let selection = LabCliSelection::parse(
+            [
+                "--audit",
+                "--suite",
+                "firehorse",
+                "--scenario",
+                "firehorse-editing-lens-standard",
+                "--visual-review",
+                "target/ux_audit_lab/visual_review",
+            ]
+            .into_iter()
+            .map(String::from),
+        )
+        .expect("visual review selection");
+
+        assert_eq!(selection.mode, Some(LabCliMode::VisualReview));
+        assert_eq!(
+            selection.visual_review.as_deref(),
+            Some("target/ux_audit_lab/visual_review")
         );
     }
 

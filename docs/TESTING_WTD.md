@@ -141,7 +141,24 @@ The command is an operator wrapper over the same WTD mechanism used by
 the `cargo test --features wtd` journeys. It does not replace the WTD
 goldens; it makes ad-hoc viewing and evidence capture easier.
 
-## 7. Local And CI Loop
+## 7. Fixed Image Review
+
+When WTD resizing makes visual judgement hard, use the Audit Lab PNG
+review export. It renders the same ANSI terminal stream into fixed-size
+PNG files, writes the raw ANSI stream, and creates side-by-side comparison
+images against the refined Fire Horse mockups when a reference image is
+registered:
+
+```text
+target\release\oxide-uxlab.exe --audit --suite firehorse --scenario firehorse-editing-lens-standard --viewport studio --visual-review target/ux_audit_lab/visual_review --json
+target\release\oxide-uxlab.exe --audit --suite firehorse --visual-review target/ux_audit_lab/visual_review --json
+```
+
+The output root must be under `target/ux_audit_lab` or
+`docs/firehorse_mockups/ux_audit_lab`. The command creates a unique run
+directory and includes a contact sheet for quick scanning.
+
+## 8. Local And CI Loop
 
 - Default: `cargo test` runs unit tests only. The `wtd` suite is
   gated behind a `wtd` cargo feature to keep the default loop fast.
@@ -152,7 +169,7 @@ goldens; it makes ad-hoc viewing and evidence capture easier.
   (captures, diffs) are uploaded so reviewers can inspect failures
   visually.
 
-## 8. Risks And Known Gaps
+## 9. Risks And Known Gaps
 
 - `wtd` is Windows-only. Not a problem today (OxIde targets Windows
   first) but a future porting tax.
@@ -162,7 +179,7 @@ goldens; it makes ad-hoc viewing and evidence capture easier.
   prior `wtd` run can prevent the next `cargo build --release`. The
   current workaround is `taskkill /F /IM ox-ide.exe` before rebuild.
 
-## 9. Pointers
+## 10. Pointers
 
 - `wtd` source: `C:/Work/WinTermDriver`.
 - `wtd` CLI reference: see the project README; `wtd open`, `wtd
