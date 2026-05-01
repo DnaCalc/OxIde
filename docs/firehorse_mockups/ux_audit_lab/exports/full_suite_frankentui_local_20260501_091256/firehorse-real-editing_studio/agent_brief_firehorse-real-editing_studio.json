@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "kind": "audit_design_brief",
+  "data": {
+    "scenario_id": "audit-real-editing-adapter-honesty",
+    "firehorse_scenario_id": "firehorse-real-editing",
+    "viewport": "studio",
+    "persona_id": "migration_reviewer",
+    "design_intent": "Adapter output should show current shell state while marking missing seams explicitly.",
+    "aesthetic_target": "The interface is honest about current and future seam ownership.",
+    "must_preserve": [
+      "projection ownership remains one-way",
+      "reference artifact and terminal capture stay linked",
+      "no production behavior is implied by fixture data"
+    ],
+    "likely_files": [
+      "src/shell/uxlab/firehorse/mockup.rs",
+      "src/shell/uxlab/firehorse/fixtures.rs",
+      "src/shell/uxlab/audit/",
+      "docs/firehorse_mockups/ux_audit_lab/"
+    ],
+    "render_commands": [
+      "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-real-editing --viewport studio --once --mockup",
+      "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-real-editing --viewport studio --once --mockup --ansi"
+    ],
+    "evaluation_commands": [
+      "target/release/oxide-uxlab.exe --audit --suite firehorse --scenario firehorse-real-editing --viewport studio --once --json",
+      "target/release/oxide-uxlab.exe --audit --suite firehorse --scenario firehorse-real-editing --viewport studio --evaluate functional,aesthetic --json"
+    ],
+    "reference_artifacts": [
+      {
+        "kind": "image",
+        "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+        "title": "Editing Lens mockup reference",
+        "authority": true
+      },
+      {
+        "kind": "terminal_capture",
+        "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/real_editing_adapter_studio.txt",
+        "title": "Real Editing Adapter Studio capture",
+        "authority": true
+      }
+    ]
+  }
+}

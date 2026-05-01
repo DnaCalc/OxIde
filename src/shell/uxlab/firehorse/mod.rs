@@ -202,6 +202,12 @@ fn scenario_projection(
     Ok((scenario, projection))
 }
 
+pub fn projection_for_scenario_id(
+    scenario_id: &str,
+) -> Result<(LabScenarioDescriptor, FireHorseProjection), LabRenderError> {
+    scenario_projection(scenario_id)
+}
+
 fn render_fixture_summary(
     scenario: LabScenarioDescriptor,
     viewport: ViewportClass,

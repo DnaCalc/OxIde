@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "kind": "audit_design_brief",
+  "data": {
+    "scenario_id": "audit-debug-cockpit-paused",
+    "firehorse_scenario_id": "firehorse-debug-cockpit-standard",
+    "viewport": "studio",
+    "persona_id": "debug_responder",
+    "design_intent": "Debug state should make pause location, stack, locals, watches, and step controls precise without burying source.",
+    "aesthetic_target": "Paused debug state feels controlled, recoverable, and precise.",
+    "must_preserve": [
+      "paused state is unmistakable",
+      "call stack, locals, watches, and step controls remain grouped",
+      "debug semantics remain marked as W080-owned future contract"
+    ],
+    "likely_files": [
+      "src/shell/uxlab/firehorse/mockup.rs",
+      "src/shell/uxlab/firehorse/fixtures.rs",
+      "src/shell/uxlab/audit/",
+      "docs/firehorse_mockups/ux_audit_lab/"
+    ],
+    "render_commands": [
+      "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-debug-cockpit-standard --viewport studio --once --mockup",
+      "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-debug-cockpit-standard --viewport studio --once --mockup --ansi"
+    ],
+    "evaluation_commands": [
+      "target/release/oxide-uxlab.exe --audit --suite firehorse --scenario firehorse-debug-cockpit-standard --viewport studio --once --json",
+      "target/release/oxide-uxlab.exe --audit --suite firehorse --scenario firehorse-debug-cockpit-standard --viewport studio --evaluate functional,aesthetic --json"
+    ],
+    "reference_artifacts": [
+      {
+        "kind": "image",
+        "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+        "title": "Debug Cockpit mockup",
+        "authority": true
+      },
+      {
+        "kind": "terminal_capture",
+        "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/debug_cockpit_studio.txt",
+        "title": "Debug Cockpit Studio capture",
+        "authority": true
+      }
+    ]
+  }
+}

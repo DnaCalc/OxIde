@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "kind": "audit_design_brief",
+  "data": {
+    "scenario_id": "audit-command-lens-run",
+    "firehorse_scenario_id": "firehorse-command-lens-standard",
+    "viewport": "first-class",
+    "persona_id": "terminal_power_user",
+    "design_intent": "Command search should feel modern and fast, with preview, action ids, and disabled reasons visible.",
+    "aesthetic_target": "The TUI feels more efficient and emotionally sharper than a comparable GUI.",
+    "must_preserve": [
+      "overlay shows filter, rows, preview, and disabled reasons",
+      "action ids remain stable",
+      "backing source remains legible enough to orient the user"
+    ],
+    "likely_files": [
+      "src/shell/uxlab/firehorse/mockup.rs",
+      "src/shell/uxlab/firehorse/fixtures.rs",
+      "src/shell/uxlab/audit/",
+      "docs/firehorse_mockups/ux_audit_lab/"
+    ],
+    "render_commands": [
+      "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-command-lens-standard --viewport first-class --once --mockup",
+      "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-command-lens-standard --viewport first-class --once --mockup --ansi"
+    ],
+    "evaluation_commands": [
+      "target/release/oxide-uxlab.exe --audit --suite firehorse --scenario firehorse-command-lens-standard --viewport first-class --once --json",
+      "target/release/oxide-uxlab.exe --audit --suite firehorse --scenario firehorse-command-lens-standard --viewport first-class --evaluate functional,aesthetic --json"
+    ],
+    "reference_artifacts": [
+      {
+        "kind": "image",
+        "path": "docs/firehorse_mockups/refined_03_command_lens.png",
+        "title": "Command Lens mockup",
+        "authority": true
+      },
+      {
+        "kind": "terminal_capture",
+        "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/command_lens_first-class.txt",
+        "title": "Command Lens First-class capture",
+        "authority": true
+      }
+    ]
+  }
+}

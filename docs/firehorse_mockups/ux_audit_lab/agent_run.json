@@ -1,8 +1,13 @@
 {
   "suite_id": "firehorse",
   "scenario_ids": [
+    "firehorse-launchpad-standard",
     "firehorse-editing-lens-standard",
-    "firehorse-command-lens-standard"
+    "firehorse-command-lens-standard",
+    "firehorse-run-lane-standard",
+    "firehorse-debug-cockpit-standard",
+    "firehorse-console-fit-light",
+    "firehorse-focus-compact"
   ],
   "viewports": [
     "studio",

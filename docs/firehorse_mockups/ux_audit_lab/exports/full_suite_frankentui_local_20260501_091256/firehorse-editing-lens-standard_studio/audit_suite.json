@@ -1,0 +1,819 @@
+{
+  "schema_version": 1,
+  "kind": "audit_suite",
+  "data": {
+    "schema_version": 1,
+    "id": "firehorse",
+    "title": "Fire Horse UX Audit",
+    "personas": [
+      {
+        "id": "pricing_maintainer",
+        "title": "Pricing Maintainer",
+        "role": "Excel/VBA maintainer responsible for pricing logic.",
+        "job_pressure": "Needs fast confidence while editing and running business-critical code.",
+        "goals": [
+          "Keep source context central while inspecting diagnostics.",
+          "Run the pricing project without losing the active source trail.",
+          "Understand semantic warnings without guessing their provenance."
+        ],
+        "constraints": [
+          "Works inside a terminal on a desktop workstation.",
+          "Needs host truth from OxVba, not decorative UI inference."
+        ],
+        "delight_target": "The IDE feels dense, fast, and calm enough to trust during pricing changes.",
+        "failure_modes": [
+          "Diagnostic context hides source code.",
+          "Run state feels detached from the active module.",
+          "Semantic claims have no seam provenance."
+        ],
+        "source_refs": [
+          {
+            "kind": "doc",
+            "path": "docs/uxpass/10_user_journeys.md",
+            "title": "W035 user journeys",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "id": "migration_reviewer",
+        "title": "Migration Reviewer",
+        "role": "Developer reviewing inherited VBA during modernization.",
+        "job_pressure": "Needs meaning, provenance, and navigation without breaking host truth.",
+        "goals": [
+          "See which semantic facts are available and which are not.",
+          "Trace project and document facts back to OxVba-shaped seams."
+        ],
+        "constraints": [
+          "Cannot accept UI copy as semantic truth.",
+          "Needs explicit unavailable data rather than guessed semantics."
+        ],
+        "delight_target": "The interface is honest about current and future seam ownership.",
+        "failure_modes": [
+          "Adapter output implies unsupported semantics.",
+          "Missing seam data is hidden in polished UI copy."
+        ],
+        "source_refs": [
+          {
+            "kind": "doc",
+            "path": "docs/firehorse_mockups/UX_PROJECTION_CONTRACT.md",
+            "title": "Fire Horse projection contract",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "id": "debug_responder",
+        "title": "Debug Responder",
+        "role": "User diagnosing a live macro failure.",
+        "job_pressure": "Needs paused-state clarity, stack/local visibility, and safe recovery.",
+        "goals": [
+          "Understand where execution is paused.",
+          "Inspect call stack, locals, watches, and Immediate affordances together."
+        ],
+        "constraints": [
+          "Debug data is still a fixture until W080 owns the real contract.",
+          "Step controls must be visible without overwhelming source context."
+        ],
+        "delight_target": "Paused debug state feels controlled, recoverable, and precise.",
+        "failure_modes": [
+          "Paused line and stack relationship is unclear.",
+          "Watches and locals look like a generic dump."
+        ],
+        "source_refs": [
+          {
+            "kind": "doc",
+            "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+            "title": "Debug Cockpit mockup",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "id": "terminal_power_user",
+        "title": "Terminal Power User",
+        "role": "Developer choosing OxIde because terminal workflow is faster.",
+        "job_pressure": "Needs dense, precise, low-friction command and viewport behavior.",
+        "goals": [
+          "Use high-end terminal width as a strength.",
+          "See command affordances and disabled reasons without modal confusion.",
+          "Scale down honestly without flattening the primary desktop experience."
+        ],
+        "constraints": [
+          "Truecolor and terminal-cell craft matter.",
+          "Compact mode is a fallback posture, not the design baseline."
+        ],
+        "delight_target": "The TUI feels more efficient and emotionally sharper than a comparable GUI.",
+        "failure_modes": [
+          "High-end layouts waste space.",
+          "Command rows feel like old console menus.",
+          "Compact compromises leak into Studio and First-class design."
+        ],
+        "source_refs": [
+          {
+            "kind": "doc",
+            "path": "docs/DESIGN_TUI_2026_FIRE_HORSE.md",
+            "title": "Fire Horse UX doctrine",
+            "authority": true
+          }
+        ]
+      }
+    ],
+    "scenarios": [
+      {
+        "id": "audit-launchpad-cold-start",
+        "firehorse_scenario_id": "firehorse-launchpad-standard",
+        "persona_id": "terminal_power_user",
+        "title": "Launchpad cold-start confidence",
+        "intent": "Cold-start should expose recent work, start actions, and console-fit posture without feeling like a landing page.",
+        "default_viewport": "studio",
+        "steps": [
+          {
+            "id": "primary",
+            "title": "Primary audit posture",
+            "user_intent": "Start or reopen work from a capable high-end terminal posture.",
+            "expected_surfaces": [
+              {
+                "surface": "Identity Rail",
+                "projection_path": "identity",
+                "visible_contract": "workspace and readiness posture",
+                "owner_workset": "W110"
+              },
+              {
+                "surface": "Start Context",
+                "projection_path": "context_dock",
+                "visible_contract": "honest no-project state",
+                "owner_workset": "W040"
+              },
+              {
+                "surface": "Key Rail",
+                "projection_path": "key_rail.hints",
+                "visible_contract": "start commands with action ids",
+                "owner_workset": "W090"
+              }
+            ],
+            "expected_actions": [
+              "project.open",
+              "project.create",
+              "app.console_fit"
+            ],
+            "state_refs": [
+              {
+                "owner": "FireHorseProjection",
+                "field": "scenario_id",
+                "downstream_workset": "W039"
+              }
+            ],
+            "seam_refs": [
+              {
+                "source": "ProjectSession",
+                "status": "unavailable",
+                "downstream_workset": "W040"
+              }
+            ]
+          }
+        ],
+        "reference_artifacts": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_01_launchpad.png",
+            "title": "Launchpad mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/launchpad_studio.txt",
+            "title": "Launchpad Studio capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "id": "audit-editing-lens-pricing",
+        "firehorse_scenario_id": "firehorse-editing-lens-standard",
+        "persona_id": "pricing_maintainer",
+        "title": "Editing Lens pricing loop",
+        "intent": "The main high-end editing scene should preserve source dominance while surfacing diagnostics, hover provenance, activity state, and command affordances.",
+        "default_viewport": "studio",
+        "steps": [
+          {
+            "id": "primary",
+            "title": "Primary audit posture",
+            "user_intent": "Maintain a pricing function with semantic confidence.",
+            "expected_surfaces": [
+              {
+                "surface": "Code Canvas",
+                "projection_path": "code_canvas",
+                "visible_contract": "source-centered editing and lens",
+                "owner_workset": "W050"
+              },
+              {
+                "surface": "Context Dock",
+                "projection_path": "context_dock.cards",
+                "visible_contract": "diagnostic and symbol cards",
+                "owner_workset": "W060"
+              },
+              {
+                "surface": "Activity Deck",
+                "projection_path": "activity_deck",
+                "visible_contract": "Problems/Output/References task surface",
+                "owner_workset": "W060"
+              },
+              {
+                "surface": "Key Rail",
+                "projection_path": "key_rail.hints",
+                "visible_contract": "save, semantic, run, command actions",
+                "owner_workset": "W090"
+              }
+            ],
+            "expected_actions": [
+              "editor.save",
+              "command.lens.open",
+              "semantic.hover",
+              "run.start"
+            ],
+            "state_refs": [
+              {
+                "owner": "FireHorseProjection",
+                "field": "scenario_id",
+                "downstream_workset": "W039"
+              }
+            ],
+            "seam_refs": [
+              {
+                "source": "HostWorkspaceSession::diagnostics",
+                "status": "real",
+                "downstream_workset": "W060"
+              },
+              {
+                "source": "HostWorkspaceSession::hover",
+                "status": "real",
+                "downstream_workset": "W060"
+              }
+            ]
+          }
+        ],
+        "reference_artifacts": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+            "title": "Editing Lens mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+            "title": "Editing Lens Studio capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "id": "audit-command-lens-run",
+        "firehorse_scenario_id": "firehorse-command-lens-standard",
+        "persona_id": "terminal_power_user",
+        "title": "Command Lens run selection",
+        "intent": "Command search should feel modern and fast, with preview, action ids, and disabled reasons visible.",
+        "default_viewport": "first-class",
+        "steps": [
+          {
+            "id": "primary",
+            "title": "Primary audit posture",
+            "user_intent": "Filter to run commands and understand what can execute.",
+            "expected_surfaces": [
+              {
+                "surface": "Overlay",
+                "projection_path": "overlay.CommandLens",
+                "visible_contract": "filter, rows, preview, disabled reasons",
+                "owner_workset": "W090"
+              },
+              {
+                "surface": "Code Canvas",
+                "projection_path": "code_canvas",
+                "visible_contract": "backing source remains legible",
+                "owner_workset": "W050"
+              },
+              {
+                "surface": "Key Rail",
+                "projection_path": "key_rail.hints",
+                "visible_contract": "overlay-specific actions",
+                "owner_workset": "W090"
+              }
+            ],
+            "expected_actions": [
+              "run.start",
+              "run.stop",
+              "target.configure"
+            ],
+            "state_refs": [
+              {
+                "owner": "FireHorseProjection",
+                "field": "scenario_id",
+                "downstream_workset": "W039"
+              }
+            ],
+            "seam_refs": [
+              {
+                "source": "ActionRegistry",
+                "status": "future",
+                "downstream_workset": "W090"
+              }
+            ]
+          }
+        ],
+        "reference_artifacts": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_03_command_lens.png",
+            "title": "Command Lens mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/command_lens_first-class.txt",
+            "title": "Command Lens First-class capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "id": "audit-run-lane-progress",
+        "firehorse_scenario_id": "firehorse-run-lane-standard",
+        "persona_id": "pricing_maintainer",
+        "title": "Run Lane progress review",
+        "intent": "Run progress should keep source continuity while showing staged build/execute state and Immediate/output affordances.",
+        "default_viewport": "studio",
+        "steps": [
+          {
+            "id": "primary",
+            "title": "Primary audit posture",
+            "user_intent": "Run pricing code and know exactly which stage is active.",
+            "expected_surfaces": [
+              {
+                "surface": "Run Timeline",
+                "projection_path": "activity_deck.rows",
+                "visible_contract": "staged run events",
+                "owner_workset": "W070"
+              },
+              {
+                "surface": "Code Canvas",
+                "projection_path": "code_canvas",
+                "visible_contract": "source continuity during run",
+                "owner_workset": "W050"
+              },
+              {
+                "surface": "Run Context",
+                "projection_path": "context_dock.cards",
+                "visible_contract": "active run status",
+                "owner_workset": "W070"
+              }
+            ],
+            "expected_actions": [
+              "run.stop",
+              "immediate.focus",
+              "scene.return_edit"
+            ],
+            "state_refs": [
+              {
+                "owner": "FireHorseProjection",
+                "field": "scenario_id",
+                "downstream_workset": "W039"
+              }
+            ],
+            "seam_refs": [
+              {
+                "source": "WebHostEvent",
+                "status": "real",
+                "downstream_workset": "W070"
+              }
+            ]
+          }
+        ],
+        "reference_artifacts": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_04_run_lane.png",
+            "title": "Run Lane mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/run_lane_studio.txt",
+            "title": "Run Lane Studio capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "id": "audit-debug-cockpit-paused",
+        "firehorse_scenario_id": "firehorse-debug-cockpit-standard",
+        "persona_id": "debug_responder",
+        "title": "Debug Cockpit paused-state review",
+        "intent": "Debug state should make pause location, stack, locals, watches, and step controls precise without burying source.",
+        "default_viewport": "studio",
+        "steps": [
+          {
+            "id": "primary",
+            "title": "Primary audit posture",
+            "user_intent": "Diagnose a paused macro failure and choose the next debug action.",
+            "expected_surfaces": [
+              {
+                "surface": "Code Canvas",
+                "projection_path": "code_canvas.execution_line",
+                "visible_contract": "paused execution line",
+                "owner_workset": "W080"
+              },
+              {
+                "surface": "Debug Context",
+                "projection_path": "context_dock.cards",
+                "visible_contract": "call stack, locals, watches",
+                "owner_workset": "W080"
+              },
+              {
+                "surface": "Activity Deck",
+                "projection_path": "activity_deck",
+                "visible_contract": "Immediate and watch trace surfaces",
+                "owner_workset": "W080"
+              }
+            ],
+            "expected_actions": [
+              "debug.continue",
+              "debug.step",
+              "debug.step_out",
+              "immediate.focus"
+            ],
+            "state_refs": [
+              {
+                "owner": "FireHorseProjection",
+                "field": "scenario_id",
+                "downstream_workset": "W039"
+              }
+            ],
+            "seam_refs": [
+              {
+                "source": "W080 debug contract audit",
+                "status": "future",
+                "downstream_workset": "W080"
+              }
+            ]
+          }
+        ],
+        "reference_artifacts": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+            "title": "Debug Cockpit mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/debug_cockpit_studio.txt",
+            "title": "Debug Cockpit Studio capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "id": "audit-console-fit-light",
+        "firehorse_scenario_id": "firehorse-console-fit-light",
+        "persona_id": "terminal_power_user",
+        "title": "Console Fit capability review",
+        "intent": "Capability guidance should educate without weakening the source-first IDE direction.",
+        "default_viewport": "studio",
+        "steps": [
+          {
+            "id": "primary",
+            "title": "Primary audit posture",
+            "user_intent": "Check terminal fit and understand any visual capability constraints.",
+            "expected_surfaces": [
+              {
+                "surface": "Terminal Fit",
+                "projection_path": "terminal_fit.rows",
+                "visible_contract": "capability results and recommendations",
+                "owner_workset": "W100"
+              },
+              {
+                "surface": "Key Rail",
+                "projection_path": "key_rail.hints",
+                "visible_contract": "rerun/report/return actions",
+                "owner_workset": "W090"
+              }
+            ],
+            "expected_actions": [
+              "app.console_fit",
+              "scene.return_edit"
+            ],
+            "state_refs": [
+              {
+                "owner": "FireHorseProjection",
+                "field": "scenario_id",
+                "downstream_workset": "W039"
+              }
+            ],
+            "seam_refs": [
+              {
+                "source": "TerminalCapabilityProbe",
+                "status": "future",
+                "downstream_workset": "W100"
+              }
+            ]
+          }
+        ],
+        "reference_artifacts": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_06_console_fit.png",
+            "title": "Console Fit mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/console_fit_studio.txt",
+            "title": "Console Fit Studio capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "id": "audit-compact-focus-degradation",
+        "firehorse_scenario_id": "firehorse-focus-compact",
+        "persona_id": "terminal_power_user",
+        "title": "Compact Focus degradation review",
+        "intent": "Small terminal mode should stay source-first and honest without becoming the design baseline.",
+        "default_viewport": "compact",
+        "steps": [
+          {
+            "id": "primary",
+            "title": "Primary audit posture",
+            "user_intent": "Work in compact source-first mode with explicit side-surface affordances.",
+            "expected_surfaces": [
+              {
+                "surface": "Code Canvas",
+                "projection_path": "code_canvas",
+                "visible_contract": "source-first compact posture",
+                "owner_workset": "W050"
+              },
+              {
+                "surface": "Key Rail",
+                "projection_path": "key_rail.hints",
+                "visible_contract": "dock affordances in compact mode",
+                "owner_workset": "W100"
+              }
+            ],
+            "expected_actions": [
+              "focus.project",
+              "focus.code",
+              "focus.context",
+              "focus.activity"
+            ],
+            "state_refs": [
+              {
+                "owner": "FireHorseProjection",
+                "field": "scenario_id",
+                "downstream_workset": "W039"
+              }
+            ],
+            "seam_refs": [
+              {
+                "source": "LayoutPolicy",
+                "status": "future",
+                "downstream_workset": "W100"
+              }
+            ]
+          }
+        ],
+        "reference_artifacts": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_07_compact_focus_mode.png",
+            "title": "Compact Focus mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/compact_focus_default_compact.txt",
+            "title": "Compact Focus compact capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "id": "audit-real-editing-adapter-honesty",
+        "firehorse_scenario_id": "firehorse-real-editing",
+        "persona_id": "migration_reviewer",
+        "title": "Real Editing adapter honesty",
+        "intent": "Adapter output should show current shell state while marking missing seams explicitly.",
+        "default_viewport": "studio",
+        "steps": [
+          {
+            "id": "primary",
+            "title": "Primary audit posture",
+            "user_intent": "Review real thin-slice state without mistaking proof data for semantics.",
+            "expected_surfaces": [
+              {
+                "surface": "Project Spine",
+                "projection_path": "project_spine.rows",
+                "visible_contract": "real mounted workspace rows",
+                "owner_workset": "W040"
+              },
+              {
+                "surface": "Code Canvas",
+                "projection_path": "code_canvas.lines",
+                "visible_contract": "active buffer from shell state",
+                "owner_workset": "W050"
+              },
+              {
+                "surface": "Context Dock",
+                "projection_path": "context_dock.cards.Unavailable",
+                "visible_contract": "missing seams stated explicitly",
+                "owner_workset": "W060"
+              }
+            ],
+            "expected_actions": [
+              "editor.save",
+              "semantic.hover",
+              "run.start"
+            ],
+            "state_refs": [
+              {
+                "owner": "FireHorseProjection",
+                "field": "scenario_id",
+                "downstream_workset": "W039"
+              }
+            ],
+            "seam_refs": [
+              {
+                "source": "DocumentSession",
+                "status": "future",
+                "downstream_workset": "W050"
+              },
+              {
+                "source": "HostWorkspaceSession::diagnostics",
+                "status": "unavailable",
+                "downstream_workset": "W060"
+              }
+            ]
+          }
+        ],
+        "reference_artifacts": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+            "title": "Editing Lens mockup reference",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/real_editing_adapter_studio.txt",
+            "title": "Real Editing Adapter Studio capture",
+            "authority": true
+          }
+        ]
+      }
+    ],
+    "criteria": [
+      {
+        "id": "functional.persona_fit",
+        "category": "persona_fit",
+        "question": "Does the scene serve the named persona pressure?",
+        "severity_if_failed": "fail",
+        "evidence_required": "projection path, action id, seam ref, or downstream owner",
+        "evaluation_mode": "functional"
+      },
+      {
+        "id": "functional.journey_fit",
+        "category": "journey_fit",
+        "question": "Are expected surfaces, state tokens, and next actions visible?",
+        "severity_if_failed": "fail",
+        "evidence_required": "projection path, action id, seam ref, or downstream owner",
+        "evaluation_mode": "functional"
+      },
+      {
+        "id": "functional.command_clarity",
+        "category": "command_clarity",
+        "question": "Do visible commands have action ids and disabled reasons where needed?",
+        "severity_if_failed": "fail",
+        "evidence_required": "projection path, action id, seam ref, or downstream owner",
+        "evaluation_mode": "functional"
+      },
+      {
+        "id": "functional.state_ownership",
+        "category": "state_ownership",
+        "question": "Can visible state be traced to projection fields and downstream owners?",
+        "severity_if_failed": "fail",
+        "evidence_required": "projection path, action id, seam ref, or downstream owner",
+        "evaluation_mode": "functional"
+      },
+      {
+        "id": "functional.seam_honesty",
+        "category": "seam_honesty",
+        "question": "Do VBA/project facts map to OxVba seams or explicit future/unavailable seams?",
+        "severity_if_failed": "fail",
+        "evidence_required": "projection path, action id, seam ref, or downstream owner",
+        "evaluation_mode": "functional"
+      },
+      {
+        "id": "functional.degradation",
+        "category": "degradation",
+        "question": "Does compact/fallback preserve the task without defining the high-end baseline?",
+        "severity_if_failed": "fail",
+        "evidence_required": "projection path, action id, seam ref, or downstream owner",
+        "evaluation_mode": "functional"
+      },
+      {
+        "id": "aesthetic.hierarchy",
+        "category": "hierarchy",
+        "question": "Can source, context, activity, command, and status priority be read immediately?",
+        "severity_if_failed": "fail",
+        "evidence_required": "terminal capture or ANSI artifact plus reference mockup",
+        "evaluation_mode": "aesthetic"
+      },
+      {
+        "id": "aesthetic.density",
+        "category": "density",
+        "question": "Do Studio and First-class use space richly without filler or crowding?",
+        "severity_if_failed": "fail",
+        "evidence_required": "terminal capture or ANSI artifact plus reference mockup",
+        "evaluation_mode": "aesthetic"
+      },
+      {
+        "id": "aesthetic.balance",
+        "category": "balance",
+        "question": "Do rails, docks, canvas, overlays, and lower surfaces carry intentional visual weight?",
+        "severity_if_failed": "fail",
+        "evidence_required": "terminal capture or ANSI artifact plus reference mockup",
+        "evaluation_mode": "aesthetic"
+      },
+      {
+        "id": "aesthetic.tone_color",
+        "category": "tone_and_color",
+        "question": "Does truecolor output preserve graphite/ember energy while remaining readable?",
+        "severity_if_failed": "fail",
+        "evidence_required": "terminal capture or ANSI artifact plus reference mockup",
+        "evaluation_mode": "aesthetic"
+      },
+      {
+        "id": "aesthetic.terminal_craft",
+        "category": "terminal_craft",
+        "question": "Do box drawing, padding, clipping, and line rhythm feel deliberate?",
+        "severity_if_failed": "fail",
+        "evidence_required": "terminal capture or ANSI artifact plus reference mockup",
+        "evaluation_mode": "aesthetic"
+      },
+      {
+        "id": "aesthetic.reference_fidelity",
+        "category": "reference_fidelity",
+        "question": "Can the result cite what it keeps, changes, or rejects from the colourful mockup?",
+        "severity_if_failed": "fail",
+        "evidence_required": "terminal capture or ANSI artifact plus reference mockup",
+        "evaluation_mode": "aesthetic"
+      },
+      {
+        "id": "aesthetic.text_fit",
+        "category": "text_fit",
+        "question": "Do labels, code, commands, and status text avoid incoherent overlap?",
+        "severity_if_failed": "fail",
+        "evidence_required": "terminal capture or ANSI artifact plus reference mockup",
+        "evaluation_mode": "aesthetic"
+      },
+      {
+        "id": "aesthetic.emotional_fit",
+        "category": "emotional_fit",
+        "question": "Does the scene feel modern, capable, calm, and not nostalgia-console?",
+        "severity_if_failed": "fail",
+        "evidence_required": "terminal capture or ANSI artifact plus reference mockup",
+        "evaluation_mode": "aesthetic"
+      }
+    ],
+    "rubrics": [
+      {
+        "id": "functional",
+        "title": "Functional IDE Fit",
+        "evaluation_mode": "functional",
+        "criteria": [
+          "functional.persona_fit",
+          "functional.journey_fit",
+          "functional.command_clarity",
+          "functional.state_ownership",
+          "functional.seam_honesty",
+          "functional.degradation"
+        ]
+      },
+      {
+        "id": "aesthetic",
+        "title": "Fire Horse Aesthetic Fit",
+        "evaluation_mode": "aesthetic",
+        "criteria": [
+          "aesthetic.hierarchy",
+          "aesthetic.density",
+          "aesthetic.balance",
+          "aesthetic.tone_color",
+          "aesthetic.terminal_craft",
+          "aesthetic.reference_fidelity",
+          "aesthetic.text_fit",
+          "aesthetic.emotional_fit"
+        ]
+      }
+    ]
+  }
+}

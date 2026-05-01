@@ -952,7 +952,7 @@ mod tests {
                 .as_array()
                 .expect("scorecards")
                 .len(),
-            4
+            14
         );
         assert_eq!(
             parsed["data"]["run"]["output_root"],

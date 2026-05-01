@@ -45,13 +45,23 @@ fn with_mockup_frame<R>(
     capture: impl FnOnce(&Frame<'_>) -> R,
 ) -> R {
     let size = viewport.wtd_size();
-    let theme = FireTheme::from_projection(projection.theme);
     let mut pool = GraphemePool::new();
     let mut frame = Frame::new(size.width, size.height, &mut pool);
+    render_mockup_into_frame(&mut frame, viewport, projection);
+
+    capture(&frame)
+}
+
+pub fn render_mockup_into_frame(
+    mut frame: &mut Frame<'_>,
+    viewport: ViewportClass,
+    projection: &FireHorseProjection,
+) {
+    let theme = FireTheme::from_projection(projection.theme);
     frame.set_cursor(None);
     frame.set_cursor_visible(false);
 
-    let root = Rect::new(0, 0, size.width, size.height);
+    let root = Rect::new(0, 0, frame.width(), frame.height());
     clear(&mut frame, root, theme.root_style());
 
     match projection.layout {
@@ -113,8 +123,6 @@ fn with_mockup_frame<R>(
             );
         }
     }
-
-    capture(&frame)
 }
 
 fn frame_to_terminal_stream(frame: &Frame<'_>) -> Vec<u8> {

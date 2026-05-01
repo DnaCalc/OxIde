@@ -1,0 +1,325 @@
+{
+  "schema_version": 1,
+  "kind": "audit_scorecard",
+  "data": {
+    "run_id": "firehorse:firehorse-editing-lens-standard:studio",
+    "suite_id": "firehorse",
+    "scenario_id": "audit-editing-lens-pricing",
+    "firehorse_scenario_id": "firehorse-editing-lens-standard",
+    "viewport": "studio",
+    "render_mode": "mockup",
+    "functional": [
+      {
+        "criterion_id": "functional.persona_fit",
+        "status": "pass",
+        "confidence": "objective",
+        "rationale": "persona_fit checked against audit fixture audit-editing-lens-pricing",
+        "evidence": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+            "title": "Editing Lens mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+            "title": "Editing Lens Studio capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "criterion_id": "functional.journey_fit",
+        "status": "pass",
+        "confidence": "objective",
+        "rationale": "journey_fit checked against audit fixture audit-editing-lens-pricing",
+        "evidence": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+            "title": "Editing Lens mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+            "title": "Editing Lens Studio capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "criterion_id": "functional.command_clarity",
+        "status": "pass",
+        "confidence": "objective",
+        "rationale": "command_clarity checked against audit fixture audit-editing-lens-pricing",
+        "evidence": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+            "title": "Editing Lens mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+            "title": "Editing Lens Studio capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "criterion_id": "functional.state_ownership",
+        "status": "pass",
+        "confidence": "objective",
+        "rationale": "state_ownership checked against audit fixture audit-editing-lens-pricing",
+        "evidence": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+            "title": "Editing Lens mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+            "title": "Editing Lens Studio capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "criterion_id": "functional.seam_honesty",
+        "status": "pass",
+        "confidence": "objective",
+        "rationale": "seam_honesty checked against audit fixture audit-editing-lens-pricing",
+        "evidence": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+            "title": "Editing Lens mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+            "title": "Editing Lens Studio capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "criterion_id": "functional.degradation",
+        "status": "pass",
+        "confidence": "objective",
+        "rationale": "degradation checked against audit fixture audit-editing-lens-pricing",
+        "evidence": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+            "title": "Editing Lens mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+            "title": "Editing Lens Studio capture",
+            "authority": true
+          }
+        ]
+      }
+    ],
+    "aesthetic": [
+      {
+        "criterion_id": "aesthetic.hierarchy",
+        "status": "pass",
+        "confidence": "structured_judgement",
+        "rationale": "required surfaces are present and grouped by the Fire Horse layout contract",
+        "evidence": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+            "title": "Editing Lens mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+            "title": "Editing Lens Studio capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "criterion_id": "aesthetic.density",
+        "status": "pass",
+        "confidence": "objective",
+        "rationale": "render has enough dense rows for high-end review",
+        "evidence": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+            "title": "Editing Lens mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+            "title": "Editing Lens Studio capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "criterion_id": "aesthetic.balance",
+        "status": "pass",
+        "confidence": "structured_judgement",
+        "rationale": "structured aesthetic preflight produced no blocker",
+        "evidence": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+            "title": "Editing Lens mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+            "title": "Editing Lens Studio capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "criterion_id": "aesthetic.tone_color",
+        "status": "pass",
+        "confidence": "objective",
+        "rationale": "ANSI stream contains terminal styling",
+        "evidence": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+            "title": "Editing Lens mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+            "title": "Editing Lens Studio capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "criterion_id": "aesthetic.terminal_craft",
+        "status": "pass",
+        "confidence": "structured_judgement",
+        "rationale": "structured aesthetic preflight produced no blocker",
+        "evidence": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+            "title": "Editing Lens mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+            "title": "Editing Lens Studio capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "criterion_id": "aesthetic.reference_fidelity",
+        "status": "pass",
+        "confidence": "objective",
+        "rationale": "reference mockup and terminal capture are both linked",
+        "evidence": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+            "title": "Editing Lens mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+            "title": "Editing Lens Studio capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "criterion_id": "aesthetic.text_fit",
+        "status": "pass",
+        "confidence": "objective",
+        "rationale": "rendered lines stay within fixed viewport width",
+        "evidence": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+            "title": "Editing Lens mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+            "title": "Editing Lens Studio capture",
+            "authority": true
+          }
+        ]
+      },
+      {
+        "criterion_id": "aesthetic.emotional_fit",
+        "status": "concern",
+        "confidence": "manual_required",
+        "rationale": "emotional fit requires cited human or agent rationale against the reference mockup",
+        "evidence": [
+          {
+            "kind": "image",
+            "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+            "title": "Editing Lens mockup",
+            "authority": true
+          },
+          {
+            "kind": "terminal_capture",
+            "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+            "title": "Editing Lens Studio capture",
+            "authority": true
+          }
+        ]
+      }
+    ],
+    "objective_preflight": {
+      "width": 190,
+      "height": 48,
+      "non_empty_lines": 47,
+      "dense_lines": 44,
+      "max_line_width": 190,
+      "has_ansi_stream": true,
+      "has_reference_image": true,
+      "has_terminal_capture": true
+    },
+    "gate": "concern",
+    "artifacts": [
+      {
+        "kind": "image",
+        "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+        "title": "Editing Lens mockup",
+        "authority": true
+      },
+      {
+        "kind": "terminal_capture",
+        "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+        "title": "Editing Lens Studio capture",
+        "authority": true
+      }
+    ],
+    "reproduction_commands": [
+      "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-editing-lens-standard --viewport studio --once --mockup",
+      "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-editing-lens-standard --viewport studio --once --mockup --ansi"
+    ]
+  }
+}

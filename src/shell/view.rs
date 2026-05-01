@@ -123,14 +123,16 @@ fn split_root(area: Rect, model: &ShellModel) -> Vec<Rect> {
                 Constraint::Fixed(lower_height),
                 Constraint::Fixed(STATUS_LINE_HEIGHT),
             ])
-            .split(area),
+            .split(area)
+            .to_vec(),
         None => Flex::vertical()
             .constraints([
                 Constraint::Fixed(3),
                 Constraint::Fill,
                 Constraint::Fixed(STATUS_LINE_HEIGHT),
             ])
-            .split(area),
+            .split(area)
+            .to_vec(),
     }
 }
 

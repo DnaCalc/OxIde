@@ -1,0 +1,2574 @@
+{
+  "schema_version": 1,
+  "kind": "audit_scorecards",
+  "data": [
+    {
+      "run_id": "firehorse:firehorse-launchpad-standard:studio",
+      "suite_id": "firehorse",
+      "scenario_id": "audit-launchpad-cold-start",
+      "firehorse_scenario_id": "firehorse-launchpad-standard",
+      "viewport": "studio",
+      "render_mode": "mockup",
+      "functional": [
+        {
+          "criterion_id": "functional.persona_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "persona_fit checked against audit fixture audit-launchpad-cold-start",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_01_launchpad.png",
+              "title": "Launchpad mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/launchpad_studio.txt",
+              "title": "Launchpad Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.journey_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "journey_fit checked against audit fixture audit-launchpad-cold-start",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_01_launchpad.png",
+              "title": "Launchpad mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/launchpad_studio.txt",
+              "title": "Launchpad Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.command_clarity",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "command_clarity checked against audit fixture audit-launchpad-cold-start",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_01_launchpad.png",
+              "title": "Launchpad mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/launchpad_studio.txt",
+              "title": "Launchpad Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.state_ownership",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "state_ownership checked against audit fixture audit-launchpad-cold-start",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_01_launchpad.png",
+              "title": "Launchpad mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/launchpad_studio.txt",
+              "title": "Launchpad Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.seam_honesty",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "seam_honesty checked against audit fixture audit-launchpad-cold-start",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_01_launchpad.png",
+              "title": "Launchpad mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/launchpad_studio.txt",
+              "title": "Launchpad Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.degradation",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "degradation checked against audit fixture audit-launchpad-cold-start",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_01_launchpad.png",
+              "title": "Launchpad mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/launchpad_studio.txt",
+              "title": "Launchpad Studio capture",
+              "authority": true
+            }
+          ]
+        }
+      ],
+      "aesthetic": [
+        {
+          "criterion_id": "aesthetic.hierarchy",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "required surfaces are present and grouped by the Fire Horse layout contract",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_01_launchpad.png",
+              "title": "Launchpad mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/launchpad_studio.txt",
+              "title": "Launchpad Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.density",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "render has enough dense rows for high-end review",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_01_launchpad.png",
+              "title": "Launchpad mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/launchpad_studio.txt",
+              "title": "Launchpad Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.balance",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "structured aesthetic preflight produced no blocker",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_01_launchpad.png",
+              "title": "Launchpad mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/launchpad_studio.txt",
+              "title": "Launchpad Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.tone_color",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "ANSI stream contains terminal styling",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_01_launchpad.png",
+              "title": "Launchpad mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/launchpad_studio.txt",
+              "title": "Launchpad Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.terminal_craft",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "structured aesthetic preflight produced no blocker",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_01_launchpad.png",
+              "title": "Launchpad mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/launchpad_studio.txt",
+              "title": "Launchpad Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.reference_fidelity",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "reference mockup and terminal capture are both linked",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_01_launchpad.png",
+              "title": "Launchpad mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/launchpad_studio.txt",
+              "title": "Launchpad Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.text_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "rendered lines stay within fixed viewport width",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_01_launchpad.png",
+              "title": "Launchpad mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/launchpad_studio.txt",
+              "title": "Launchpad Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.emotional_fit",
+          "status": "concern",
+          "confidence": "manual_required",
+          "rationale": "emotional fit requires cited human or agent rationale against the reference mockup",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_01_launchpad.png",
+              "title": "Launchpad mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/launchpad_studio.txt",
+              "title": "Launchpad Studio capture",
+              "authority": true
+            }
+          ]
+        }
+      ],
+      "objective_preflight": {
+        "width": 190,
+        "height": 48,
+        "non_empty_lines": 47,
+        "dense_lines": 45,
+        "max_line_width": 190,
+        "has_ansi_stream": true,
+        "has_reference_image": true,
+        "has_terminal_capture": true
+      },
+      "gate": "concern",
+      "artifacts": [
+        {
+          "kind": "image",
+          "path": "docs/firehorse_mockups/refined_01_launchpad.png",
+          "title": "Launchpad mockup",
+          "authority": true
+        },
+        {
+          "kind": "terminal_capture",
+          "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/launchpad_studio.txt",
+          "title": "Launchpad Studio capture",
+          "authority": true
+        }
+      ],
+      "reproduction_commands": [
+        "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-launchpad-standard --viewport studio --once --mockup",
+        "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-launchpad-standard --viewport studio --once --mockup --ansi"
+      ]
+    },
+    {
+      "run_id": "firehorse:firehorse-editing-lens-standard:studio",
+      "suite_id": "firehorse",
+      "scenario_id": "audit-editing-lens-pricing",
+      "firehorse_scenario_id": "firehorse-editing-lens-standard",
+      "viewport": "studio",
+      "render_mode": "mockup",
+      "functional": [
+        {
+          "criterion_id": "functional.persona_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "persona_fit checked against audit fixture audit-editing-lens-pricing",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+              "title": "Editing Lens Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.journey_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "journey_fit checked against audit fixture audit-editing-lens-pricing",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+              "title": "Editing Lens Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.command_clarity",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "command_clarity checked against audit fixture audit-editing-lens-pricing",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+              "title": "Editing Lens Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.state_ownership",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "state_ownership checked against audit fixture audit-editing-lens-pricing",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+              "title": "Editing Lens Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.seam_honesty",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "seam_honesty checked against audit fixture audit-editing-lens-pricing",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+              "title": "Editing Lens Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.degradation",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "degradation checked against audit fixture audit-editing-lens-pricing",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+              "title": "Editing Lens Studio capture",
+              "authority": true
+            }
+          ]
+        }
+      ],
+      "aesthetic": [
+        {
+          "criterion_id": "aesthetic.hierarchy",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "required surfaces are present and grouped by the Fire Horse layout contract",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+              "title": "Editing Lens Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.density",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "render has enough dense rows for high-end review",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+              "title": "Editing Lens Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.balance",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "structured aesthetic preflight produced no blocker",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+              "title": "Editing Lens Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.tone_color",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "ANSI stream contains terminal styling",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+              "title": "Editing Lens Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.terminal_craft",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "structured aesthetic preflight produced no blocker",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+              "title": "Editing Lens Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.reference_fidelity",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "reference mockup and terminal capture are both linked",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+              "title": "Editing Lens Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.text_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "rendered lines stay within fixed viewport width",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+              "title": "Editing Lens Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.emotional_fit",
+          "status": "concern",
+          "confidence": "manual_required",
+          "rationale": "emotional fit requires cited human or agent rationale against the reference mockup",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+              "title": "Editing Lens Studio capture",
+              "authority": true
+            }
+          ]
+        }
+      ],
+      "objective_preflight": {
+        "width": 190,
+        "height": 48,
+        "non_empty_lines": 47,
+        "dense_lines": 44,
+        "max_line_width": 190,
+        "has_ansi_stream": true,
+        "has_reference_image": true,
+        "has_terminal_capture": true
+      },
+      "gate": "concern",
+      "artifacts": [
+        {
+          "kind": "image",
+          "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+          "title": "Editing Lens mockup",
+          "authority": true
+        },
+        {
+          "kind": "terminal_capture",
+          "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/editing_lens_studio.txt",
+          "title": "Editing Lens Studio capture",
+          "authority": true
+        }
+      ],
+      "reproduction_commands": [
+        "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-editing-lens-standard --viewport studio --once --mockup",
+        "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-editing-lens-standard --viewport studio --once --mockup --ansi"
+      ]
+    },
+    {
+      "run_id": "firehorse:firehorse-command-lens-standard:first-class",
+      "suite_id": "firehorse",
+      "scenario_id": "audit-command-lens-run",
+      "firehorse_scenario_id": "firehorse-command-lens-standard",
+      "viewport": "first-class",
+      "render_mode": "mockup",
+      "functional": [
+        {
+          "criterion_id": "functional.persona_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "persona_fit checked against audit fixture audit-command-lens-run",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_03_command_lens.png",
+              "title": "Command Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/command_lens_first-class.txt",
+              "title": "Command Lens First-class capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.journey_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "journey_fit checked against audit fixture audit-command-lens-run",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_03_command_lens.png",
+              "title": "Command Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/command_lens_first-class.txt",
+              "title": "Command Lens First-class capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.command_clarity",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "command_clarity checked against audit fixture audit-command-lens-run",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_03_command_lens.png",
+              "title": "Command Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/command_lens_first-class.txt",
+              "title": "Command Lens First-class capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.state_ownership",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "state_ownership checked against audit fixture audit-command-lens-run",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_03_command_lens.png",
+              "title": "Command Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/command_lens_first-class.txt",
+              "title": "Command Lens First-class capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.seam_honesty",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "seam_honesty checked against audit fixture audit-command-lens-run",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_03_command_lens.png",
+              "title": "Command Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/command_lens_first-class.txt",
+              "title": "Command Lens First-class capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.degradation",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "degradation checked against audit fixture audit-command-lens-run",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_03_command_lens.png",
+              "title": "Command Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/command_lens_first-class.txt",
+              "title": "Command Lens First-class capture",
+              "authority": true
+            }
+          ]
+        }
+      ],
+      "aesthetic": [
+        {
+          "criterion_id": "aesthetic.hierarchy",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "required surfaces are present and grouped by the Fire Horse layout contract",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_03_command_lens.png",
+              "title": "Command Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/command_lens_first-class.txt",
+              "title": "Command Lens First-class capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.density",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "render has enough dense rows for high-end review",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_03_command_lens.png",
+              "title": "Command Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/command_lens_first-class.txt",
+              "title": "Command Lens First-class capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.balance",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "structured aesthetic preflight produced no blocker",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_03_command_lens.png",
+              "title": "Command Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/command_lens_first-class.txt",
+              "title": "Command Lens First-class capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.tone_color",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "ANSI stream contains terminal styling",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_03_command_lens.png",
+              "title": "Command Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/command_lens_first-class.txt",
+              "title": "Command Lens First-class capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.terminal_craft",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "structured aesthetic preflight produced no blocker",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_03_command_lens.png",
+              "title": "Command Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/command_lens_first-class.txt",
+              "title": "Command Lens First-class capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.reference_fidelity",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "reference mockup and terminal capture are both linked",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_03_command_lens.png",
+              "title": "Command Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/command_lens_first-class.txt",
+              "title": "Command Lens First-class capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.text_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "rendered lines stay within fixed viewport width",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_03_command_lens.png",
+              "title": "Command Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/command_lens_first-class.txt",
+              "title": "Command Lens First-class capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.emotional_fit",
+          "status": "concern",
+          "confidence": "manual_required",
+          "rationale": "emotional fit requires cited human or agent rationale against the reference mockup",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_03_command_lens.png",
+              "title": "Command Lens mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/command_lens_first-class.txt",
+              "title": "Command Lens First-class capture",
+              "authority": true
+            }
+          ]
+        }
+      ],
+      "objective_preflight": {
+        "width": 160,
+        "height": 42,
+        "non_empty_lines": 41,
+        "dense_lines": 39,
+        "max_line_width": 160,
+        "has_ansi_stream": true,
+        "has_reference_image": true,
+        "has_terminal_capture": true
+      },
+      "gate": "concern",
+      "artifacts": [
+        {
+          "kind": "image",
+          "path": "docs/firehorse_mockups/refined_03_command_lens.png",
+          "title": "Command Lens mockup",
+          "authority": true
+        },
+        {
+          "kind": "terminal_capture",
+          "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/command_lens_first-class.txt",
+          "title": "Command Lens First-class capture",
+          "authority": true
+        }
+      ],
+      "reproduction_commands": [
+        "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-command-lens-standard --viewport first-class --once --mockup",
+        "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-command-lens-standard --viewport first-class --once --mockup --ansi"
+      ]
+    },
+    {
+      "run_id": "firehorse:firehorse-run-lane-standard:studio",
+      "suite_id": "firehorse",
+      "scenario_id": "audit-run-lane-progress",
+      "firehorse_scenario_id": "firehorse-run-lane-standard",
+      "viewport": "studio",
+      "render_mode": "mockup",
+      "functional": [
+        {
+          "criterion_id": "functional.persona_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "persona_fit checked against audit fixture audit-run-lane-progress",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_04_run_lane.png",
+              "title": "Run Lane mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/run_lane_studio.txt",
+              "title": "Run Lane Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.journey_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "journey_fit checked against audit fixture audit-run-lane-progress",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_04_run_lane.png",
+              "title": "Run Lane mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/run_lane_studio.txt",
+              "title": "Run Lane Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.command_clarity",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "command_clarity checked against audit fixture audit-run-lane-progress",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_04_run_lane.png",
+              "title": "Run Lane mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/run_lane_studio.txt",
+              "title": "Run Lane Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.state_ownership",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "state_ownership checked against audit fixture audit-run-lane-progress",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_04_run_lane.png",
+              "title": "Run Lane mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/run_lane_studio.txt",
+              "title": "Run Lane Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.seam_honesty",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "seam_honesty checked against audit fixture audit-run-lane-progress",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_04_run_lane.png",
+              "title": "Run Lane mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/run_lane_studio.txt",
+              "title": "Run Lane Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.degradation",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "degradation checked against audit fixture audit-run-lane-progress",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_04_run_lane.png",
+              "title": "Run Lane mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/run_lane_studio.txt",
+              "title": "Run Lane Studio capture",
+              "authority": true
+            }
+          ]
+        }
+      ],
+      "aesthetic": [
+        {
+          "criterion_id": "aesthetic.hierarchy",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "required surfaces are present and grouped by the Fire Horse layout contract",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_04_run_lane.png",
+              "title": "Run Lane mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/run_lane_studio.txt",
+              "title": "Run Lane Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.density",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "render has enough dense rows for high-end review",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_04_run_lane.png",
+              "title": "Run Lane mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/run_lane_studio.txt",
+              "title": "Run Lane Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.balance",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "structured aesthetic preflight produced no blocker",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_04_run_lane.png",
+              "title": "Run Lane mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/run_lane_studio.txt",
+              "title": "Run Lane Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.tone_color",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "ANSI stream contains terminal styling",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_04_run_lane.png",
+              "title": "Run Lane mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/run_lane_studio.txt",
+              "title": "Run Lane Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.terminal_craft",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "structured aesthetic preflight produced no blocker",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_04_run_lane.png",
+              "title": "Run Lane mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/run_lane_studio.txt",
+              "title": "Run Lane Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.reference_fidelity",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "reference mockup and terminal capture are both linked",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_04_run_lane.png",
+              "title": "Run Lane mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/run_lane_studio.txt",
+              "title": "Run Lane Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.text_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "rendered lines stay within fixed viewport width",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_04_run_lane.png",
+              "title": "Run Lane mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/run_lane_studio.txt",
+              "title": "Run Lane Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.emotional_fit",
+          "status": "concern",
+          "confidence": "manual_required",
+          "rationale": "emotional fit requires cited human or agent rationale against the reference mockup",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_04_run_lane.png",
+              "title": "Run Lane mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/run_lane_studio.txt",
+              "title": "Run Lane Studio capture",
+              "authority": true
+            }
+          ]
+        }
+      ],
+      "objective_preflight": {
+        "width": 190,
+        "height": 48,
+        "non_empty_lines": 47,
+        "dense_lines": 44,
+        "max_line_width": 190,
+        "has_ansi_stream": true,
+        "has_reference_image": true,
+        "has_terminal_capture": true
+      },
+      "gate": "concern",
+      "artifacts": [
+        {
+          "kind": "image",
+          "path": "docs/firehorse_mockups/refined_04_run_lane.png",
+          "title": "Run Lane mockup",
+          "authority": true
+        },
+        {
+          "kind": "terminal_capture",
+          "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/run_lane_studio.txt",
+          "title": "Run Lane Studio capture",
+          "authority": true
+        }
+      ],
+      "reproduction_commands": [
+        "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-run-lane-standard --viewport studio --once --mockup",
+        "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-run-lane-standard --viewport studio --once --mockup --ansi"
+      ]
+    },
+    {
+      "run_id": "firehorse:firehorse-debug-cockpit-standard:studio",
+      "suite_id": "firehorse",
+      "scenario_id": "audit-debug-cockpit-paused",
+      "firehorse_scenario_id": "firehorse-debug-cockpit-standard",
+      "viewport": "studio",
+      "render_mode": "mockup",
+      "functional": [
+        {
+          "criterion_id": "functional.persona_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "persona_fit checked against audit fixture audit-debug-cockpit-paused",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+              "title": "Debug Cockpit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/debug_cockpit_studio.txt",
+              "title": "Debug Cockpit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.journey_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "journey_fit checked against audit fixture audit-debug-cockpit-paused",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+              "title": "Debug Cockpit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/debug_cockpit_studio.txt",
+              "title": "Debug Cockpit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.command_clarity",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "command_clarity checked against audit fixture audit-debug-cockpit-paused",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+              "title": "Debug Cockpit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/debug_cockpit_studio.txt",
+              "title": "Debug Cockpit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.state_ownership",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "state_ownership checked against audit fixture audit-debug-cockpit-paused",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+              "title": "Debug Cockpit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/debug_cockpit_studio.txt",
+              "title": "Debug Cockpit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.seam_honesty",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "seam_honesty checked against audit fixture audit-debug-cockpit-paused",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+              "title": "Debug Cockpit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/debug_cockpit_studio.txt",
+              "title": "Debug Cockpit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.degradation",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "degradation checked against audit fixture audit-debug-cockpit-paused",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+              "title": "Debug Cockpit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/debug_cockpit_studio.txt",
+              "title": "Debug Cockpit Studio capture",
+              "authority": true
+            }
+          ]
+        }
+      ],
+      "aesthetic": [
+        {
+          "criterion_id": "aesthetic.hierarchy",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "required surfaces are present and grouped by the Fire Horse layout contract",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+              "title": "Debug Cockpit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/debug_cockpit_studio.txt",
+              "title": "Debug Cockpit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.density",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "render has enough dense rows for high-end review",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+              "title": "Debug Cockpit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/debug_cockpit_studio.txt",
+              "title": "Debug Cockpit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.balance",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "structured aesthetic preflight produced no blocker",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+              "title": "Debug Cockpit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/debug_cockpit_studio.txt",
+              "title": "Debug Cockpit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.tone_color",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "ANSI stream contains terminal styling",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+              "title": "Debug Cockpit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/debug_cockpit_studio.txt",
+              "title": "Debug Cockpit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.terminal_craft",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "structured aesthetic preflight produced no blocker",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+              "title": "Debug Cockpit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/debug_cockpit_studio.txt",
+              "title": "Debug Cockpit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.reference_fidelity",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "reference mockup and terminal capture are both linked",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+              "title": "Debug Cockpit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/debug_cockpit_studio.txt",
+              "title": "Debug Cockpit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.text_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "rendered lines stay within fixed viewport width",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+              "title": "Debug Cockpit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/debug_cockpit_studio.txt",
+              "title": "Debug Cockpit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.emotional_fit",
+          "status": "concern",
+          "confidence": "manual_required",
+          "rationale": "emotional fit requires cited human or agent rationale against the reference mockup",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+              "title": "Debug Cockpit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/debug_cockpit_studio.txt",
+              "title": "Debug Cockpit Studio capture",
+              "authority": true
+            }
+          ]
+        }
+      ],
+      "objective_preflight": {
+        "width": 190,
+        "height": 48,
+        "non_empty_lines": 47,
+        "dense_lines": 45,
+        "max_line_width": 190,
+        "has_ansi_stream": true,
+        "has_reference_image": true,
+        "has_terminal_capture": true
+      },
+      "gate": "concern",
+      "artifacts": [
+        {
+          "kind": "image",
+          "path": "docs/firehorse_mockups/refined_05_debug_cockpit.png",
+          "title": "Debug Cockpit mockup",
+          "authority": true
+        },
+        {
+          "kind": "terminal_capture",
+          "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/debug_cockpit_studio.txt",
+          "title": "Debug Cockpit Studio capture",
+          "authority": true
+        }
+      ],
+      "reproduction_commands": [
+        "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-debug-cockpit-standard --viewport studio --once --mockup",
+        "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-debug-cockpit-standard --viewport studio --once --mockup --ansi"
+      ]
+    },
+    {
+      "run_id": "firehorse:firehorse-console-fit-light:studio",
+      "suite_id": "firehorse",
+      "scenario_id": "audit-console-fit-light",
+      "firehorse_scenario_id": "firehorse-console-fit-light",
+      "viewport": "studio",
+      "render_mode": "mockup",
+      "functional": [
+        {
+          "criterion_id": "functional.persona_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "persona_fit checked against audit fixture audit-console-fit-light",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_06_console_fit.png",
+              "title": "Console Fit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/console_fit_studio.txt",
+              "title": "Console Fit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.journey_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "journey_fit checked against audit fixture audit-console-fit-light",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_06_console_fit.png",
+              "title": "Console Fit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/console_fit_studio.txt",
+              "title": "Console Fit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.command_clarity",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "command_clarity checked against audit fixture audit-console-fit-light",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_06_console_fit.png",
+              "title": "Console Fit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/console_fit_studio.txt",
+              "title": "Console Fit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.state_ownership",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "state_ownership checked against audit fixture audit-console-fit-light",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_06_console_fit.png",
+              "title": "Console Fit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/console_fit_studio.txt",
+              "title": "Console Fit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.seam_honesty",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "seam_honesty checked against audit fixture audit-console-fit-light",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_06_console_fit.png",
+              "title": "Console Fit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/console_fit_studio.txt",
+              "title": "Console Fit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.degradation",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "degradation checked against audit fixture audit-console-fit-light",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_06_console_fit.png",
+              "title": "Console Fit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/console_fit_studio.txt",
+              "title": "Console Fit Studio capture",
+              "authority": true
+            }
+          ]
+        }
+      ],
+      "aesthetic": [
+        {
+          "criterion_id": "aesthetic.hierarchy",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "required surfaces are present and grouped by the Fire Horse layout contract",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_06_console_fit.png",
+              "title": "Console Fit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/console_fit_studio.txt",
+              "title": "Console Fit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.density",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "render has enough dense rows for high-end review",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_06_console_fit.png",
+              "title": "Console Fit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/console_fit_studio.txt",
+              "title": "Console Fit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.balance",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "structured aesthetic preflight produced no blocker",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_06_console_fit.png",
+              "title": "Console Fit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/console_fit_studio.txt",
+              "title": "Console Fit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.tone_color",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "ANSI stream contains terminal styling",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_06_console_fit.png",
+              "title": "Console Fit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/console_fit_studio.txt",
+              "title": "Console Fit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.terminal_craft",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "structured aesthetic preflight produced no blocker",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_06_console_fit.png",
+              "title": "Console Fit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/console_fit_studio.txt",
+              "title": "Console Fit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.reference_fidelity",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "reference mockup and terminal capture are both linked",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_06_console_fit.png",
+              "title": "Console Fit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/console_fit_studio.txt",
+              "title": "Console Fit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.text_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "rendered lines stay within fixed viewport width",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_06_console_fit.png",
+              "title": "Console Fit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/console_fit_studio.txt",
+              "title": "Console Fit Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.emotional_fit",
+          "status": "concern",
+          "confidence": "manual_required",
+          "rationale": "emotional fit requires cited human or agent rationale against the reference mockup",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_06_console_fit.png",
+              "title": "Console Fit mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/console_fit_studio.txt",
+              "title": "Console Fit Studio capture",
+              "authority": true
+            }
+          ]
+        }
+      ],
+      "objective_preflight": {
+        "width": 190,
+        "height": 48,
+        "non_empty_lines": 47,
+        "dense_lines": 44,
+        "max_line_width": 190,
+        "has_ansi_stream": true,
+        "has_reference_image": true,
+        "has_terminal_capture": true
+      },
+      "gate": "concern",
+      "artifacts": [
+        {
+          "kind": "image",
+          "path": "docs/firehorse_mockups/refined_06_console_fit.png",
+          "title": "Console Fit mockup",
+          "authority": true
+        },
+        {
+          "kind": "terminal_capture",
+          "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/console_fit_studio.txt",
+          "title": "Console Fit Studio capture",
+          "authority": true
+        }
+      ],
+      "reproduction_commands": [
+        "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-console-fit-light --viewport studio --once --mockup",
+        "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-console-fit-light --viewport studio --once --mockup --ansi"
+      ]
+    },
+    {
+      "run_id": "firehorse:firehorse-focus-compact:compact",
+      "suite_id": "firehorse",
+      "scenario_id": "audit-compact-focus-degradation",
+      "firehorse_scenario_id": "firehorse-focus-compact",
+      "viewport": "compact",
+      "render_mode": "mockup",
+      "functional": [
+        {
+          "criterion_id": "functional.persona_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "persona_fit checked against audit fixture audit-compact-focus-degradation",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_07_compact_focus_mode.png",
+              "title": "Compact Focus mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/compact_focus_default_compact.txt",
+              "title": "Compact Focus compact capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.journey_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "journey_fit checked against audit fixture audit-compact-focus-degradation",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_07_compact_focus_mode.png",
+              "title": "Compact Focus mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/compact_focus_default_compact.txt",
+              "title": "Compact Focus compact capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.command_clarity",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "command_clarity checked against audit fixture audit-compact-focus-degradation",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_07_compact_focus_mode.png",
+              "title": "Compact Focus mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/compact_focus_default_compact.txt",
+              "title": "Compact Focus compact capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.state_ownership",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "state_ownership checked against audit fixture audit-compact-focus-degradation",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_07_compact_focus_mode.png",
+              "title": "Compact Focus mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/compact_focus_default_compact.txt",
+              "title": "Compact Focus compact capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.seam_honesty",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "seam_honesty checked against audit fixture audit-compact-focus-degradation",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_07_compact_focus_mode.png",
+              "title": "Compact Focus mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/compact_focus_default_compact.txt",
+              "title": "Compact Focus compact capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.degradation",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "degradation checked against audit fixture audit-compact-focus-degradation",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_07_compact_focus_mode.png",
+              "title": "Compact Focus mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/compact_focus_default_compact.txt",
+              "title": "Compact Focus compact capture",
+              "authority": true
+            }
+          ]
+        }
+      ],
+      "aesthetic": [
+        {
+          "criterion_id": "aesthetic.hierarchy",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "required surfaces are present and grouped by the Fire Horse layout contract",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_07_compact_focus_mode.png",
+              "title": "Compact Focus mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/compact_focus_default_compact.txt",
+              "title": "Compact Focus compact capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.density",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "render has enough dense rows for high-end review",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_07_compact_focus_mode.png",
+              "title": "Compact Focus mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/compact_focus_default_compact.txt",
+              "title": "Compact Focus compact capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.balance",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "structured aesthetic preflight produced no blocker",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_07_compact_focus_mode.png",
+              "title": "Compact Focus mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/compact_focus_default_compact.txt",
+              "title": "Compact Focus compact capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.tone_color",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "ANSI stream contains terminal styling",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_07_compact_focus_mode.png",
+              "title": "Compact Focus mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/compact_focus_default_compact.txt",
+              "title": "Compact Focus compact capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.terminal_craft",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "structured aesthetic preflight produced no blocker",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_07_compact_focus_mode.png",
+              "title": "Compact Focus mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/compact_focus_default_compact.txt",
+              "title": "Compact Focus compact capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.reference_fidelity",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "reference mockup and terminal capture are both linked",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_07_compact_focus_mode.png",
+              "title": "Compact Focus mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/compact_focus_default_compact.txt",
+              "title": "Compact Focus compact capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.text_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "rendered lines stay within fixed viewport width",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_07_compact_focus_mode.png",
+              "title": "Compact Focus mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/compact_focus_default_compact.txt",
+              "title": "Compact Focus compact capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.emotional_fit",
+          "status": "concern",
+          "confidence": "manual_required",
+          "rationale": "emotional fit requires cited human or agent rationale against the reference mockup",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_07_compact_focus_mode.png",
+              "title": "Compact Focus mockup",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/compact_focus_default_compact.txt",
+              "title": "Compact Focus compact capture",
+              "authority": true
+            }
+          ]
+        }
+      ],
+      "objective_preflight": {
+        "width": 92,
+        "height": 30,
+        "non_empty_lines": 29,
+        "dense_lines": 29,
+        "max_line_width": 92,
+        "has_ansi_stream": true,
+        "has_reference_image": true,
+        "has_terminal_capture": true
+      },
+      "gate": "concern",
+      "artifacts": [
+        {
+          "kind": "image",
+          "path": "docs/firehorse_mockups/refined_07_compact_focus_mode.png",
+          "title": "Compact Focus mockup",
+          "authority": true
+        },
+        {
+          "kind": "terminal_capture",
+          "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/compact_focus_default_compact.txt",
+          "title": "Compact Focus compact capture",
+          "authority": true
+        }
+      ],
+      "reproduction_commands": [
+        "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-focus-compact --viewport compact --once --mockup",
+        "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-focus-compact --viewport compact --once --mockup --ansi"
+      ]
+    },
+    {
+      "run_id": "firehorse:firehorse-real-editing:studio",
+      "suite_id": "firehorse",
+      "scenario_id": "audit-real-editing-adapter-honesty",
+      "firehorse_scenario_id": "firehorse-real-editing",
+      "viewport": "studio",
+      "render_mode": "mockup",
+      "functional": [
+        {
+          "criterion_id": "functional.persona_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "persona_fit checked against audit fixture audit-real-editing-adapter-honesty",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup reference",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/real_editing_adapter_studio.txt",
+              "title": "Real Editing Adapter Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.journey_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "journey_fit checked against audit fixture audit-real-editing-adapter-honesty",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup reference",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/real_editing_adapter_studio.txt",
+              "title": "Real Editing Adapter Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.command_clarity",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "command_clarity checked against audit fixture audit-real-editing-adapter-honesty",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup reference",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/real_editing_adapter_studio.txt",
+              "title": "Real Editing Adapter Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.state_ownership",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "state_ownership checked against audit fixture audit-real-editing-adapter-honesty",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup reference",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/real_editing_adapter_studio.txt",
+              "title": "Real Editing Adapter Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.seam_honesty",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "seam_honesty checked against audit fixture audit-real-editing-adapter-honesty",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup reference",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/real_editing_adapter_studio.txt",
+              "title": "Real Editing Adapter Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "functional.degradation",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "degradation checked against audit fixture audit-real-editing-adapter-honesty",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup reference",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/real_editing_adapter_studio.txt",
+              "title": "Real Editing Adapter Studio capture",
+              "authority": true
+            }
+          ]
+        }
+      ],
+      "aesthetic": [
+        {
+          "criterion_id": "aesthetic.hierarchy",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "required surfaces are present and grouped by the Fire Horse layout contract",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup reference",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/real_editing_adapter_studio.txt",
+              "title": "Real Editing Adapter Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.density",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "render has enough dense rows for high-end review",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup reference",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/real_editing_adapter_studio.txt",
+              "title": "Real Editing Adapter Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.balance",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "structured aesthetic preflight produced no blocker",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup reference",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/real_editing_adapter_studio.txt",
+              "title": "Real Editing Adapter Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.tone_color",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "ANSI stream contains terminal styling",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup reference",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/real_editing_adapter_studio.txt",
+              "title": "Real Editing Adapter Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.terminal_craft",
+          "status": "pass",
+          "confidence": "structured_judgement",
+          "rationale": "structured aesthetic preflight produced no blocker",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup reference",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/real_editing_adapter_studio.txt",
+              "title": "Real Editing Adapter Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.reference_fidelity",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "reference mockup and terminal capture are both linked",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup reference",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/real_editing_adapter_studio.txt",
+              "title": "Real Editing Adapter Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.text_fit",
+          "status": "pass",
+          "confidence": "objective",
+          "rationale": "rendered lines stay within fixed viewport width",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup reference",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/real_editing_adapter_studio.txt",
+              "title": "Real Editing Adapter Studio capture",
+              "authority": true
+            }
+          ]
+        },
+        {
+          "criterion_id": "aesthetic.emotional_fit",
+          "status": "concern",
+          "confidence": "manual_required",
+          "rationale": "emotional fit requires cited human or agent rationale against the reference mockup",
+          "evidence": [
+            {
+              "kind": "image",
+              "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+              "title": "Editing Lens mockup reference",
+              "authority": true
+            },
+            {
+              "kind": "terminal_capture",
+              "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/real_editing_adapter_studio.txt",
+              "title": "Real Editing Adapter Studio capture",
+              "authority": true
+            }
+          ]
+        }
+      ],
+      "objective_preflight": {
+        "width": 190,
+        "height": 48,
+        "non_empty_lines": 47,
+        "dense_lines": 45,
+        "max_line_width": 190,
+        "has_ansi_stream": true,
+        "has_reference_image": true,
+        "has_terminal_capture": true
+      },
+      "gate": "concern",
+      "artifacts": [
+        {
+          "kind": "image",
+          "path": "docs/firehorse_mockups/refined_02_editing_lens.png",
+          "title": "Editing Lens mockup reference",
+          "authority": true
+        },
+        {
+          "kind": "terminal_capture",
+          "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/real_editing_adapter_studio.txt",
+          "title": "Real Editing Adapter Studio capture",
+          "authority": true
+        }
+      ],
+      "reproduction_commands": [
+        "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-real-editing --viewport studio --once --mockup",
+        "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-real-editing --viewport studio --once --mockup --ansi"
+      ]
+    }
+  ]
+}

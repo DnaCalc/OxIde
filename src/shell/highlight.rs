@@ -295,7 +295,7 @@ pub fn gutter_total_width(total_lines: usize) -> usize {
 /// buffer even when only a visible slice of `lines` is passed in —
 /// relevant once virtual scrolling lands (today we pass the whole
 /// buffer, so `total_lines == lines.len()`).
-pub fn build_editor_text(lines: &[String], total_lines: usize) -> Text {
+pub fn build_editor_text(lines: &[String], total_lines: usize) -> Text<'static> {
     let gutter = gutter_width(total_lines);
     let gutter_style = theme::style_gutter();
     let mut out_lines = Vec::with_capacity(lines.len());

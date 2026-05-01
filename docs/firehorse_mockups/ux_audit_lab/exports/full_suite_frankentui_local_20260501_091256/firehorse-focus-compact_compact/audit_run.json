@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "kind": "audit_run",
+  "data": {
+    "suite_id": "firehorse",
+    "scenario_ids": [
+      "firehorse-focus-compact"
+    ],
+    "viewports": [
+      "compact"
+    ],
+    "evaluation": [
+      "functional",
+      "aesthetic"
+    ],
+    "output_root": "docs/firehorse_mockups/ux_audit_lab/exports/full_suite_frankentui_local_20260501_091256\\firehorse-focus-compact_compact"
+  }
+}

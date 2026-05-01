@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "kind": "audit_design_brief",
+  "data": {
+    "scenario_id": "audit-compact-focus-degradation",
+    "firehorse_scenario_id": "firehorse-focus-compact",
+    "viewport": "compact",
+    "persona_id": "terminal_power_user",
+    "design_intent": "Small terminal mode should stay source-first and honest without becoming the design baseline.",
+    "aesthetic_target": "The TUI feels more efficient and emotionally sharper than a comparable GUI.",
+    "must_preserve": [
+      "projection ownership remains one-way",
+      "reference artifact and terminal capture stay linked",
+      "no production behavior is implied by fixture data"
+    ],
+    "likely_files": [
+      "src/shell/uxlab/firehorse/mockup.rs",
+      "src/shell/uxlab/firehorse/fixtures.rs",
+      "src/shell/uxlab/audit/",
+      "docs/firehorse_mockups/ux_audit_lab/"
+    ],
+    "render_commands": [
+      "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-focus-compact --viewport compact --once --mockup",
+      "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-focus-compact --viewport compact --once --mockup --ansi"
+    ],
+    "evaluation_commands": [
+      "target/release/oxide-uxlab.exe --audit --suite firehorse --scenario firehorse-focus-compact --viewport compact --once --json",
+      "target/release/oxide-uxlab.exe --audit --suite firehorse --scenario firehorse-focus-compact --viewport compact --evaluate functional,aesthetic --json"
+    ],
+    "reference_artifacts": [
+      {
+        "kind": "image",
+        "path": "docs/firehorse_mockups/refined_07_compact_focus_mode.png",
+        "title": "Compact Focus mockup",
+        "authority": true
+      },
+      {
+        "kind": "terminal_capture",
+        "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/compact_focus_default_compact.txt",
+        "title": "Compact Focus compact capture",
+        "authority": true
+      }
+    ]
+  }
+}

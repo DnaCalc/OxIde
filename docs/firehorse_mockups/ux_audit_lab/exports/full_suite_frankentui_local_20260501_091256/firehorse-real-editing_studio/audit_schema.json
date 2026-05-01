@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "kind": "audit_schema",
+  "data": {
+    "schema_version": 1,
+    "outputs": [
+      "audit_suite",
+      "audit_design_brief",
+      "audit_run",
+      "audit_scorecard",
+      "audit_findings"
+    ],
+    "exit_codes": [
+      "0 ready",
+      "1 concern_or_blocked",
+      "2 command_or_input_error",
+      "3 render_or_capture_error"
+    ]
+  }
+}

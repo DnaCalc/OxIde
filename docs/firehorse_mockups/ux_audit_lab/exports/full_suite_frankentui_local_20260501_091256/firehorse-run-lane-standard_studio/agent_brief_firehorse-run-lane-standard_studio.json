@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "kind": "audit_design_brief",
+  "data": {
+    "scenario_id": "audit-run-lane-progress",
+    "firehorse_scenario_id": "firehorse-run-lane-standard",
+    "viewport": "studio",
+    "persona_id": "pricing_maintainer",
+    "design_intent": "Run progress should keep source continuity while showing staged build/execute state and Immediate/output affordances.",
+    "aesthetic_target": "The IDE feels dense, fast, and calm enough to trust during pricing changes.",
+    "must_preserve": [
+      "projection ownership remains one-way",
+      "reference artifact and terminal capture stay linked",
+      "no production behavior is implied by fixture data"
+    ],
+    "likely_files": [
+      "src/shell/uxlab/firehorse/mockup.rs",
+      "src/shell/uxlab/firehorse/fixtures.rs",
+      "src/shell/uxlab/audit/",
+      "docs/firehorse_mockups/ux_audit_lab/"
+    ],
+    "render_commands": [
+      "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-run-lane-standard --viewport studio --once --mockup",
+      "target/release/oxide-uxlab.exe --suite firehorse --scenario firehorse-run-lane-standard --viewport studio --once --mockup --ansi"
+    ],
+    "evaluation_commands": [
+      "target/release/oxide-uxlab.exe --audit --suite firehorse --scenario firehorse-run-lane-standard --viewport studio --once --json",
+      "target/release/oxide-uxlab.exe --audit --suite firehorse --scenario firehorse-run-lane-standard --viewport studio --evaluate functional,aesthetic --json"
+    ],
+    "reference_artifacts": [
+      {
+        "kind": "image",
+        "path": "docs/firehorse_mockups/refined_04_run_lane.png",
+        "title": "Run Lane mockup",
+        "authority": true
+      },
+      {
+        "kind": "terminal_capture",
+        "path": "docs/firehorse_mockups/frankentui_terminal_review/captures/run_lane_studio.txt",
+        "title": "Run Lane Studio capture",
+        "authority": true
+      }
+    ]
+  }
+}
