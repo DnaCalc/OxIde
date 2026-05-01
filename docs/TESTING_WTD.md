@@ -123,7 +123,9 @@ target\release\oxide-uxlab.exe --audit --suite firehorse --scenario firehorse-ed
 ```
 
 `--wtd-open` leaves the WTD workspace open and prints the target path plus
-the matching `wtd capture` commands.
+the matching `wtd capture` commands. Scenario design panes run the ANSI
+mockup stream so the WTD UI shows the same color and border treatment that
+the terminal renderer emits.
 
 For durable evidence, use `--wtd-capture <root>`. The root must be under
 `target/ux_audit_lab` or `docs/firehorse_mockups/ux_audit_lab`; the

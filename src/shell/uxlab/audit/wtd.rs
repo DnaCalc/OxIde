@@ -189,6 +189,7 @@ fn build_plan_with_workspace_root(
             viewport.name().to_string(),
             "--once".to_string(),
             "--mockup".to_string(),
+            "--ansi".to_string(),
         ]
     } else {
         vec![
@@ -471,6 +472,7 @@ mod tests {
         );
         assert_eq!(plan.visible_needle, "firehorse-editing-lens-standard");
         assert!(plan.args.iter().any(|arg| arg == "--mockup"));
+        assert!(plan.args.iter().any(|arg| arg == "--ansi"));
         assert!(!plan.args.iter().any(|arg| arg == "--audit"));
         assert!(plan.capture_vt_command.contains("wtd capture --vt"));
     }
