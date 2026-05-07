@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 
 use oxide_core::{
     DocumentLifecycleState, GuiSessionSnapshot, InMemoryDocumentPersistence, LifecycleCapabilities,
-    LifecycleCommand, LifecycleCommandStatus, SessionCapabilityProfile,
-    save_lifecycle_to_persistence,
+    LifecycleCommand, LifecycleCommandStatus, RunCapabilityProfile, RunRequest, RunTranscript,
+    SessionCapabilityProfile, save_lifecycle_to_persistence,
 };
 use oxide_domain::{DiagnosticRow, OxideDomainRole};
 use oxide_editor_core::{EditOperation, SourceSnapshot};
@@ -21,6 +21,7 @@ use oxide_oxvba::{
 pub const GUI_THIN_SLICE_LOADED: &str = "gui-thin-slice-loaded";
 pub const GUI_THIN_SLICE_EDITED_DIAGNOSTICS: &str = "gui-thin-slice-edited-diagnostics";
 pub const GUI_THIN_SLICE_LIFECYCLE: &str = "gui-thin-slice-lifecycle";
+pub const GUI_RUN_OUTPUT_BROWSER_DISABLED: &str = "gui-run-output-browser-disabled";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,6 +51,7 @@ pub enum GuiScenarioKind {
     ReadOnlyProject,
     EditedDiagnostics,
     Lifecycle,
+    BrowserRunDisabled,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -92,8 +94,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_THIN_SLICE_LIFECYCLE,
                 title: "Thin-slice lifecycle state",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::Lifecycle,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_RUN_OUTPUT_BROWSER_DISABLED,
+                title: "Run output browser disabled",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::BrowserRunDisabled,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -162,7 +170,9 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
     }
     output.push_str("  </nav>\n");
     let source_text = match scenario.kind {
-        GuiScenarioKind::ReadOnlyProject => view.active_source.source_text.clone(),
+        GuiScenarioKind::ReadOnlyProject | GuiScenarioKind::BrowserRunDisabled => {
+            view.active_source.source_text.clone()
+        }
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -195,12 +205,68 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
             &view.active_source.source_text,
             &source_text,
         ),
+        GuiScenarioKind::BrowserRunDisabled => render_browser_run_disabled_section(
+            &mut output,
+            &view.project_name,
+            &view.active_source.module_display_name,
+        ),
     }
     output.push_str("  <footer role=\"host-capability\">");
     output.push_str(&view.capability.status_text);
     output.push_str("</footer>\n");
     output.push_str("</section>\n");
     Ok(output)
+}
+
+fn render_browser_run_disabled_section(
+    output: &mut String,
+    project_name: &str,
+    module_display_name: &str,
+) {
+    let request = RunRequest::new(project_name, module_stem(module_display_name), "Main");
+    let profile = RunCapabilityProfile::browser_safe_unsupported();
+    let command_status = profile.command_status();
+    let transcript = RunTranscript::browser_disabled(request, profile.clone());
+
+    output.push_str("  <section role=\"run-output\" data-provider=\"");
+    output.push_str(transcript.provider_label.as_str());
+    output.push_str("\" data-status=\"");
+    output.push_str(transcript.status.label());
+    output.push_str("\">\n");
+    output.push_str("    <div role=\"run-request\" data-target=\"");
+    output.push_str(&html_escape(&transcript.request.display_target()));
+    output.push_str("\">");
+    output.push_str(&html_escape(&transcript.request.entrypoint));
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"run-command\" data-enabled=\"");
+    output.push_str(if command_status.is_enabled {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">Run");
+    if let Some(reason) = command_status.reason {
+        output.push_str(" disabled: ");
+        output.push_str(&html_escape(&reason));
+    }
+    output.push_str("</div>\n");
+    output.push_str("    <section role=\"output-activity\">\n");
+    for event in &transcript.events {
+        output.push_str("      <div role=\"output-event\" data-event-kind=\"");
+        output.push_str(event.kind.label());
+        output.push_str("\">");
+        output.push_str(&html_escape(&event.message));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    </section>\n");
+    output.push_str("  </section>\n");
+}
+
+fn module_stem(module_display_name: &str) -> String {
+    module_display_name
+        .strip_suffix(".bas")
+        .unwrap_or(module_display_name)
+        .to_string()
 }
 
 fn edited_diagnostics_source(source_text: &str) -> String {
@@ -447,6 +513,8 @@ mod tests {
         assert!(output.contains("Thin-slice edited diagnostics"));
         assert!(output.contains("gui-thin-slice-lifecycle"));
         assert!(output.contains("Thin-slice lifecycle state"));
+        assert!(output.contains("gui-run-output-browser-disabled"));
+        assert!(output.contains("Run output browser disabled"));
     }
 
     #[test]
@@ -528,6 +596,45 @@ mod tests {
 
         assert_eq!(scenario.title, "Thin-slice lifecycle state");
         assert_eq!(scenario.kind, GuiScenarioKind::Lifecycle);
+    }
+
+    #[test]
+    fn built_in_registry_finds_browser_run_disabled_scenario_by_id() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let scenario = registry
+            .find(GUI_RUN_OUTPUT_BROWSER_DISABLED)
+            .expect("browser run disabled scenario");
+
+        assert_eq!(scenario.title, "Run output browser disabled");
+        assert_eq!(scenario.kind, GuiScenarioKind::BrowserRunDisabled);
+    }
+
+    #[test]
+    fn browser_run_disabled_scenario_renders_structured_output_reason() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_RUN_OUTPUT_BROWSER_DISABLED)
+            .expect("render browser run disabled scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-run-output-browser-disabled\""));
+        assert!(rendered.contains("ThinSliceHello"));
+        assert!(rendered.contains("Module1.bas"));
+        assert!(rendered.contains("role=\"run-output\""));
+        assert!(rendered.contains("data-provider=\"browser-unsupported\""));
+        assert!(rendered.contains("data-status=\"disabled\""));
+        assert!(rendered.contains("role=\"run-request\""));
+        assert!(rendered.contains("ThinSliceHello::Module1.Main"));
+        assert!(rendered.contains("role=\"run-command\" data-enabled=\"false\""));
+        assert!(rendered.contains("native execution provider unavailable"));
+        assert!(rendered.contains("role=\"output-activity\""));
+        assert!(rendered.contains("data-event-kind=\"lifecycle\""));
+        assert!(rendered.contains("run requested"));
+        assert!(rendered.contains("data-event-kind=\"diagnostic\""));
+        assert!(rendered.contains("Run disabled"));
+        assert!(rendered.contains("COM unavailable"));
+        assert!(!rendered.contains("role=\"diagnostics\""));
     }
 
     #[test]
