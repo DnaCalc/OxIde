@@ -1100,6 +1100,60 @@ Known W341 limitations:
 4. no real project open/save through Tauri commands yet,
 5. no real OxVba compile/runtime/debug/Immediate/COM adapter evidence yet.
 
-## 20. Cross-Repo Fixture Policy
+## 20. W342 Shared UI Component Acceptance Target
+
+W342 closes against the shared component crate and a deterministic GUI-lab route:
+
+```powershell
+cargo test --manifest-path crates/Cargo.toml -p oxide-ui-leptos
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-shared-ui-shell-component
+```
+
+Observed W342 shared UI output contains:
+
+- `data-scenario="gui-shared-ui-shell-component"`,
+- `role="shared-ui-component-route"`,
+- `data-source="oxide-ui-leptos"`,
+- `role="shared-ide-surface"`,
+- `data-component-crate="oxide-ui-leptos"`,
+- `data-provenance="pending-oxvba-hardening"`,
+- `role="shared-project-spine"`,
+- `role="shared-editor-boundary"`,
+- `role="shared-diagnostics-summary"`,
+- `role="shared-lifecycle-summary"`,
+- `role="shared-run-output"`,
+- `role="shared-command-palette"`,
+- `role="shared-focus-accessibility"`,
+- `role="shared-runtime-service"`,
+- `role="shared-immediate-service"`,
+- `role="shared-debug-service"`,
+- `role="shared-com-capability"`,
+- `ThinSliceHello`,
+- `Module1.bas`,
+- `data-native-runtime="false"`,
+- `data-com-runtime="false"`,
+- `data-fake-responses="false"`,
+- `data-fake-debug-data="false"`.
+
+Implementation notes:
+
+1. `oxide-ui-leptos` is the shared UI component boundary for DnaOxIde, DnaOneCalc, and GUI-lab review.
+2. W342 starts with deterministic HTML-string component output over OxIde packets; real Leptos hydration is not yet claimed.
+3. Shared components consume `GuiShellPacket`, `RuntimeServicePacket`, `ImmediateServicePacket`, and `DebugServicePacket` inputs.
+4. Shared components carry provenance labels such as `proven-oxide-state`, `oxvba-available-subset`, `pending-oxvba-hardening`, and `unavailable-no-claim`.
+5. `oxide-guilab` preserves existing scenario IDs and adds `gui-shared-ui-shell-component` as the component-backed route.
+6. W342 keeps Tauri/app-folder dependencies out of the shared UI crate.
+7. W343 owns the next host bridge facade; W344 owns DnaOxIde Tauri command adapters.
+
+Known W342 limitations:
+
+1. no live Tauri/WebView runtime,
+2. no real browser hydration,
+3. no full DOM accessibility audit,
+4. no host bridge crate yet,
+5. no real OxVba runtime/debug/Immediate/COM adapter evidence,
+6. no DnaOneCalc repo mount.
+
+## 21. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.

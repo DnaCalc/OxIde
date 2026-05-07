@@ -1,6 +1,6 @@
 # OxIde Shared UI Component API
 
-Status: `w342_component_api_design`
+Status: `w342_shared_ui_layer_accepted`
 Date: 2026-05-07
 Primary crate target: `oxide-ui-leptos`
 Primary consumers: **DnaOxIde / DNA OxIde**, DnaOneCalc, `oxide-guilab`

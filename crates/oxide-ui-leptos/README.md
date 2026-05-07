@@ -1,6 +1,6 @@
 # oxide-ui-leptos
 
-Status: `w342_shared_shell_scaffold`
+Status: `w342_shared_ui_layer_accepted`
 
 Shared OxIde IDE UI component boundary for DNA OxIde, DnaOneCalc, and GUI-lab review surfaces.
 
