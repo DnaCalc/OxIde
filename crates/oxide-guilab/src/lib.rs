@@ -29,6 +29,8 @@ pub const GUI_DNAONECALC_EMBEDDING_CONTRACT: &str = "gui-dnaonecalc-embedding-co
 pub const GUI_COM_REFERENCE_BROWSER_UNAVAILABLE: &str = "gui-com-reference-browser-unavailable";
 pub const GUI_COM_REFERENCE_NONWINDOWS_UNAVAILABLE: &str =
     "gui-com-reference-nonwindows-unavailable";
+pub const GUI_COM_REFERENCE_NATIVE_SERVICE_MISSING: &str =
+    "gui-com-reference-native-service-missing";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,6 +65,7 @@ pub enum GuiScenarioKind {
     DnaOneCalcEmbeddingContract,
     BrowserComUnavailable,
     NonWindowsComUnavailable,
+    NativeComServiceMissing,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -135,8 +138,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_COM_REFERENCE_NONWINDOWS_UNAVAILABLE,
                 title: "COM reference non-Windows unavailable",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::NonWindowsComUnavailable,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_COM_REFERENCE_NATIVE_SERVICE_MISSING,
+                title: "COM reference native service missing",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::NativeComServiceMissing,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -210,7 +219,8 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::SimulatedRunOutput
         | GuiScenarioKind::DnaOneCalcEmbeddingContract
         | GuiScenarioKind::BrowserComUnavailable
-        | GuiScenarioKind::NonWindowsComUnavailable => view.active_source.source_text.clone(),
+        | GuiScenarioKind::NonWindowsComUnavailable
+        | GuiScenarioKind::NativeComServiceMissing => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -272,6 +282,12 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
                 ComReferenceFact::scripting_dictionary_demo(),
             ),
         ),
+        GuiScenarioKind::NativeComServiceMissing => render_com_capability_section(
+            &mut output,
+            ComCapabilityProfile::windows_native_service_missing(
+                ComReferenceFact::scripting_dictionary_demo(),
+            ),
+        ),
     }
     output.push_str("  <footer role=\"host-capability\">");
     output.push_str(scenario_host_capability_text(
@@ -287,6 +303,9 @@ fn scenario_host_capability_text<'a>(kind: GuiScenarioKind, default_text: &'a st
     match kind {
         GuiScenarioKind::NonWindowsComUnavailable => {
             "Non-Windows native profile: native execution capability is separate from Windows COM; COM unavailable."
+        }
+        GuiScenarioKind::NativeComServiceMissing => {
+            "Windows native profile: native host admitted, but native COM service is not configured; COM runtime disabled."
         }
         _ => default_text,
     }
@@ -795,6 +814,8 @@ mod tests {
         assert!(output.contains("COM reference browser unavailable"));
         assert!(output.contains("gui-com-reference-nonwindows-unavailable"));
         assert!(output.contains("COM reference non-Windows unavailable"));
+        assert!(output.contains("gui-com-reference-native-service-missing"));
+        assert!(output.contains("COM reference native service missing"));
     }
 
     #[test]
@@ -924,11 +945,19 @@ mod tests {
         let nonwindows = registry
             .find(GUI_COM_REFERENCE_NONWINDOWS_UNAVAILABLE)
             .expect("non-Windows COM unavailable scenario");
+        let native_missing = registry
+            .find(GUI_COM_REFERENCE_NATIVE_SERVICE_MISSING)
+            .expect("native COM service missing scenario");
 
         assert_eq!(browser.title, "COM reference browser unavailable");
         assert_eq!(browser.kind, GuiScenarioKind::BrowserComUnavailable);
         assert_eq!(nonwindows.title, "COM reference non-Windows unavailable");
         assert_eq!(nonwindows.kind, GuiScenarioKind::NonWindowsComUnavailable);
+        assert_eq!(native_missing.title, "COM reference native service missing");
+        assert_eq!(
+            native_missing.kind,
+            GuiScenarioKind::NativeComServiceMissing
+        );
     }
 
     #[test]
@@ -1066,6 +1095,33 @@ mod tests {
         assert!(rendered.contains("No COM runtime support is claimed"));
         assert!(rendered.contains("Non-Windows native profile"));
         assert!(rendered.contains("COM unavailable"));
+    }
+
+    #[test]
+    fn native_service_missing_scenario_renders_blocked_windows_service_seam() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_COM_REFERENCE_NATIVE_SERVICE_MISSING)
+            .expect("render native COM service missing scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-com-reference-native-service-missing\""));
+        assert!(
+            rendered.contains(
+                "role=\"com-capability\" data-profile=\"windows-native-service-missing\""
+            )
+        );
+        assert!(rendered.contains("data-native-execution=\"true\""));
+        assert!(rendered.contains("data-com-service-configured=\"false\""));
+        assert!(rendered.contains("data-windows-native-host-required=\"false\""));
+        assert!(rendered.contains("COM reference present: Scripting.Dictionary"));
+        assert!(rendered.contains("native COM service not configured"));
+        assert!(rendered.contains("COM discovery blocked until service handoff is implemented"));
+        assert!(rendered.contains("COM runtime invocation disabled"));
+        assert!(rendered.contains("No COM runtime support is claimed"));
+        assert!(rendered.contains("Windows native profile"));
+        assert!(rendered.contains("COM runtime disabled"));
+        assert!(!rendered.contains("pure browser/WASM cannot directly call Windows COM"));
     }
 
     #[test]
