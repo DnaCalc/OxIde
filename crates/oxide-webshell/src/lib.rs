@@ -4,6 +4,7 @@
 //! broad web framework. DOM/browser claims belong to later smoke tests.
 
 use oxide_core::GuiShellPacket;
+use scraper::{Html, Selector};
 
 /// Compile-time marker for the web shell adapter crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,6 +29,49 @@ pub struct WebShellSnapshot {
 impl WebShellSnapshot {
     pub fn markup(&self) -> &str {
         &self.markup
+    }
+}
+
+/// One deterministic parsed-HTML DOM smoke check.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WebShellDomSmokeCheck {
+    pub name: String,
+    pub passed: bool,
+    pub detail: String,
+}
+
+impl WebShellDomSmokeCheck {
+    fn passed(name: impl Into<String>, detail: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            passed: true,
+            detail: detail.into(),
+        }
+    }
+
+    fn failed(name: impl Into<String>, detail: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            passed: false,
+            detail: detail.into(),
+        }
+    }
+}
+
+/// Parsed-HTML DOM smoke report for the static shell boundary.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WebShellDomSmokeReport {
+    pub snapshot: WebShellSnapshot,
+    pub smoke_kind: &'static str,
+    pub dom_smoke_tested: bool,
+    pub browser_runtime_claimed: bool,
+    pub dom_accessibility_audited: bool,
+    pub checks: Vec<WebShellDomSmokeCheck>,
+}
+
+impl WebShellDomSmokeReport {
+    pub fn all_passed(&self) -> bool {
+        self.checks.iter().all(|check| check.passed)
     }
 }
 
@@ -82,6 +126,181 @@ pub fn render_web_shell_snapshot(packet: &GuiShellPacket) -> WebShellSnapshot {
         native_runtime_claimed: packet.native_execution_claimed,
         com_runtime_claimed: packet.com_runtime_claimed,
         parked_tui_imported: packet.parked_tui_imported,
+    }
+}
+
+/// Parse the adapter markup as an HTML tree and verify the static shell
+/// surface with DOM-selector checks. This is not a browser runtime claim and
+/// not an accessibility audit.
+pub fn run_static_shell_dom_smoke(packet: &GuiShellPacket) -> WebShellDomSmokeReport {
+    let snapshot = render_web_shell_snapshot(packet);
+    let document = Html::parse_fragment(snapshot.markup());
+    let checks = vec![
+        selector_attr_check(
+            &document,
+            "section[role='web-shell-adapter']",
+            "data-source",
+            "GuiShellPacket",
+            "root consumes GuiShellPacket",
+        ),
+        selector_attr_check(
+            &document,
+            "section[role='web-shell-adapter']",
+            "data-dom-smoke-tested",
+            "false",
+            "adapter boundary itself does not claim pre-smoked DOM",
+        ),
+        selector_attr_check(
+            &document,
+            "section[role='web-shell-adapter']",
+            "data-dom-audited",
+            "false",
+            "DOM accessibility audit remains unclaimed",
+        ),
+        selector_attr_check(
+            &document,
+            "section[role='web-shell-adapter']",
+            "data-filesystem-persistence",
+            "false",
+            "filesystem persistence remains unclaimed",
+        ),
+        selector_attr_check(
+            &document,
+            "section[role='web-shell-adapter']",
+            "data-native-runtime",
+            "false",
+            "native runtime remains unclaimed",
+        ),
+        selector_attr_check(
+            &document,
+            "section[role='web-shell-adapter']",
+            "data-com-runtime",
+            "false",
+            "COM runtime remains unclaimed",
+        ),
+        selector_attr_check(
+            &document,
+            "section[role='web-shell-adapter']",
+            "data-parked-tui-imported",
+            "false",
+            "parked TUI state remains isolated",
+        ),
+        selector_attr_check(
+            &document,
+            "nav[role='web-project-tree']",
+            "data-project",
+            &packet.project_name,
+            "project tree carries project name",
+        ),
+        selector_text_check(
+            &document,
+            "div[role='web-project-module']",
+            &packet.active_module,
+            "project tree shows active module",
+        ),
+        selector_text_check(
+            &document,
+            "pre[role='web-source-editor']",
+            "Public Sub Main()",
+            "source editor shows module source",
+        ),
+        selector_attr_check(
+            &document,
+            "section[role='web-diagnostics']",
+            "data-count",
+            &packet.diagnostics.len().to_string(),
+            "diagnostics surface carries count",
+        ),
+        selector_attr_check(
+            &document,
+            "section[role='web-run-output']",
+            "data-provider",
+            packet.run_transcript.provider_label.as_str(),
+            "run output carries provider",
+        ),
+        selector_attr_check(
+            &document,
+            "section[role='web-run-output']",
+            "data-native-execution",
+            "false",
+            "run output keeps native execution unclaimed",
+        ),
+        selector_attr_check(
+            &document,
+            "section[role='web-com-capability']",
+            "data-runtime-available",
+            "false",
+            "COM runtime remains unavailable",
+        ),
+        selector_attr_check(
+            &document,
+            "section[role='web-command-summary']",
+            "data-command-count",
+            &packet.command_palette.commands.len().to_string(),
+            "command summary carries packet command count",
+        ),
+        selector_attr_check(
+            &document,
+            "section[role='web-focus-accessibility-summary']",
+            "data-route-length",
+            &packet.focus_graph.no_mouse_route.len().to_string(),
+            "focus route length is packet-derived",
+        ),
+        selector_text_check(
+            &document,
+            "footer[role='web-capability-footer']",
+            &packet.capability_footer,
+            "capability footer remains visible",
+        ),
+    ];
+
+    WebShellDomSmokeReport {
+        snapshot,
+        smoke_kind: "parsed-html-tree",
+        dom_smoke_tested: true,
+        browser_runtime_claimed: false,
+        dom_accessibility_audited: false,
+        checks,
+    }
+}
+
+fn selector_attr_check(
+    document: &Html,
+    selector: &str,
+    attr: &str,
+    expected: &str,
+    name: &str,
+) -> WebShellDomSmokeCheck {
+    let selector = Selector::parse(selector).expect("static selector parses");
+    let Some(element) = document.select(&selector).next() else {
+        return WebShellDomSmokeCheck::failed(name, "selector not found");
+    };
+    match element.value().attr(attr) {
+        Some(actual) if actual == expected => {
+            WebShellDomSmokeCheck::passed(name, format!("{attr}={actual}"))
+        }
+        Some(actual) => {
+            WebShellDomSmokeCheck::failed(name, format!("expected {attr}={expected}, got {actual}"))
+        }
+        None => WebShellDomSmokeCheck::failed(name, format!("missing attribute {attr}")),
+    }
+}
+
+fn selector_text_check(
+    document: &Html,
+    selector: &str,
+    expected: &str,
+    name: &str,
+) -> WebShellDomSmokeCheck {
+    let selector = Selector::parse(selector).expect("static selector parses");
+    let Some(element) = document.select(&selector).next() else {
+        return WebShellDomSmokeCheck::failed(name, "selector not found");
+    };
+    let text = element.text().collect::<String>();
+    if text.contains(expected) {
+        WebShellDomSmokeCheck::passed(name, expected)
+    } else {
+        WebShellDomSmokeCheck::failed(name, format!("expected text containing {expected}"))
     }
 }
 
@@ -322,6 +541,56 @@ mod tests {
         assert!(markup.contains("data-native-runtime=\"false\""));
         assert!(markup.contains("data-com-runtime=\"false\""));
         assert!(markup.contains("data-parked-tui-imported=\"false\""));
+    }
+
+    #[test]
+    fn static_shell_dom_smoke_parses_markup_and_verifies_shell_contract() {
+        let packet = baseline_packet();
+
+        let report = run_static_shell_dom_smoke(&packet);
+
+        assert!(report.dom_smoke_tested);
+        assert_eq!(report.smoke_kind, "parsed-html-tree");
+        assert!(!report.browser_runtime_claimed);
+        assert!(!report.dom_accessibility_audited);
+        assert!(report.all_passed());
+        assert_eq!(report.checks.len(), 17);
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.name == "root consumes GuiShellPacket")
+        );
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.name == "project tree carries project name")
+        );
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.name == "source editor shows module source")
+        );
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.name == "filesystem persistence remains unclaimed")
+        );
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.name == "native runtime remains unclaimed")
+        );
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.name == "COM runtime remains unclaimed")
+        );
     }
 
     #[test]
