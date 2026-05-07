@@ -5,6 +5,7 @@
 
 use oxide_domain::OxideDomainRole;
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 /// Compile-time marker for the GUI core crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -287,6 +288,51 @@ impl DocumentPersistence for BrowserLimitedPersistence {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NativeFilesystemDocumentPersistence {
+    module_path: PathBuf,
+}
+
+impl NativeFilesystemDocumentPersistence {
+    pub fn new(module_path: impl Into<PathBuf>) -> Self {
+        Self {
+            module_path: module_path.into(),
+        }
+    }
+
+    pub fn module_path(&self) -> &Path {
+        &self.module_path
+    }
+
+    pub fn provider_label(&self) -> &'static str {
+        "native-filesystem"
+    }
+
+    fn io_error(&self, operation: PersistenceOperation, error: std::io::Error) -> PersistenceError {
+        PersistenceError::Io {
+            operation,
+            path: self.module_path.display().to_string(),
+            message: error.to_string(),
+        }
+    }
+}
+
+impl DocumentPersistence for NativeFilesystemDocumentPersistence {
+    fn load(&self) -> Result<String, PersistenceError> {
+        std::fs::read_to_string(&self.module_path)
+            .map_err(|error| self.io_error(PersistenceOperation::Load, error))
+    }
+
+    fn save(&mut self, source: &str) -> Result<(), PersistenceError> {
+        std::fs::write(&self.module_path, source)
+            .map_err(|error| self.io_error(PersistenceOperation::Save, error))
+    }
+
+    fn capabilities(&self) -> LifecycleCapabilities {
+        LifecycleCapabilities::all_supported()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PersistenceOperation {
     Load,
@@ -299,12 +345,22 @@ pub enum PersistenceError {
         operation: PersistenceOperation,
         reason: String,
     },
+    Io {
+        operation: PersistenceOperation,
+        path: String,
+        message: String,
+    },
 }
 
 impl std::fmt::Display for PersistenceError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Disabled { operation, reason } => write!(f, "{:?} disabled: {reason}", operation),
+            Self::Io {
+                operation,
+                path,
+                message,
+            } => write!(f, "{:?} failed for {path}: {message}", operation),
         }
     }
 }
@@ -2132,6 +2188,39 @@ fn lifecycle_command_stable_name(command: LifecycleCommand) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn thin_slice_fixture_module_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("examples")
+            .join("thin-slice")
+            .join("Module1.bas")
+    }
+
+    fn unique_temp_project_dir(test_name: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time after epoch")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "oxide-w320-{test_name}-{}-{unique}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).expect("create test-owned temp project dir");
+        dir
+    }
+
+    fn copy_thin_slice_module_to_temp(test_name: &str) -> (PathBuf, String, PathBuf) {
+        let fixture_path = thin_slice_fixture_module_path();
+        let fixture_source = fs::read_to_string(&fixture_path).expect("read checked-in fixture");
+        let temp_dir = unique_temp_project_dir(test_name);
+        let module_path = temp_dir.join("Module1.bas");
+        fs::write(&module_path, &fixture_source).expect("copy fixture to test-owned temp project");
+        (module_path, fixture_source, fixture_path)
+    }
 
     #[test]
     fn core_role_depends_on_domain_vocabulary() {
@@ -2264,6 +2353,61 @@ mod tests {
             .expect_err("browser save disabled");
         assert!(save.to_string().contains("filesystem persistence"));
         assert!(!persistence.capabilities().can_save);
+        assert!(!persistence.capabilities().can_reload);
+    }
+
+    #[test]
+    fn native_filesystem_persistence_writes_and_reloads_test_owned_project_copy() {
+        let (module_path, fixture_source, fixture_path) =
+            copy_thin_slice_module_to_temp("native-write-reload");
+        let fixture_before = fs::read_to_string(&fixture_path).expect("read fixture before save");
+        let mut persistence = NativeFilesystemDocumentPersistence::new(&module_path);
+
+        assert_eq!(persistence.provider_label(), "native-filesystem");
+        assert_eq!(persistence.module_path(), module_path.as_path());
+        assert_eq!(persistence.load().as_deref(), Ok(fixture_source.as_str()));
+        assert!(persistence.capabilities().can_save);
+        assert!(persistence.capabilities().can_reload);
+
+        let edited = fixture_source.replace("answer = 40 + 2", "answer = 41 + 1");
+        persistence.save(&edited).expect("native save to temp copy");
+
+        assert_eq!(persistence.load().as_deref(), Ok(edited.as_str()));
+        assert_eq!(
+            fs::read_to_string(&module_path).expect("read temp module after save"),
+            edited
+        );
+        assert_eq!(
+            fs::read_to_string(&fixture_path).expect("read checked-in fixture after save"),
+            fixture_before,
+            "native persistence test must not mutate the checked-in thin-slice fixture"
+        );
+    }
+
+    #[test]
+    fn native_filesystem_save_lifecycle_acknowledges_disk_write_without_mutating_fixture() {
+        let (module_path, fixture_source, fixture_path) =
+            copy_thin_slice_module_to_temp("native-lifecycle-save");
+        let fixture_before = fs::read_to_string(&fixture_path).expect("read fixture before save");
+        let mut persistence = NativeFilesystemDocumentPersistence::new(&module_path);
+        let mut state = open_lifecycle_from_persistence(&persistence).expect("native load");
+
+        let edited = fixture_source.replace("Dim answer As Integer", "Dim answer As Long");
+        state.edit_working_source(edited.clone());
+        assert!(state.is_dirty());
+
+        save_lifecycle_to_persistence(&mut state, &mut persistence).expect("native lifecycle save");
+
+        assert!(!state.is_dirty());
+        assert_eq!(state.persisted_source(), edited);
+        assert_eq!(state.working_source(), edited);
+        assert_eq!(persistence.load().as_deref(), Ok(edited.as_str()));
+        assert_eq!(
+            fs::read_to_string(&fixture_path)
+                .expect("read checked-in fixture after lifecycle save"),
+            fixture_before,
+            "native lifecycle save must only write the test-owned temp project copy"
+        );
     }
 
     #[test]
