@@ -10,7 +10,8 @@
     "command-client:check": "node ./scripts/verify-command-client.mjs",
     "host-ui:check": "node ./scripts/verify-host-ui.mjs",
     "host-lifecycle:check": "node ./scripts/verify-host-lifecycle.mjs",
-    "host-services:check": "node ./scripts/verify-host-services.mjs"
+    "host-services:check": "node ./scripts/verify-host-services.mjs",
+    "interaction-command:check": "node ./scripts/verify-interaction-command.mjs"
   },
   "dependencies": {},
   "devDependencies": {}
