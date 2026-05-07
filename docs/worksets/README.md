@@ -36,8 +36,9 @@ Specs executors will touch next for the Rust/WASM-capable GUI pivot:
 - `W260_windows_com_capability_proof.md`
 - `W270_run_debug_immediate_gui_surfaces.md`
 - `W280_command_keyboard_accessibility_polish.md`
+- `W290_host_mounted_gui_shell.md`
 
-`W210` through `W280` are scaffolded future worksets. Expand each
+`W210` through `W290` are scaffolded future worksets. Expand each
 Beads section into concrete executable packets before starting code
 against that workset.
 
