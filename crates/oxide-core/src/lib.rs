@@ -495,6 +495,133 @@ pub struct RunCommandStatus {
     pub reason: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RunRequest {
+    pub project_name: String,
+    pub module_name: String,
+    pub entrypoint: String,
+}
+
+impl RunRequest {
+    pub fn new(
+        project_name: impl Into<String>,
+        module_name: impl Into<String>,
+        entrypoint: impl Into<String>,
+    ) -> Self {
+        Self {
+            project_name: project_name.into(),
+            module_name: module_name.into(),
+            entrypoint: entrypoint.into(),
+        }
+    }
+
+    pub fn display_target(&self) -> String {
+        format!(
+            "{}::{}.{}",
+            self.project_name, self.module_name, self.entrypoint
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RunTranscriptStatus {
+    Disabled,
+    Completed,
+}
+
+impl RunTranscriptStatus {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Disabled => "disabled",
+            Self::Completed => "completed",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RunTranscript {
+    pub request: RunRequest,
+    pub provider_label: String,
+    pub status: RunTranscriptStatus,
+    pub events: Vec<RunOutputEvent>,
+}
+
+impl RunTranscript {
+    pub fn browser_disabled(request: RunRequest, profile: RunCapabilityProfile) -> Self {
+        let reason = profile
+            .command_status()
+            .reason
+            .unwrap_or_else(|| String::from("run is unavailable in this host profile"));
+        Self {
+            request,
+            provider_label: profile.provider_kind.label().to_string(),
+            status: RunTranscriptStatus::Disabled,
+            events: vec![
+                RunOutputEvent::new(RunOutputEventKind::Lifecycle, "run requested"),
+                RunOutputEvent::new(
+                    RunOutputEventKind::Diagnostic,
+                    format!("Run disabled: {reason}"),
+                ),
+            ],
+        }
+    }
+
+    pub fn simulated_completed(request: RunRequest) -> Self {
+        let target = request.display_target();
+        Self {
+            request,
+            provider_label: RunProviderKind::Simulated.label().to_string(),
+            status: RunTranscriptStatus::Completed,
+            events: vec![
+                RunOutputEvent::new(RunOutputEventKind::Lifecycle, "run started"),
+                RunOutputEvent::new(
+                    RunOutputEventKind::Activity,
+                    format!("simulated provider invoked {target}"),
+                ),
+                RunOutputEvent::new(
+                    RunOutputEventKind::Output,
+                    "simulated output: Main completed with answer 42",
+                ),
+                RunOutputEvent::new(RunOutputEventKind::Lifecycle, "run completed"),
+            ],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RunOutputEventKind {
+    Lifecycle,
+    Activity,
+    Diagnostic,
+    Output,
+}
+
+impl RunOutputEventKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Lifecycle => "lifecycle",
+            Self::Activity => "activity",
+            Self::Diagnostic => "diagnostic",
+            Self::Output => "output",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RunOutputEvent {
+    pub kind: RunOutputEventKind,
+    pub message: String,
+}
+
+impl RunOutputEvent {
+    pub fn new(kind: RunOutputEventKind, message: impl Into<String>) -> Self {
+        Self {
+            kind,
+            message: message.into(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -758,5 +885,72 @@ mod tests {
         assert!(profile.can_run);
         assert!(profile.native_execution_available);
         assert!(!profile.com_runtime_available);
+    }
+
+    #[test]
+    fn run_request_constructs_display_target() {
+        let request = RunRequest::new("ThinSliceHello", "Module1", "Main");
+
+        assert_eq!(request.project_name, "ThinSliceHello");
+        assert_eq!(request.module_name, "Module1");
+        assert_eq!(request.entrypoint, "Main");
+        assert_eq!(request.display_target(), "ThinSliceHello::Module1.Main");
+    }
+
+    #[test]
+    fn browser_disabled_run_transcript_is_structured() {
+        let request = RunRequest::new("ThinSliceHello", "Module1", "Main");
+
+        let transcript = RunTranscript::browser_disabled(
+            request,
+            RunCapabilityProfile::browser_safe_unsupported(),
+        );
+
+        assert_eq!(transcript.provider_label, "browser-unsupported");
+        assert_eq!(transcript.status, RunTranscriptStatus::Disabled);
+        assert_eq!(transcript.status.label(), "disabled");
+        assert_eq!(transcript.events.len(), 2);
+        assert_eq!(transcript.events[0].kind, RunOutputEventKind::Lifecycle);
+        assert_eq!(transcript.events[0].message, "run requested");
+        assert_eq!(transcript.events[1].kind, RunOutputEventKind::Diagnostic);
+        assert!(transcript.events[1].message.contains("Run disabled"));
+        assert!(
+            transcript.events[1]
+                .message
+                .contains("native execution provider unavailable")
+        );
+    }
+
+    #[test]
+    fn simulated_run_transcript_has_deterministic_event_order() {
+        let request = RunRequest::new("ThinSliceHello", "Module1", "Main");
+
+        let transcript = RunTranscript::simulated_completed(request);
+
+        assert_eq!(transcript.provider_label, "simulated");
+        assert_eq!(transcript.status, RunTranscriptStatus::Completed);
+        assert_eq!(transcript.status.label(), "completed");
+        let messages = transcript
+            .events
+            .iter()
+            .map(|event| event.message.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            messages,
+            vec![
+                "run started",
+                "simulated provider invoked ThinSliceHello::Module1.Main",
+                "simulated output: Main completed with answer 42",
+                "run completed"
+            ]
+        );
+    }
+
+    #[test]
+    fn run_output_event_kinds_have_stable_labels() {
+        assert_eq!(RunOutputEventKind::Lifecycle.label(), "lifecycle");
+        assert_eq!(RunOutputEventKind::Activity.label(), "activity");
+        assert_eq!(RunOutputEventKind::Diagnostic.label(), "diagnostic");
+        assert_eq!(RunOutputEventKind::Output.label(), "output");
     }
 }
