@@ -2,7 +2,7 @@
 
 ## Ambition
 
-Accept the OxIde-side continuation runway that can proceed while OxVba implements and hardens the requested full-scope APIs. W349 is a consolidation workset, not a new capability lane: it verifies W341-W348 compose into a coherent DnaOxIde host direction, including available-subset OxVba adapter evidence where present, without overclaiming pending OxVba behavior.
+Accept the OxIde-side continuation runway that can proceed while OxVba implements and hardens the requested full-scope APIs. W349 is a consolidation workset, not a new capability lane: it verifies W341-W348 compose into a coherent DnaOxIde host direction, including available-subset and OxVba-fixture-evidenced adapter evidence where present, without overclaiming pending OxVba behavior.
 
 ## Dependencies
 
@@ -23,10 +23,10 @@ W349 gathers evidence that the eight continuation areas are ready for OxVba inte
 1. DnaOxIde scaffold exists and is branded.
 2. Shared UI renders accepted IDE slices.
 3. Host bridge facade separates UI from host services.
-4. Tauri command stubs cover proven lifecycle, available-subset OxVba adapters, and pending-hardening unavailable services.
+4. Tauri command stubs cover proven lifecycle, available-subset OxVba adapters, OxVba ThinSliceHello fixture-evidenced adapter targets, and pending-hardening unavailable services.
 5. Live host UI proof is reviewable.
-6. Interaction/e2e harness covers command/focus/lifecycle/blocked-service and subset-backed flows.
-7. Compile/options/reference placeholders/subset panels are ready for real OxVba DTOs.
+6. Interaction/e2e harness covers command/focus/lifecycle/blocked-service plus subset-backed/fixture-evidenced flows where adapter evidence exists.
+7. Compile/options/reference placeholders/subset/fixture panels are ready for real OxVba DTOs.
 8. DnaOneCalc reuse path is preserved without sibling writes.
 
 ## Beads
@@ -40,7 +40,7 @@ Design:
   - Review target evidence files.
   - Confirm fixture mutation guards.
   - Confirm no-claim scans exist.
-  - Confirm subset-backed adapter evidence does not flip full capability claims.
+  - Confirm subset-backed and fixture-evidenced adapter evidence does not flip full capability claims.
 
 Tests:
   - Evidence file grep.
@@ -52,7 +52,7 @@ Evidence:
 Closure:
   - [ ] W341-W348 evidence is present.
   - [ ] Missing artifacts are documented.
-  - [ ] Claim boundaries and subset labels are intact.
+  - [ ] Claim boundaries plus subset/fixture labels are intact.
 
 ### W349-B01 — Full continuation regression
 
@@ -85,7 +85,7 @@ Goal:
 
 Design:
   - Map W355/W360/W365/W370 OxVba requirements to existing UI/host surfaces.
-  - Map confirmed available-subset OxVba surfaces to adopted OxIde adapters.
+  - Map confirmed available-subset and ThinSliceHello fixture-evidenced OxVba surfaces to adopted OxIde adapters.
   - List remaining blockers and required authorization.
 
 Tests:
@@ -96,7 +96,7 @@ Evidence:
 
 Closure:
   - [ ] Readiness report exists.
-  - [ ] OxVba integration and available-subset adoption points are mapped.
+  - [ ] OxVba integration plus available-subset/fixture-evidenced adoption points are mapped.
   - [ ] Authorization gates remain explicit.
 
 ### W349-B03 — W349 acceptance

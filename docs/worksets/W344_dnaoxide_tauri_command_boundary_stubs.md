@@ -2,9 +2,9 @@
 
 ## Ambition
 
-Define and implement the first **DnaOxIde** Tauri command boundary over the host bridge, using capabilities already proven in OxIde, available-subset OxVba adapters where dependency wiring is ready, and typed unavailable states for still-pending OxVba hardening gaps.
+Define and implement the first **DnaOxIde** Tauri command boundary over the host bridge, using capabilities already proven in OxIde, available-subset OxVba adapters where dependency wiring is ready, OxVba ThinSliceHello fixture-evidenced adapter targets, and typed unavailable states for still-pending adoption/hardening gaps.
 
-This workset creates the IPC seam that the live desktop host will use while OxVba continues work on stable IDs, taxonomy, compile/run target DTOs, event streams, watch/breakpoint DTOs, source-span mapping, and COM native boundary status.
+This workset creates the IPC seam that the live desktop host will use while OxIde adopts the new OxVba fixture-evidenced seams and while remaining taxonomy, compile/run target DTO, event stream, source-span, host UX, and COM native boundary details are hardened.
 
 ## Dependencies
 
@@ -28,11 +28,12 @@ Safe/proven commands to implement first:
 - return host capability profile,
 - return runtime/Immediate/debug/COM unavailable packets.
 
-Commands should be classified into three buckets:
+Commands should be classified into four buckets:
 
 1. **proven OxIde-only** — project/document/session lifecycle from W320;
 2. **available-subset OxVba adapters** — workspace/editor, project authoring, COM selection subset, build/run subset, Immediate subset, and debug subset when direct dependency wiring is ready;
-3. **pending-hardening unavailable** — compile options/run target DTOs, stable request/session IDs, lifecycle event streams, source-span mapping, watch/breakpoint DTOs, COM capability/native boundary status, and full runtime/debug/COM claims.
+3. **OxVba fixture-evidenced adapter targets** — ThinSliceHello evidence covers overlay build, runtime session creation, Immediate attach/evaluation, debug attach, watch evaluation, breakpoint binding, stable runtime/debug/watch/breakpoint IDs, broken COM reference state, and COM capability profile, but OxIde command tests must still prove consumption;
+4. **pending-hardening unavailable** — compile options/run target DTOs, lifecycle event streams, source-span mapping, command availability taxonomy, COM native boundary status, COM runtime invocation, and full runtime/debug/COM host UX claims.
 
 Named commands should still exist for:
 
@@ -56,7 +57,7 @@ Goal:
 
 Design:
   - Name commands by host service category.
-  - Mark each command as proven OxIde-only, available-subset OxVba adapter, or pending-hardening unavailable.
+  - Mark each command as proven OxIde-only, available-subset OxVba adapter, OxVba fixture-evidenced adapter target, or pending-hardening unavailable.
   - Keep names stable for frontend/e2e tests.
 
 Tests:
@@ -67,7 +68,7 @@ Evidence:
 
 Closure:
   - [ ] Command names are listed.
-  - [ ] Proven, available-subset, and pending-hardening categories are clear.
+  - [ ] Proven, available-subset, fixture-evidenced, and pending-hardening categories are clear.
   - [ ] No fake service behavior is implied.
 
 ### W344-B01 — Project/document/session commands
@@ -98,12 +99,12 @@ Goal:
   Implement command stubs/adapters for runtime, Immediate, debug, build/check, compile options, and COM/reference services.
 
 Design:
-  - Return existing `RuntimeServicePacket`, `ImmediateServicePacket`, `DebugServicePacket`, and COM unavailable states where full evidence is missing.
-  - Add available-subset adapter responses for current OxVba direct surfaces where dependency wiring is ready.
+  - Return existing `RuntimeServicePacket`, `ImmediateServicePacket`, `DebugServicePacket`, and COM unavailable states where full OxIde evidence is missing.
+  - Add available-subset or fixture-evidenced adapter responses for current OxVba direct surfaces where dependency wiring is ready.
   - Add build/compile/reference unavailable responses if no shared DTO exists yet.
 
 Tests:
-  - Adapter tests verify available-subset behavior where wired.
+  - Adapter tests verify available-subset or fixture-evidenced behavior where wired.
   - Stub tests verify unavailable states and disabled reasons for pending-hardening gaps.
   - Anti-fake-data tests for empty or explicitly subset-backed debug/Immediate data.
 
@@ -111,7 +112,7 @@ Evidence:
   - `target/w344-unavailable-service-command-tests.txt`.
 
 Closure:
-  - [ ] Available-subset commands are labeled and tested.
+  - [ ] Available-subset and fixture-evidenced commands are labeled and tested.
   - [ ] Pending-hardening commands return typed unavailable states.
   - [ ] No fake responses/callstacks/locals/watches/breakpoints appear.
   - [ ] COM runtime remains unclaimed.
@@ -162,6 +163,6 @@ Closure:
 
 ## Out-of-scope
 
-- Full OxVba build/check, runtime, Immediate, debug, watch, breakpoint, or COM behavior beyond explicit available-subset adapter proofs.
+- Full OxVba build/check, runtime, Immediate, debug, watch, breakpoint, or COM behavior beyond explicit available-subset or fixture-evidenced adapter proofs.
 - Full WebView/e2e automation; W345/W346 own it.
 - DnaOneCalc command implementation.

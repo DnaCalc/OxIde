@@ -26,10 +26,10 @@ The live host proof should mount the shared shell and show at least:
 - lifecycle/save/reload state,
 - command palette availability,
 - focus/accessibility labels already proven by W280/W300,
-- runtime/Immediate/debug native-service-missing states,
-- COM unavailable/native-service-missing status.
+- runtime/Immediate/debug native-service-missing, available-subset, or OxVba-fixture-evidenced states,
+- COM unavailable/native-service-missing, subset-backed, or capability-profile fixture-evidenced status.
 
-The proof may start with a deterministic fixture project, then move to open-from-disk once W344 commands are ready. Where current OxVba direct APIs are wired, the proof may show available-subset data; those panes must be labeled as subset-backed until stable IDs, event streams, source-span mapping, watch/breakpoint DTOs, and COM native boundary status are proven. Any disk writes use temp project copies.
+The proof may start with a deterministic fixture project, then move to open-from-disk once W344 commands are ready. Where current OxVba direct APIs are wired, the proof may show available-subset or ThinSliceHello fixture-evidenced data; those panes must be labeled as subset/fixture-backed until OxIde adapter tests prove consumption and full host UX/source-span/event/native-boundary claims are ready. Any disk writes use temp project copies.
 
 ## Beads
 
@@ -97,26 +97,26 @@ Closure:
   - [ ] Disk writes are test-owned.
   - [ ] Fixtures are unchanged.
 
-### W345-B03 — Unavailable and subset-backed runtime/debug/COM proof
+### W345-B03 — Unavailable, subset-backed, and fixture-evidenced runtime/debug/COM proof
 
 Goal:
-  Confirm the live host UI keeps pending OxVba gaps visibly unavailable while permitting explicitly labeled available-subset adapter panes.
+  Confirm the live host UI keeps pending OxVba/OxIde-adoption gaps visibly unavailable while permitting explicitly labeled available-subset or OxVba-fixture-evidenced adapter panes.
 
 Design:
-  - Render runtime native-service-missing or subset-backed state.
-  - Render Immediate native-service-missing or subset-backed state.
-  - Render debug native-service-missing or subset-backed state.
-  - Render COM discovery subset/unavailable and COM runtime unavailable as appropriate.
+  - Render runtime native-service-missing, subset-backed, or fixture-evidenced state.
+  - Render Immediate native-service-missing, subset-backed, or fixture-evidenced state.
+  - Render debug native-service-missing, subset-backed, or fixture-evidenced state.
+  - Render COM discovery/capability-profile subset/fixture/unavailable state and COM runtime unavailable as appropriate.
 
 Tests:
-  - Host render grep for disabled reasons, subset labels, and no-claim flags.
+  - Host render grep for disabled reasons, subset/fixture labels, and no-claim flags.
   - Anti-fake-data scan.
 
 Evidence:
   - `target/w345-unavailable-service-proof.txt`.
 
 Closure:
-  - [ ] Runtime/Immediate/debug disabled or subset-backed states are visible.
+  - [ ] Runtime/Immediate/debug disabled, subset-backed, or fixture-evidenced states are visible.
   - [ ] COM runtime is not claimed.
   - [ ] No fake debug/Immediate data appears.
 
@@ -145,7 +145,7 @@ Closure:
 ## Out-of-scope
 
 - Full click/key automation; W346 owns it.
-- Real OxVba compile/runtime/debug/Immediate/COM behavior.
+- Real OxVba compile/runtime/debug/Immediate/COM behavior beyond explicitly tested adapter evidence.
 - Full DOM accessibility audit.
 - Installer packaging.
 - DnaOneCalc real host mount.

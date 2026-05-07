@@ -4,7 +4,7 @@
 
 Create the host bridge facade that lets shared UI talk to a host implementation without knowing whether it is running inside **DnaOxIde**, a standalone browser/WASM review shell, or a future DnaOneCalc mount.
 
-The bridge names the service surfaces needed for full scope while preserving unavailable states until OxVba-backed APIs are ready.
+The bridge names the service surfaces needed for full scope while preserving unavailable states until OxVba-backed APIs are ready and OxIde has local adapter evidence.
 
 ## Dependencies
 
@@ -36,7 +36,8 @@ The bridge may define OxIde-side request/response wrappers and capability states
 Confirmed OxVba feedback changes this workset from pure blank-stub planning to a split bridge:
 
 - available-subset adapter targets: `HostWorkspaceSession`, `inspect_workspace_target`, `ComSelectionService`, `EmbeddedBuildRunHost`, `EmbeddedRunSession`, `ImmediateSession`, and `DebugSession`;
-- pending-hardening gaps: stable IDs, shared capability/error taxonomy, unified workspace/project/module DTOs, compile options/run target DTOs, request IDs, event streams, runtime source-span mapping, Immediate/debug attach hardening, watch/breakpoint DTOs, COM capability profile, bitness/apartment/native boundary status;
+- OxVba ThinSliceHello fixture-evidenced seams from `../OxVba/docs/evidence/DNAOXIDE_THIN_SLICE_HELLO_FIXTURE_2026-05-07.md`: workspace load, document overlay, overlay roster/version signal, overlay build, runtime session creation, Immediate attach/evaluation, debug attach, watch registry/evaluation, breakpoint binding DTO, stable frame/watch/breakpoint/runtime IDs, broken COM reference state, and COM capability profile;
+- pending-hardening/adoption gaps: shared capability/error taxonomy, unified workspace/project/module DTO adoption, compile options/run target DTOs, request/event/command availability adoption, runtime source-span mapping, DnaOxIde Immediate/debug UX wiring, COM native boundary status, and COM runtime invocation evidence;
 - claim gates: no full runtime/debug/Immediate/COM claim flips until OxIde has direct adapter tests over matching OxVba evidence.
 
 ## Beads
@@ -50,7 +51,8 @@ Design:
   - Map each shared UI command to a host API category.
   - Identify which APIs can be implemented now from OxIde/W320 state.
   - Identify which APIs can be implemented as OxVba available-subset adapters.
-  - Identify which APIs remain pending OxVba hardening.
+  - Identify which APIs are OxVba ThinSliceHello fixture-evidenced but still OxIde-adapter-pending.
+  - Identify which APIs remain pending OxVba hardening or OxIde adoption.
 
 Tests:
   - Documentation grep for all API category names.
@@ -61,7 +63,7 @@ Evidence:
 
 Closure:
   - [ ] All service categories are named.
-  - [ ] Implement-now, available-subset adapter, and pending-hardening categories are separated.
+  - [ ] Implement-now, available-subset adapter, fixture-evidenced adapter target, and pending-hardening categories are separated.
   - [ ] Ownership boundaries are explicit.
 
 ### W343-B01 — Host bridge crate scaffold
@@ -94,20 +96,21 @@ Design:
   - Implement in-memory/browser-limited fixture host.
   - Implement native-filesystem fixture host against test-owned temp projects if useful.
   - Add adapter-shaped seams for current OxVba direct surfaces where dependency wiring is available.
-  - Runtime/Immediate/debug/COM return typed unavailable or subset-backed partial packets until full claim evidence exists.
+  - Label ThinSliceHello fixture-evidenced seams separately from OxIde-proven host claims.
+  - Runtime/Immediate/debug/COM return typed unavailable, subset-backed, or fixture-evidenced partial packets until full claim evidence exists.
 
 Tests:
   - Fixture host tests for project/document lifecycle.
-  - Available-subset adapter tests where OxVba dependency wiring is ready.
-  - Unavailable-state tests for runtime/Immediate/debug/COM gaps.
+  - Available-subset or fixture-evidenced adapter tests where OxVba dependency wiring is ready.
+  - Unavailable-state tests for runtime/Immediate/debug/COM gaps and no-claim defaults.
 
 Evidence:
   - Host bridge fixture test output.
 
 Closure:
   - [ ] Proven project/document paths work in fixtures.
-  - [ ] Available-subset adapters are separated from full capability claims.
-  - [ ] Runtime/debug/Immediate/COM gap states are preserved where hardening is missing.
+  - [ ] Available-subset and OxVba-fixture-evidenced adapters are separated from full capability claims.
+  - [ ] Runtime/debug/Immediate/COM gap states are preserved where OxIde adapter evidence or hardening is missing.
   - [ ] No fake data is returned.
 
 ### W343-B03 — Shared UI command dispatch integration

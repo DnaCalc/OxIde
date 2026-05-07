@@ -29,7 +29,7 @@ The proof must show:
 
 - shared UI components do not depend on DnaOxIde app code,
 - host bridge interfaces can be implemented by a non-Tauri consumer,
-- the same interface can carry unavailable, available-subset OxVba adapter, or full future OxVba states,
+- the same interface can carry unavailable, available-subset OxVba adapter, OxVba-fixture-evidenced adapter, or full future OxVba states,
 - DnaOneCalc owns product shell/placement/persistence policy,
 - OxIde owns IDE surface,
 - OxVba owns language/project/runtime truth,
@@ -88,7 +88,7 @@ Goal:
 Design:
   - Mount shared components, not DnaOxIde app components.
   - Show ThinSliceHello and Module1.bas.
-  - Preserve browser/native/runtime/COM disabled or subset-backed states as appropriate.
+  - Preserve browser/native/runtime/COM disabled, subset-backed, or fixture-evidenced states as appropriate.
 
 Tests:
   - GUI-lab or webshell render for DnaOneCalc reuse.
@@ -100,7 +100,7 @@ Evidence:
 Closure:
   - [ ] Shared UI renders under DnaOneCalc-like frame.
   - [ ] DnaOxIde dependency is absent.
-  - [ ] Disabled and subset-backed states remain honest.
+  - [ ] Disabled, subset-backed, and fixture-evidenced states remain honest.
 
 ### W348-B03 — Reuse contract handoff refresh
 

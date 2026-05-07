@@ -37,6 +37,7 @@ impl OxideHostBridgeRole {
 pub enum HostBridgeCapabilityState {
     ProvenOxideOnly,
     OxVbaAvailableSubset,
+    OxVbaFixtureEvidenced,
     PendingOxVbaHardening,
     UnavailableNoClaim,
 }
@@ -46,6 +47,7 @@ impl HostBridgeCapabilityState {
         match self {
             Self::ProvenOxideOnly => "proven-oxide-only",
             Self::OxVbaAvailableSubset => "oxvba-available-subset",
+            Self::OxVbaFixtureEvidenced => "oxvba-fixture-evidenced",
             Self::PendingOxVbaHardening => "pending-oxvba-hardening",
             Self::UnavailableNoClaim => "unavailable-no-claim",
         }
@@ -130,6 +132,17 @@ impl HostBridgeServiceStatus {
         Self::new(
             category,
             HostBridgeCapabilityState::OxVbaAvailableSubset,
+            Some(detail.into()),
+        )
+    }
+
+    pub fn oxvba_fixture_evidenced(
+        category: HostBridgeServiceCategory,
+        detail: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            category,
+            HostBridgeCapabilityState::OxVbaFixtureEvidenced,
             Some(detail.into()),
         )
     }
@@ -283,6 +296,28 @@ pub const OXVBA_AVAILABLE_SUBSET_ADAPTERS: &[&str] = &[
     "DebugSession",
 ];
 
+/// Sibling-repo evidence file that upgrades several adapter targets from blank gaps.
+pub const OXVBA_THIN_SLICE_FIXTURE_EVIDENCE_DOC: &str =
+    "../OxVba/docs/evidence/DNAOXIDE_THIN_SLICE_HELLO_FIXTURE_2026-05-07.md";
+
+/// OxVba ThinSliceHello seams with fixture evidence, still requiring OxIde adapter tests.
+pub const OXVBA_THIN_SLICE_FIXTURE_EVIDENCED_SEAMS: &[&str] = &[
+    "HostWorkspaceSession::load_workspace_path",
+    "HostWorkspaceSession::set_document_text",
+    "workspace_roster",
+    "EmbeddedBuildRunHost::build_workspace",
+    "EmbeddedBuildRunHost::run_project",
+    "EmbeddedRunSession::into_immediate_session",
+    "ImmediateSession::evaluate",
+    "EmbeddedRunSession::into_debug_session",
+    "DebugSession::add_watch",
+    "DebugSession::evaluate_watches",
+    "DebugSession::set_source_breakpoint",
+    "stable frame/watch/breakpoint/runtime IDs",
+    "ComSelectionService::inspect_workspace_project_state",
+    "ComSelectionService::capability_profile",
+];
+
 /// Browser-review fixture host for deterministic bridge tests.
 #[derive(Debug, Clone)]
 pub struct BrowserReviewFixtureHost {
@@ -320,6 +355,10 @@ impl BrowserReviewFixtureHost {
     pub fn available_subset_adapters(&self) -> &'static [&'static str] {
         OXVBA_AVAILABLE_SUBSET_ADAPTERS
     }
+
+    pub fn thin_slice_fixture_evidenced_seams(&self) -> &'static [&'static str] {
+        OXVBA_THIN_SLICE_FIXTURE_EVIDENCED_SEAMS
+    }
 }
 
 impl HostProjectApi for BrowserReviewFixtureHost {
@@ -349,27 +388,27 @@ impl HostLanguageApi for BrowserReviewFixtureHost {
 
 impl HostCompileApi for BrowserReviewFixtureHost {
     fn compile_status(&self) -> HostBridgeServiceStatus {
-        HostBridgeServiceStatus::pending_oxvba_hardening(
+        HostBridgeServiceStatus::oxvba_fixture_evidenced(
             HostBridgeServiceCategory::Compile,
-            "compile options and run target DTOs pending",
+            "ThinSliceHello fixture covers EmbeddedBuildRunHost::build_workspace; compile options/run targets still pending OxIde adoption",
         )
     }
 }
 
 impl HostReferenceApi for BrowserReviewFixtureHost {
     fn reference_status(&self) -> HostBridgeServiceStatus {
-        HostBridgeServiceStatus::oxvba_available_subset(
+        HostBridgeServiceStatus::oxvba_fixture_evidenced(
             HostBridgeServiceCategory::Reference,
-            "ComSelectionService subset available; COM capability/native boundary hardening pending",
+            "ThinSliceHello fixture covers ComSelectionService reference state and capability_profile; native boundary/COM runtime invocation still unclaimed",
         )
     }
 }
 
 impl HostRuntimeApi for BrowserReviewFixtureHost {
     fn runtime_status(&self) -> HostBridgeServiceStatus {
-        HostBridgeServiceStatus::pending_oxvba_hardening(
+        HostBridgeServiceStatus::oxvba_fixture_evidenced(
             HostBridgeServiceCategory::Runtime,
-            "runtime session IDs, events, command availability, and source spans pending",
+            "ThinSliceHello fixture covers EmbeddedBuildRunHost::run_project and stable runtime IDs; OxIde adapter tests/events/source spans pending",
         )
     }
 
@@ -380,9 +419,9 @@ impl HostRuntimeApi for BrowserReviewFixtureHost {
 
 impl HostImmediateApi for BrowserReviewFixtureHost {
     fn immediate_status(&self) -> HostBridgeServiceStatus {
-        HostBridgeServiceStatus::pending_oxvba_hardening(
+        HostBridgeServiceStatus::oxvba_fixture_evidenced(
             HostBridgeServiceCategory::Immediate,
-            "Immediate attach/session ID hardening pending",
+            "ThinSliceHello fixture covers EmbeddedRunSession::into_immediate_session and ImmediateSession overlay evaluation; OxIde UX adapter pending",
         )
     }
 
@@ -393,9 +432,9 @@ impl HostImmediateApi for BrowserReviewFixtureHost {
 
 impl HostDebugApi for BrowserReviewFixtureHost {
     fn debug_status(&self) -> HostBridgeServiceStatus {
-        HostBridgeServiceStatus::pending_oxvba_hardening(
+        HostBridgeServiceStatus::oxvba_fixture_evidenced(
             HostBridgeServiceCategory::Debug,
-            "debug watch/breakpoint/source-span DTOs pending",
+            "ThinSliceHello fixture covers debug attach, watch registry/evaluation, breakpoint binding DTOs, and stable IDs; OxIde source-span/UX adapter pending",
         )
     }
 
@@ -511,19 +550,26 @@ mod tests {
             HostBridgeServiceCategory::Runtime,
             "EmbeddedBuildRunHost available subset",
         );
+        let fixture = HostBridgeServiceStatus::oxvba_fixture_evidenced(
+            HostBridgeServiceCategory::Debug,
+            "ThinSliceHello fixture covers watch and breakpoint DTOs",
+        );
         let pending = HostBridgeServiceStatus::pending_oxvba_hardening(
             HostBridgeServiceCategory::Debug,
-            "watch and breakpoint DTOs pending",
+            "source-span adoption pending",
         );
 
         assert_eq!(proven.state.label(), "proven-oxide-only");
         assert_eq!(subset.state.label(), "oxvba-available-subset");
+        assert_eq!(fixture.state.label(), "oxvba-fixture-evidenced");
         assert_eq!(pending.state.label(), "pending-oxvba-hardening");
         assert!(proven.no_claim_flags_false());
         assert!(subset.no_claim_flags_false());
+        assert!(fixture.no_claim_flags_false());
         assert!(pending.no_claim_flags_false());
         assert!(!proven.state.full_claim_allowed());
         assert!(!subset.state.full_claim_allowed());
+        assert!(!fixture.state.full_claim_allowed());
         assert!(!pending.state.full_claim_allowed());
     }
 
@@ -571,10 +617,15 @@ mod tests {
     }
 
     #[test]
-    fn browser_review_fixture_separates_available_subset_adapters_from_claims() {
+    fn browser_review_fixture_separates_available_subset_and_fixture_evidence_from_claims() {
         let host = BrowserReviewFixtureHost::new(fixture_shell_packet());
         let adapters = host.available_subset_adapters();
+        let seams = host.thin_slice_fixture_evidenced_seams();
 
+        assert_eq!(
+            OXVBA_THIN_SLICE_FIXTURE_EVIDENCE_DOC,
+            "../OxVba/docs/evidence/DNAOXIDE_THIN_SLICE_HELLO_FIXTURE_2026-05-07.md"
+        );
         assert!(adapters.contains(&"HostWorkspaceSession"));
         assert!(adapters.contains(&"inspect_workspace_target"));
         assert!(adapters.contains(&"ComSelectionService"));
@@ -582,6 +633,20 @@ mod tests {
         assert!(adapters.contains(&"EmbeddedRunSession"));
         assert!(adapters.contains(&"ImmediateSession"));
         assert!(adapters.contains(&"DebugSession"));
+        assert!(seams.contains(&"HostWorkspaceSession::load_workspace_path"));
+        assert!(seams.contains(&"HostWorkspaceSession::set_document_text"));
+        assert!(seams.contains(&"workspace_roster"));
+        assert!(seams.contains(&"EmbeddedBuildRunHost::build_workspace"));
+        assert!(seams.contains(&"EmbeddedBuildRunHost::run_project"));
+        assert!(seams.contains(&"EmbeddedRunSession::into_immediate_session"));
+        assert!(seams.contains(&"ImmediateSession::evaluate"));
+        assert!(seams.contains(&"EmbeddedRunSession::into_debug_session"));
+        assert!(seams.contains(&"DebugSession::add_watch"));
+        assert!(seams.contains(&"DebugSession::evaluate_watches"));
+        assert!(seams.contains(&"DebugSession::set_source_breakpoint"));
+        assert!(seams.contains(&"stable frame/watch/breakpoint/runtime IDs"));
+        assert!(seams.contains(&"ComSelectionService::inspect_workspace_project_state"));
+        assert!(seams.contains(&"ComSelectionService::capability_profile"));
 
         let language = host.language_status();
         let reference = host.reference_status();
@@ -591,7 +656,7 @@ mod tests {
         );
         assert_eq!(
             reference.state,
-            HostBridgeCapabilityState::OxVbaAvailableSubset
+            HostBridgeCapabilityState::OxVbaFixtureEvidenced
         );
         assert!(language.no_claim_flags_false());
         assert!(reference.no_claim_flags_false());
@@ -637,9 +702,19 @@ mod tests {
             .all(HostBridgeServiceStatus::no_claim_flags_false));
         assert!(statuses.iter().any(|status| status.category
             == HostBridgeServiceCategory::Compile
-            && status.state == HostBridgeCapabilityState::PendingOxVbaHardening));
+            && status.state == HostBridgeCapabilityState::OxVbaFixtureEvidenced));
         assert!(statuses.iter().any(|status| status.category
             == HostBridgeServiceCategory::Reference
-            && status.state == HostBridgeCapabilityState::OxVbaAvailableSubset));
+            && status.state == HostBridgeCapabilityState::OxVbaFixtureEvidenced));
+        assert!(statuses.iter().any(|status| status.category
+            == HostBridgeServiceCategory::Runtime
+            && status.state == HostBridgeCapabilityState::OxVbaFixtureEvidenced));
+        assert!(statuses.iter().any(|status| status.category
+            == HostBridgeServiceCategory::Immediate
+            && status.state == HostBridgeCapabilityState::OxVbaFixtureEvidenced));
+        assert!(statuses
+            .iter()
+            .any(|status| status.category == HostBridgeServiceCategory::Debug
+                && status.state == HostBridgeCapabilityState::OxVbaFixtureEvidenced));
     }
 }

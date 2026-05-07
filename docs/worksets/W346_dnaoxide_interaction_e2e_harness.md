@@ -32,7 +32,7 @@ Initial flows:
 - project open command reaches host bridge fixture/stub,
 - save/reload/session commands operate on temp projects,
 - blocked runtime/Immediate/debug/COM commands show disabled reasons,
-- available-subset OxVba adapter commands can be exercised only after direct adapter tests exist and must show subset labels.
+- available-subset or OxVba-fixture-evidenced adapter commands can be exercised only after direct OxIde adapter tests exist and must show subset/fixture labels.
 
 ## Beads
 
@@ -120,27 +120,27 @@ Closure:
   - [ ] Fixtures are unchanged.
   - [ ] Results are deterministic.
 
-### W346-B04 — Blocked and subset-backed service interaction tests
+### W346-B04 — Blocked, subset-backed, and fixture-evidenced service interaction tests
 
 Goal:
-  Prove blocked service commands and available-subset adapter commands behave honestly in the interactive host path.
+  Prove blocked service commands plus available-subset and OxVba-fixture-evidenced adapter commands behave honestly in the interactive host path.
 
 Design:
-  - Trigger run, Immediate, debug, COM/reference commands.
-  - Assert disabled/unavailable reasons for pending-hardening gaps.
-  - Assert subset labels for any adapter-backed results.
+  - Trigger run, Immediate, debug, watch, breakpoint, COM/reference commands.
+  - Assert disabled/unavailable reasons for pending-hardening or OxIde-adoption gaps.
+  - Assert subset or fixture-evidenced labels for any adapter-backed results.
   - Assert empty fake-data surfaces where full data is unavailable.
 
 Tests:
   - Interaction tests for blocked commands.
-  - Interaction tests for subset-backed commands where direct adapter evidence exists.
+  - Interaction tests for subset-backed or fixture-evidenced commands where direct OxIde adapter evidence exists.
   - Anti-overclaim scan.
 
 Evidence:
   - `target/w346-blocked-service-interaction-tests.txt`.
 
 Closure:
-  - [ ] Runtime/Immediate/debug/COM commands show unavailable or subset-backed states.
+  - [ ] Runtime/Immediate/debug/COM commands show unavailable, subset-backed, or fixture-evidenced states.
   - [ ] No fake data is produced.
   - [ ] Full capability claim flags remain false until matching evidence exists.
 

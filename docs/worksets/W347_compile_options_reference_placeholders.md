@@ -2,9 +2,9 @@
 
 ## Ambition
 
-Build the **DNA OxIde** compile/options/reference panels and unavailable/loading states now, using available-subset OxVba project/reference/build surfaces where they are already consumable, so remaining OxVba DTOs can be connected quickly when they arrive.
+Build the **DNA OxIde** compile/options/reference panels and unavailable/loading states now, using available-subset OxVba project/reference/build surfaces and ThinSliceHello fixture-evidenced seams where they are already consumable, so remaining OxVba DTOs can be connected quickly when they arrive.
 
-This workset delivers user-visible surfaces for full-scope features without pretending the remaining OxVba compile/options/run-target/stable-taxonomy/COM-runtime services are complete.
+This workset delivers user-visible surfaces for full-scope features without pretending the remaining OxVba compile/options/run-target/stable-taxonomy/native-boundary/COM-runtime services are complete in OxIde.
 
 ## Dependencies
 
@@ -27,22 +27,23 @@ Panels to add as shared UI components:
 - reference repair/apply preview placeholder,
 - unavailable/native-service-missing banners.
 
-Inputs should be host bridge placeholder packets, existing OxIde capability states, or available-subset OxVba adapter packets. Do not define final authoritative OxVba DTOs locally. If shape is needed before OxVba lands it, mark it as an OxIde placeholder wrapper and link the requirements/feedback notes.
+Inputs should be host bridge placeholder packets, existing OxIde capability states, available-subset OxVba adapter packets, or OxVba fixture-evidenced adapter packets. Do not define final authoritative OxVba DTOs locally. If shape is needed before OxVba lands it, mark it as an OxIde placeholder wrapper and link the requirements/feedback notes.
 
-Confirmed available-subset inputs to prefer where dependency wiring is ready:
+Confirmed available-subset / fixture-evidenced inputs to prefer where dependency wiring is ready:
 
 - `inspect_workspace_target` / host project surface for project/module/reference roster,
-- `ComSelectionService` for COM candidate and active-selection subset,
-- `EmbeddedBuildRunHost` for typed build/check subset,
+- `ComSelectionService` for COM candidate, broken reference state, active-selection subset, and capability profile,
+- `EmbeddedBuildRunHost` for typed build/check subset and ThinSliceHello overlay build evidence,
+- `EmbeddedBuildRunHost::run_project` / `EmbeddedRunSession` for fixture-evidenced runtime session creation,
 - `HostWorkspaceSession` snapshots for `DiskOnly` / `WorkspaceOverlay` source policy.
 
-Still pending from OxVba:
+Still pending or not claimable in OxIde without local adapter tests:
 
 - unified project properties / compile options DTOs,
 - run target DTOs,
-- stable request/session IDs,
+- stable request/session ID adoption in OxIde UI contracts,
 - command availability taxonomy,
-- COM capability profile, bitness/apartment/native boundary status,
+- COM bitness/apartment/native boundary status,
 - COM runtime invocation claim evidence.
 
 ## Beads
@@ -53,20 +54,20 @@ Goal:
   Define placeholder and available-subset panel inputs without duplicating final OxVba DTO ownership.
 
 Design:
-  - Separate `PendingOxVba`/`Unavailable` state from subset-backed data state.
+  - Separate `PendingOxVba`/`Unavailable` state from subset-backed and fixture-evidenced data states.
   - Include disabled reasons and source links to requirements/feedback.
   - Keep future real DTO slots clear.
 
 Tests:
   - Contract tests for placeholder/unavailable states.
-  - Contract tests for subset-backed state labels where implemented.
+  - Contract tests for subset-backed and fixture-evidenced state labels where implemented.
   - Grep for ownership disclaimers.
 
 Evidence:
   - Placeholder contract docs/tests.
 
 Closure:
-  - [ ] Placeholder and subset-backed inputs exist or are documented.
+  - [ ] Placeholder, subset-backed, and fixture-evidenced inputs exist or are documented.
   - [ ] OxVba ownership is explicit.
   - [ ] No final DTO duplication is introduced.
 
@@ -78,7 +79,7 @@ Goal:
 Design:
   - Show workspace/project identity from proven state.
   - Show compile options as pending OxVba DTOs where unavailable.
-  - Show build/check disabled reason or available-subset build result where wired.
+  - Show build/check disabled reason or available-subset/fixture-evidenced build result where wired.
 
 Tests:
   - Component render tests.
@@ -90,7 +91,7 @@ Evidence:
 Closure:
   - [ ] Project properties panel renders.
   - [ ] Compile options panel renders.
-  - [ ] Build/check remains disabled or explicitly subset-backed pending full OxVba hardening.
+  - [ ] Build/check remains disabled, explicitly subset-backed, or fixture-evidenced pending full OxIde host claim evidence.
 
 ### W347-B02 — Reference and COM placeholder panels
 
@@ -99,7 +100,7 @@ Goal:
 
 Design:
   - Show active reference facts when available from current projections or OxVba adapter subset.
-  - Show COM discovery subset/unavailable/native-service-missing state.
+  - Show COM discovery/capability-profile subset, fixture-evidenced, unavailable, or native-service-missing state.
   - Separate discovery availability from runtime invocation availability.
 
 Tests:
@@ -112,7 +113,7 @@ Evidence:
 
 Closure:
   - [ ] Reference panel renders.
-  - [ ] COM discovery unavailable or subset-backed state is visible.
+  - [ ] COM discovery unavailable, subset-backed, or fixture-evidenced state is visible.
   - [ ] COM runtime is not claimed.
 
 ### W347-B03 — Host commands for placeholder panels
@@ -121,7 +122,7 @@ Goal:
   Wire placeholder panels to host bridge/Tauri stubs.
 
 Design:
-  - Compile/build and reference/COM commands return subset-backed responses where wired and pending/unavailable responses where hardening is missing.
+  - Compile/build and reference/COM commands return subset-backed or fixture-evidenced responses where wired and pending/unavailable responses where hardening or OxIde adoption is missing.
   - UI shows disabled reasons consistently.
 
 Tests:
@@ -135,7 +136,7 @@ Closure:
   - [ ] Placeholder panels use host bridge commands.
   - [ ] Disabled reasons are stable.
   - [ ] No fake compile/reference data is returned.
-  - [ ] Subset-backed data is labeled as such.
+  - [ ] Subset-backed and fixture-evidenced data is labeled as such.
 
 ### W347-B04 — W347 acceptance
 
@@ -161,7 +162,7 @@ Closure:
 
 ## Out-of-scope
 
-- Full compile/build execution claims beyond available-subset adapter evidence.
+- Full compile/build execution claims beyond available-subset or fixture-evidenced adapter evidence.
 - Real compile option mutation.
-- Full COM discovery/repair claims beyond available-subset adapter evidence, or any COM runtime invocation claim.
+- Full COM discovery/repair claims beyond available-subset or fixture-evidenced adapter evidence, or any COM runtime invocation claim.
 - OxVba repo changes.
