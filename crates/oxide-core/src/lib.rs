@@ -1190,6 +1190,90 @@ impl ImmediateCapabilityProfile {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ImmediateServiceResponseKind {
+    Output,
+    Value,
+    Diagnostic,
+    RuntimeError,
+}
+
+impl ImmediateServiceResponseKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Output => "output",
+            Self::Value => "value",
+            Self::Diagnostic => "diagnostic",
+            Self::RuntimeError => "runtime-error",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ImmediateServiceResponse {
+    pub kind: ImmediateServiceResponseKind,
+    pub text: String,
+}
+
+impl ImmediateServiceResponse {
+    pub fn new(kind: ImmediateServiceResponseKind, text: impl Into<String>) -> Self {
+        Self {
+            kind,
+            text: text.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ImmediateServicePacket {
+    pub immediate_session_id: Option<String>,
+    pub runtime_session_id: Option<String>,
+    pub provider_kind: RuntimeServiceProviderKind,
+    pub request_text: Option<String>,
+    pub command_status: RuntimeSurfaceCommandStatus,
+    pub responses: Vec<ImmediateServiceResponse>,
+    pub fake_responses: bool,
+    pub native_runtime_claimed: bool,
+    pub com_runtime_claimed: bool,
+}
+
+impl ImmediateServicePacket {
+    pub fn browser_disabled(request_text: Option<String>) -> Self {
+        let profile = ImmediateCapabilityProfile::browser_disabled();
+        Self {
+            immediate_session_id: None,
+            runtime_session_id: None,
+            provider_kind: RuntimeServiceProviderKind::BrowserUnsupported,
+            request_text,
+            command_status: profile.command_status,
+            responses: vec![],
+            fake_responses: false,
+            native_runtime_claimed: false,
+            com_runtime_claimed: false,
+        }
+    }
+
+    pub fn native_service_missing(request_text: Option<String>) -> Self {
+        Self {
+            immediate_session_id: None,
+            runtime_session_id: None,
+            provider_kind: RuntimeServiceProviderKind::NativeServiceMissing,
+            request_text,
+            command_status: RuntimeSurfaceCommandStatus::disabled(
+                "Immediate unavailable: native OxVba runtime service not configured.",
+            ),
+            responses: vec![],
+            fake_responses: false,
+            native_runtime_claimed: false,
+            com_runtime_claimed: false,
+        }
+    }
+
+    pub fn provider_label(&self) -> &'static str {
+        self.provider_kind.label()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DebugCapabilityProfile {
     pub profile_name: String,
@@ -3389,6 +3473,55 @@ mod tests {
                 .expect("Immediate disabled reason")
                 .contains("no native OxVba runtime session")
         );
+    }
+
+    #[test]
+    fn immediate_service_packet_browser_disabled_round_trips_without_responses() {
+        let packet = ImmediateServicePacket::browser_disabled(Some(String::from("?answer")));
+
+        let encoded = serde_json::to_string(&packet).expect("serialize Immediate packet");
+        let decoded: ImmediateServicePacket =
+            serde_json::from_str(&encoded).expect("decode Immediate packet");
+
+        assert_eq!(decoded, packet);
+        assert_eq!(packet.provider_label(), "browser-unsupported");
+        assert!(packet.immediate_session_id.is_none());
+        assert!(packet.runtime_session_id.is_none());
+        assert_eq!(packet.request_text.as_deref(), Some("?answer"));
+        assert!(!packet.command_status.is_enabled);
+        assert!(
+            packet
+                .command_status
+                .reason
+                .as_deref()
+                .expect("Immediate disabled reason")
+                .contains("no native OxVba runtime session")
+        );
+        assert!(packet.responses.is_empty());
+        assert!(!packet.fake_responses);
+        assert!(!packet.native_runtime_claimed);
+        assert!(!packet.com_runtime_claimed);
+    }
+
+    #[test]
+    fn immediate_service_packet_native_missing_has_no_fake_responses_or_runtime_claims() {
+        let packet = ImmediateServicePacket::native_service_missing(Some(String::from("?1+1")));
+
+        assert_eq!(packet.provider_label(), "native-service-missing");
+        assert!(!packet.command_status.is_enabled);
+        assert!(
+            packet
+                .command_status
+                .reason
+                .as_deref()
+                .expect("Immediate service missing reason")
+                .contains("native OxVba runtime service not configured")
+        );
+        assert_eq!(packet.request_text.as_deref(), Some("?1+1"));
+        assert!(packet.responses.is_empty());
+        assert!(!packet.fake_responses);
+        assert!(!packet.native_runtime_claimed);
+        assert!(!packet.com_runtime_claimed);
     }
 
     #[test]
