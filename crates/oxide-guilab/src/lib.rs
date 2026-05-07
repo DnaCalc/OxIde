@@ -11,13 +11,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use oxide_bridge::{DnaOneCalcWebShellHostPacket, EmbeddedIdePacket, WebShellDomReadinessSummary};
 use oxide_core::{
     ComCapabilityProfile, ComCapabilityStatus, ComReferenceFact, DebugCapabilityProfile,
-    DocumentLifecycleState, DocumentPersistence, GuiAccessibilityProjection,
+    DebugServicePacket, DocumentLifecycleState, DocumentPersistence, GuiAccessibilityProjection,
     GuiBrowserFilesystemDisabledProjection, GuiCommandPalette, GuiFocusGraph, GuiKeyboardMap,
     GuiNativeSaveReloadProjection, GuiSessionSnapshot, GuiShellDiagnosticSummary,
-    GuiShellModuleSummary, GuiShellPacket, ImmediateCapabilityProfile, InMemoryDocumentPersistence,
-    LifecycleCapabilities, LifecycleCommand, LifecycleCommandStatus,
+    GuiShellModuleSummary, GuiShellPacket, ImmediateCapabilityProfile, ImmediateServicePacket,
+    InMemoryDocumentPersistence, LifecycleCapabilities, LifecycleCommand, LifecycleCommandStatus,
     NativeFilesystemDocumentPersistence, NativeFilesystemSessionPersistence, RunCapabilityProfile,
-    RunRequest, RunTimeline, RunTranscript, SessionCapabilityProfile,
+    RunRequest, RunTimeline, RunTranscript, RuntimeServicePacket, SessionCapabilityProfile,
     open_lifecycle_from_persistence, save_lifecycle_to_persistence,
 };
 use oxide_domain::{DiagnosticRow, OxideDomainRole};
@@ -63,6 +63,14 @@ pub const GUI_DNAONECALC_WEB_SHELL_DOM_READINESS: &str = "gui-dnaonecalc-web-she
 pub const GUI_NATIVE_SAVE_RELOAD_DISK: &str = "gui-native-save-reload-disk";
 pub const GUI_NATIVE_SESSION_RESTORE_DISK: &str = "gui-native-session-restore-disk";
 pub const GUI_BROWSER_FILESYSTEM_STILL_DISABLED: &str = "gui-browser-filesystem-still-disabled";
+pub const GUI_RUNTIME_SERVICE_CONTRACT_BROWSER_DISABLED: &str =
+    "gui-runtime-service-contract-browser-disabled";
+pub const GUI_RUNTIME_SERVICE_CONTRACT_NATIVE_MISSING: &str =
+    "gui-runtime-service-contract-native-missing";
+pub const GUI_IMMEDIATE_SERVICE_CONTRACT_NATIVE_MISSING: &str =
+    "gui-immediate-service-contract-native-missing";
+pub const GUI_DEBUG_SERVICE_CONTRACT_NATIVE_MISSING: &str =
+    "gui-debug-service-contract-native-missing";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -118,6 +126,10 @@ pub enum GuiScenarioKind {
     NativeSaveReloadDisk,
     NativeSessionRestoreDisk,
     BrowserFilesystemStillDisabled,
+    RuntimeServiceContractBrowserDisabled,
+    RuntimeServiceContractNativeMissing,
+    ImmediateServiceContractNativeMissing,
+    DebugServiceContractNativeMissing,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -316,8 +328,32 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_BROWSER_FILESYSTEM_STILL_DISABLED,
                 title: "Browser filesystem still disabled",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::BrowserFilesystemStillDisabled,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_RUNTIME_SERVICE_CONTRACT_BROWSER_DISABLED,
+                title: "Runtime service contract browser disabled",
+                fixture_path: thin_slice.clone(),
+                kind: GuiScenarioKind::RuntimeServiceContractBrowserDisabled,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_RUNTIME_SERVICE_CONTRACT_NATIVE_MISSING,
+                title: "Runtime service contract native missing",
+                fixture_path: thin_slice.clone(),
+                kind: GuiScenarioKind::RuntimeServiceContractNativeMissing,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_IMMEDIATE_SERVICE_CONTRACT_NATIVE_MISSING,
+                title: "Immediate service contract native missing",
+                fixture_path: thin_slice.clone(),
+                kind: GuiScenarioKind::ImmediateServiceContractNativeMissing,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_DEBUG_SERVICE_CONTRACT_NATIVE_MISSING,
+                title: "Debug service contract native missing",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::DebugServiceContractNativeMissing,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -412,7 +448,13 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::DnaOneCalcWebShellDomReadiness
         | GuiScenarioKind::NativeSaveReloadDisk
         | GuiScenarioKind::NativeSessionRestoreDisk
-        | GuiScenarioKind::BrowserFilesystemStillDisabled => view.active_source.source_text.clone(),
+        | GuiScenarioKind::BrowserFilesystemStillDisabled
+        | GuiScenarioKind::RuntimeServiceContractBrowserDisabled
+        | GuiScenarioKind::RuntimeServiceContractNativeMissing
+        | GuiScenarioKind::ImmediateServiceContractNativeMissing
+        | GuiScenarioKind::DebugServiceContractNativeMissing => {
+            view.active_source.source_text.clone()
+        }
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -658,6 +700,40 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
                 &view.active_source.source_text,
             )
         }
+        GuiScenarioKind::RuntimeServiceContractBrowserDisabled => {
+            render_runtime_service_contract_section(
+                &mut output,
+                RuntimeServicePacket::browser_disabled(
+                    scenario.fixture_path.display().to_string(),
+                    &view.project_name,
+                    module_stem(&view.active_source.module_display_name),
+                    "Main",
+                ),
+            )
+        }
+        GuiScenarioKind::RuntimeServiceContractNativeMissing => {
+            render_runtime_service_contract_section(
+                &mut output,
+                RuntimeServicePacket::native_service_missing(
+                    scenario.fixture_path.display().to_string(),
+                    &view.project_name,
+                    module_stem(&view.active_source.module_display_name),
+                    "Main",
+                ),
+            )
+        }
+        GuiScenarioKind::ImmediateServiceContractNativeMissing => {
+            render_immediate_service_contract_section(
+                &mut output,
+                ImmediateServicePacket::native_service_missing(Some(String::from("?answer"))),
+            )
+        }
+        GuiScenarioKind::DebugServiceContractNativeMissing => {
+            render_debug_service_contract_section(
+                &mut output,
+                DebugServicePacket::native_service_missing(),
+            )
+        }
     }
     output.push_str("  <footer role=\"host-capability\">");
     output.push_str(scenario_host_capability_text(
@@ -682,6 +758,12 @@ fn scenario_host_capability_text<'a>(kind: GuiScenarioKind, default_text: &'a st
         }
         GuiScenarioKind::BrowserFilesystemStillDisabled => {
             "Browser-safe profile: direct filesystem persistence remains unavailable; native runtime and COM unavailable."
+        }
+        GuiScenarioKind::RuntimeServiceContractBrowserDisabled
+        | GuiScenarioKind::RuntimeServiceContractNativeMissing
+        | GuiScenarioKind::ImmediateServiceContractNativeMissing
+        | GuiScenarioKind::DebugServiceContractNativeMissing => {
+            "Runtime service contract profile: no real execution, fake data, native runtime, or COM runtime is claimed."
         }
         _ => default_text,
     }
@@ -2254,6 +2336,155 @@ fn render_browser_filesystem_still_disabled_section(output: &mut String, source_
     output.push_str("  </section>\n");
 }
 
+fn render_runtime_service_contract_section(output: &mut String, packet: RuntimeServicePacket) {
+    output.push_str("  <section role=\"runtime-service-contract\" data-provider=\"");
+    output.push_str(packet.provider_label());
+    output.push_str("\" data-command-enabled=\"");
+    output.push_str(if packet.command_status.is_enabled {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-real-execution=\"");
+    output.push_str(if packet.real_execution_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-native-runtime=\"");
+    output.push_str(if packet.native_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-com-runtime=\"");
+    output.push_str(if packet.com_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-event-count=\"");
+    output.push_str(&packet.events.len().to_string());
+    output.push_str("\">\n");
+    output.push_str("    <div role=\"runtime-service-target\">");
+    output.push_str(&html_escape(&packet.request.display_target()));
+    output.push_str("</div>\n");
+    if let Some(reason) = &packet.command_status.disabled_reason {
+        output.push_str("    <div role=\"runtime-service-disabled-reason\">");
+        output.push_str(&html_escape(reason));
+        output.push_str("</div>\n");
+    }
+    for event in &packet.events {
+        output.push_str("    <div role=\"runtime-service-event\" data-event-kind=\"");
+        output.push_str(event.kind.label());
+        output.push_str("\">");
+        output.push_str(&html_escape(&event.message));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    <div role=\"runtime-service-policy\">Runtime service contract only; real OxVba execution, native runtime, and COM runtime are not claimed.</div>\n");
+    output.push_str("  </section>\n");
+}
+
+fn render_immediate_service_contract_section(output: &mut String, packet: ImmediateServicePacket) {
+    output.push_str("  <section role=\"immediate-service-contract\" data-provider=\"");
+    output.push_str(packet.provider_label());
+    output.push_str("\" data-command-enabled=\"");
+    output.push_str(if packet.command_status.is_enabled {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-response-count=\"");
+    output.push_str(&packet.responses.len().to_string());
+    output.push_str("\" data-fake-responses=\"");
+    output.push_str(if packet.fake_responses {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-native-runtime=\"");
+    output.push_str(if packet.native_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-com-runtime=\"");
+    output.push_str(if packet.com_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    if let Some(request_text) = &packet.request_text {
+        output.push_str("    <div role=\"immediate-service-request\">");
+        output.push_str(&html_escape(request_text));
+        output.push_str("</div>\n");
+    }
+    if let Some(reason) = &packet.command_status.reason {
+        output.push_str("    <div role=\"immediate-service-disabled-reason\">");
+        output.push_str(&html_escape(reason));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    <div role=\"immediate-service-policy\">No Immediate responses are rendered without a native OxVba runtime service; fake responses are not allowed.</div>\n");
+    output.push_str("  </section>\n");
+}
+
+fn render_debug_service_contract_section(output: &mut String, packet: DebugServicePacket) {
+    output.push_str("  <section role=\"debug-service-contract\" data-provider=\"");
+    output.push_str(packet.provider_label());
+    output.push_str("\" data-state=\"");
+    output.push_str(packet.state_label());
+    output.push_str("\" data-command-enabled=\"");
+    output.push_str(if packet.command_status.is_enabled {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-command-count=\"");
+    output.push_str(&packet.debug_commands.len().to_string());
+    output.push_str("\" data-callstack-count=\"");
+    output.push_str(&packet.callstack.len().to_string());
+    output.push_str("\" data-locals-count=\"");
+    output.push_str(&packet.locals.len().to_string());
+    output.push_str("\" data-watches-count=\"");
+    output.push_str(&packet.watches.len().to_string());
+    output.push_str("\" data-breakpoints-count=\"");
+    output.push_str(&packet.breakpoints.len().to_string());
+    output.push_str("\" data-fake-debug-data=\"");
+    output.push_str(if packet.fake_debug_data {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-native-runtime=\"");
+    output.push_str(if packet.native_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-com-runtime=\"");
+    output.push_str(if packet.com_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    if let Some(reason) = &packet.command_status.reason {
+        output.push_str("    <div role=\"debug-service-disabled-reason\">");
+        output.push_str(&html_escape(reason));
+        output.push_str("</div>\n");
+    }
+    for command in &packet.debug_commands {
+        output.push_str("    <div role=\"debug-service-command\" data-command=\"");
+        output.push_str(command.command_id.label());
+        output.push_str("\" data-enabled=\"");
+        output.push_str(if command.is_enabled { "true" } else { "false" });
+        output.push_str("\"></div>\n");
+    }
+    output.push_str("    <div role=\"debug-service-policy\">No callstack, locals, watches, or breakpoints are rendered without a native OxVba debug service; fake debug data is not allowed.</div>\n");
+    output.push_str("  </section>\n");
+}
+
 fn render_com_capability_section(output: &mut String, profile: ComCapabilityProfile) {
     output.push_str("  <section role=\"com-capability\" data-profile=\"");
     output.push_str(profile.host_kind.label());
@@ -2704,6 +2935,14 @@ mod tests {
         assert!(output.contains("Native session restore disk"));
         assert!(output.contains("gui-browser-filesystem-still-disabled"));
         assert!(output.contains("Browser filesystem still disabled"));
+        assert!(output.contains("gui-runtime-service-contract-browser-disabled"));
+        assert!(output.contains("Runtime service contract browser disabled"));
+        assert!(output.contains("gui-runtime-service-contract-native-missing"));
+        assert!(output.contains("Runtime service contract native missing"));
+        assert!(output.contains("gui-immediate-service-contract-native-missing"));
+        assert!(output.contains("Immediate service contract native missing"));
+        assert!(output.contains("gui-debug-service-contract-native-missing"));
+        assert!(output.contains("Debug service contract native missing"));
     }
 
     #[test]
@@ -3023,6 +3262,41 @@ mod tests {
         assert_eq!(
             browser_disabled.kind,
             GuiScenarioKind::BrowserFilesystemStillDisabled
+        );
+    }
+
+    #[test]
+    fn built_in_registry_finds_w330_runtime_service_scenarios_by_id() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let runtime_browser = registry
+            .find(GUI_RUNTIME_SERVICE_CONTRACT_BROWSER_DISABLED)
+            .expect("runtime browser disabled service scenario");
+        let runtime_native_missing = registry
+            .find(GUI_RUNTIME_SERVICE_CONTRACT_NATIVE_MISSING)
+            .expect("runtime native missing service scenario");
+        let immediate_native_missing = registry
+            .find(GUI_IMMEDIATE_SERVICE_CONTRACT_NATIVE_MISSING)
+            .expect("Immediate native missing service scenario");
+        let debug_native_missing = registry
+            .find(GUI_DEBUG_SERVICE_CONTRACT_NATIVE_MISSING)
+            .expect("debug native missing service scenario");
+
+        assert_eq!(
+            runtime_browser.kind,
+            GuiScenarioKind::RuntimeServiceContractBrowserDisabled
+        );
+        assert_eq!(
+            runtime_native_missing.kind,
+            GuiScenarioKind::RuntimeServiceContractNativeMissing
+        );
+        assert_eq!(
+            immediate_native_missing.kind,
+            GuiScenarioKind::ImmediateServiceContractNativeMissing
+        );
+        assert_eq!(
+            debug_native_missing.kind,
+            GuiScenarioKind::DebugServiceContractNativeMissing
         );
     }
 
@@ -3884,6 +4158,106 @@ mod tests {
         assert!(rendered.contains("data-com-runtime=\"false\""));
         assert!(rendered.contains("browser-safe profile has no direct filesystem persistence"));
         assert!(rendered.contains("Browser/WASM direct filesystem persistence remains disabled"));
+    }
+
+    #[test]
+    fn runtime_service_contract_browser_disabled_scenario_keeps_real_execution_false() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_RUNTIME_SERVICE_CONTRACT_BROWSER_DISABLED)
+            .expect("render runtime browser disabled contract scenario");
+
+        assert!(
+            rendered.contains("data-scenario=\"gui-runtime-service-contract-browser-disabled\"")
+        );
+        assert!(
+            rendered.contains(
+                "role=\"runtime-service-contract\" data-provider=\"browser-unsupported\""
+            )
+        );
+        assert!(rendered.contains("data-command-enabled=\"false\""));
+        assert!(rendered.contains("data-real-execution=\"false\""));
+        assert!(rendered.contains("data-native-runtime=\"false\""));
+        assert!(rendered.contains("data-com-runtime=\"false\""));
+        assert!(rendered.contains("ThinSliceHello::Module1.Main"));
+        assert!(rendered.contains("native execution provider unavailable"));
+        assert!(
+            rendered
+                .contains("real OxVba execution, native runtime, and COM runtime are not claimed")
+        );
+    }
+
+    #[test]
+    fn runtime_service_contract_native_missing_scenario_keeps_real_execution_false() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_RUNTIME_SERVICE_CONTRACT_NATIVE_MISSING)
+            .expect("render runtime native missing contract scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-runtime-service-contract-native-missing\""));
+        assert!(rendered.contains(
+            "role=\"runtime-service-contract\" data-provider=\"native-service-missing\""
+        ));
+        assert!(rendered.contains("data-command-enabled=\"false\""));
+        assert!(rendered.contains("data-real-execution=\"false\""));
+        assert!(rendered.contains("data-native-runtime=\"false\""));
+        assert!(rendered.contains("data-com-runtime=\"false\""));
+        assert!(rendered.contains("native OxVba runtime service not configured"));
+        assert!(rendered.contains("real execution unavailable"));
+    }
+
+    #[test]
+    fn immediate_service_contract_native_missing_scenario_keeps_fake_responses_false() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_IMMEDIATE_SERVICE_CONTRACT_NATIVE_MISSING)
+            .expect("render Immediate native missing contract scenario");
+
+        assert!(
+            rendered.contains("data-scenario=\"gui-immediate-service-contract-native-missing\"")
+        );
+        assert!(rendered.contains(
+            "role=\"immediate-service-contract\" data-provider=\"native-service-missing\""
+        ));
+        assert!(rendered.contains("data-command-enabled=\"false\""));
+        assert!(rendered.contains("data-response-count=\"0\""));
+        assert!(rendered.contains("data-fake-responses=\"false\""));
+        assert!(rendered.contains("data-native-runtime=\"false\""));
+        assert!(rendered.contains("data-com-runtime=\"false\""));
+        assert!(rendered.contains("role=\"immediate-service-request\">?answer"));
+        assert!(rendered.contains("native OxVba runtime service not configured"));
+        assert!(rendered.contains("fake responses are not allowed"));
+    }
+
+    #[test]
+    fn debug_service_contract_native_missing_scenario_keeps_fake_debug_data_false() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_DEBUG_SERVICE_CONTRACT_NATIVE_MISSING)
+            .expect("render debug native missing contract scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-debug-service-contract-native-missing\""));
+        assert!(
+            rendered.contains(
+                "role=\"debug-service-contract\" data-provider=\"native-service-missing\""
+            )
+        );
+        assert!(rendered.contains("data-state=\"unavailable\""));
+        assert!(rendered.contains("data-command-enabled=\"false\""));
+        assert!(rendered.contains("data-command-count=\"6\""));
+        assert!(rendered.contains("data-callstack-count=\"0\""));
+        assert!(rendered.contains("data-locals-count=\"0\""));
+        assert!(rendered.contains("data-watches-count=\"0\""));
+        assert!(rendered.contains("data-breakpoints-count=\"0\""));
+        assert!(rendered.contains("data-fake-debug-data=\"false\""));
+        assert!(rendered.contains("data-native-runtime=\"false\""));
+        assert!(rendered.contains("data-com-runtime=\"false\""));
+        assert!(rendered.contains("native OxVba runtime/debug service not configured"));
+        assert!(rendered.contains("fake debug data is not allowed"));
     }
 
     #[test]
