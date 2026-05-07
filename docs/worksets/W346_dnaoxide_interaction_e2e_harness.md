@@ -51,7 +51,8 @@ Tests:
   - Documentation grep for selected harness layer and claim boundaries.
 
 Evidence:
-  - Harness decision note.
+  - [`docs/DNAOXIDE_INTERACTION_HARNESS.md`](../DNAOXIDE_INTERACTION_HARNESS.md).
+  - `target/w346-b00-harness-layer-decision.txt`.
 
 Closure:
   - [ ] Harness layer is selected.
@@ -160,7 +161,8 @@ Tests:
   - Workspace tests.
 
 Evidence:
-  - W346 acceptance outputs.
+  - `target/w346-acceptance.txt`.
+  - [`docs/HANDOFF_W346_DNAOXIDE_INTERACTION_HARNESS.md`](../HANDOFF_W346_DNAOXIDE_INTERACTION_HARNESS.md).
 
 Closure:
   - [ ] Harness is documented.

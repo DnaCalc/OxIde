@@ -1258,6 +1258,42 @@ Implementation notes:
 4. Lifecycle proof files live under `target/`; checked-in `examples/thin-slice/Module1.bas` remains unchanged.
 5. W346 owns the first interaction/e2e harness and must not overclaim full browser/accessibility/runtime behavior.
 
-## 24. Cross-Repo Fixture Policy
+## 24. W346 DnaOxIde Interaction Harness Acceptance Target
+
+W346 closes against the static frontend interaction model plus static DOM/token smoke harness:
+
+```powershell
+npm --prefix apps/dna-oxide run interaction-command:check
+npm --prefix apps/dna-oxide run interaction-focus:check
+npm --prefix apps/dna-oxide run interaction-lifecycle:check
+npm --prefix apps/dna-oxide run interaction-services:check
+npm --prefix apps/dna-oxide run host-ui:check
+npm --prefix apps/dna-oxide run host-lifecycle:check
+npm --prefix apps/dna-oxide run host-services:check
+npm --prefix apps/dna-oxide run command-client:check
+npm --prefix apps/dna-oxide run scaffold:check
+cargo test --manifest-path crates/Cargo.toml --workspace
+```
+
+Observed W346 acceptance evidence is captured in `target/w346-acceptance.txt` and contains:
+
+- `DNA_OXIDE_INTERACTION_HARNESS`,
+- `frontend-interaction-model+static-dom-token-smoke`,
+- command palette and keyboard routing checks,
+- no-mouse focus route over W345 host pane roles,
+- lifecycle command sequence checks over proven OxIde-only commands,
+- blocked build/run/Immediate/debug/watch/breakpoint/COM/reference command checks,
+- static smoke tokens from W345 rendered host shell outputs,
+- checked-in fixture mutation guard,
+- no true live/browser/accessibility/runtime/COM/fake-data claim tokens.
+
+Implementation notes:
+
+1. W346 is the first host regression base, not a live browser/WebView driver.
+2. Interaction scripts live under `apps/dna-oxide/scripts/verify-interaction-*.mjs`.
+3. `apps/dna-oxide/src/interaction-harness.js` owns only DnaOxIde static interaction proof logic; reusable UI/host truth remains in shared crates and W343/W344 boundaries.
+4. W347 owns compile/options/reference placeholder panels on this host UI and interaction base.
+
+## 25. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.
