@@ -12,10 +12,12 @@ This workset creates the IPC seam that the live desktop host will use while OxId
 - W341 — DnaOxIde Tauri app scaffold.
 - W343 — OxIde host bridge facade.
 - [`docs/HANDOFF_DNAOXIDE_OXVBA_FEEDBACK_ALIGNMENT.md`](../HANDOFF_DNAOXIDE_OXVBA_FEEDBACK_ALIGNMENT.md).
+- [`docs/HANDOFF_W343_HOST_BRIDGE_FACADE.md`](../HANDOFF_W343_HOST_BRIDGE_FACADE.md).
+- [`docs/DNAOXIDE_COMMAND_BOUNDARY.md`](../DNAOXIDE_COMMAND_BOUNDARY.md).
 
 ## Design
 
-Tauri commands should be thin adapters over host bridge services. They may initially be Rust-callable command functions even before a full WebView smoke exists.
+Tauri commands should be thin adapters over host bridge services. They may initially be Rust-callable command functions even before a full WebView smoke exists. The stable command naming table lives in [`docs/DNAOXIDE_COMMAND_BOUNDARY.md`](../DNAOXIDE_COMMAND_BOUNDARY.md).
 
 Safe/proven commands to implement first:
 
@@ -64,7 +66,7 @@ Tests:
   - Documentation/static grep for command names and blocked/proven labels.
 
 Evidence:
-  - Command naming table.
+  - [`docs/DNAOXIDE_COMMAND_BOUNDARY.md`](../DNAOXIDE_COMMAND_BOUNDARY.md).
 
 Closure:
   - [ ] Command names are listed.
