@@ -22,6 +22,7 @@ pub const GUI_THIN_SLICE_LOADED: &str = "gui-thin-slice-loaded";
 pub const GUI_THIN_SLICE_EDITED_DIAGNOSTICS: &str = "gui-thin-slice-edited-diagnostics";
 pub const GUI_THIN_SLICE_LIFECYCLE: &str = "gui-thin-slice-lifecycle";
 pub const GUI_RUN_OUTPUT_BROWSER_DISABLED: &str = "gui-run-output-browser-disabled";
+pub const GUI_RUN_OUTPUT_SIMULATED_SUPPORTED: &str = "gui-run-output-simulated-supported";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,6 +53,7 @@ pub enum GuiScenarioKind {
     EditedDiagnostics,
     Lifecycle,
     BrowserRunDisabled,
+    SimulatedRunOutput,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -100,8 +102,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_RUN_OUTPUT_BROWSER_DISABLED,
                 title: "Run output browser disabled",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::BrowserRunDisabled,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_RUN_OUTPUT_SIMULATED_SUPPORTED,
+                title: "Run output simulated supported",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::SimulatedRunOutput,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -170,9 +178,9 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
     }
     output.push_str("  </nav>\n");
     let source_text = match scenario.kind {
-        GuiScenarioKind::ReadOnlyProject | GuiScenarioKind::BrowserRunDisabled => {
-            view.active_source.source_text.clone()
-        }
+        GuiScenarioKind::ReadOnlyProject
+        | GuiScenarioKind::BrowserRunDisabled
+        | GuiScenarioKind::SimulatedRunOutput => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -206,6 +214,11 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
             &source_text,
         ),
         GuiScenarioKind::BrowserRunDisabled => render_browser_run_disabled_section(
+            &mut output,
+            &view.project_name,
+            &view.active_source.module_display_name,
+        ),
+        GuiScenarioKind::SimulatedRunOutput => render_simulated_run_output_section(
             &mut output,
             &view.project_name,
             &view.active_source.module_display_name,
@@ -250,6 +263,57 @@ fn render_browser_run_disabled_section(
         output.push_str(&html_escape(&reason));
     }
     output.push_str("</div>\n");
+    output.push_str("    <section role=\"output-activity\">\n");
+    for event in &transcript.events {
+        output.push_str("      <div role=\"output-event\" data-event-kind=\"");
+        output.push_str(event.kind.label());
+        output.push_str("\">");
+        output.push_str(&html_escape(&event.message));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    </section>\n");
+    output.push_str("  </section>\n");
+}
+
+fn render_simulated_run_output_section(
+    output: &mut String,
+    project_name: &str,
+    module_display_name: &str,
+) {
+    let request = RunRequest::new(project_name, module_stem(module_display_name), "Main");
+    let profile = RunCapabilityProfile::simulated_supported();
+    let command_status = profile.command_status();
+    let transcript = RunTranscript::simulated_completed(request);
+
+    output.push_str("  <section role=\"run-output\" data-provider=\"");
+    output.push_str(transcript.provider_label.as_str());
+    output.push_str("\" data-status=\"");
+    output.push_str(transcript.status.label());
+    output.push_str("\" data-native-execution=\"");
+    output.push_str(if profile.native_execution_available {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-com-runtime=\"");
+    output.push_str(if profile.com_runtime_available {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    output.push_str("    <div role=\"run-request\" data-target=\"");
+    output.push_str(&html_escape(&transcript.request.display_target()));
+    output.push_str("\">");
+    output.push_str(&html_escape(&transcript.request.entrypoint));
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"run-command\" data-enabled=\"");
+    output.push_str(if command_status.is_enabled {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">Run enabled by simulated provider</div>\n");
     output.push_str("    <section role=\"output-activity\">\n");
     for event in &transcript.events {
         output.push_str("      <div role=\"output-event\" data-event-kind=\"");
@@ -515,6 +579,8 @@ mod tests {
         assert!(output.contains("Thin-slice lifecycle state"));
         assert!(output.contains("gui-run-output-browser-disabled"));
         assert!(output.contains("Run output browser disabled"));
+        assert!(output.contains("gui-run-output-simulated-supported"));
+        assert!(output.contains("Run output simulated supported"));
     }
 
     #[test]
@@ -611,6 +677,18 @@ mod tests {
     }
 
     #[test]
+    fn built_in_registry_finds_simulated_run_output_scenario_by_id() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let scenario = registry
+            .find(GUI_RUN_OUTPUT_SIMULATED_SUPPORTED)
+            .expect("simulated run output scenario");
+
+        assert_eq!(scenario.title, "Run output simulated supported");
+        assert_eq!(scenario.kind, GuiScenarioKind::SimulatedRunOutput);
+    }
+
+    #[test]
     fn browser_run_disabled_scenario_renders_structured_output_reason() {
         let registry = GuiScenarioRegistry::built_in(repo_root());
 
@@ -635,6 +713,31 @@ mod tests {
         assert!(rendered.contains("Run disabled"));
         assert!(rendered.contains("COM unavailable"));
         assert!(!rendered.contains("role=\"diagnostics\""));
+    }
+
+    #[test]
+    fn simulated_run_output_scenario_renders_completed_structured_events() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_RUN_OUTPUT_SIMULATED_SUPPORTED)
+            .expect("render simulated run output scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-run-output-simulated-supported\""));
+        assert!(rendered.contains("ThinSliceHello"));
+        assert!(rendered.contains("Module1.bas"));
+        assert!(rendered.contains("role=\"run-output\""));
+        assert!(rendered.contains("data-provider=\"simulated\""));
+        assert!(rendered.contains("data-status=\"completed\""));
+        assert!(rendered.contains("data-native-execution=\"false\""));
+        assert!(rendered.contains("data-com-runtime=\"false\""));
+        assert!(rendered.contains("role=\"run-command\" data-enabled=\"true\""));
+        assert!(rendered.contains("Run enabled by simulated provider"));
+        assert!(rendered.contains("run started"));
+        assert!(rendered.contains("simulated provider invoked ThinSliceHello::Module1.Main"));
+        assert!(rendered.contains("simulated output: Main completed with answer 42"));
+        assert!(rendered.contains("run completed"));
+        assert!(rendered.contains("COM unavailable"));
     }
 
     #[test]
