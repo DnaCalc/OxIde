@@ -6,3 +6,4 @@ publish = false
 
 [dependencies]
 oxide-domain = { path = "../oxide-domain" }
+oxvba-project = { path = "../../.external/oxvba-frozen/crates/oxvba-project" }
