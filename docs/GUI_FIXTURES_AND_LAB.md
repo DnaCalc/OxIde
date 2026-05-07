@@ -519,9 +519,113 @@ Known W270 limitations:
 5. no COM-capable run/debug/Immediate proof,
 6. no DnaOneCalc-hosted runtime integration yet.
 
-## 13. W280 Handoff
+## 13. W280 Accepted Command, Keyboard, Focus, And Accessibility Polish
 
-W280 should start from the twelve current regression lab commands:
+W280 adds four GUI polish lab scenarios:
+
+```powershell
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-command-palette-baseline
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-keyboard-contexts-baseline
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-focus-graph-no-mouse
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-accessibility-disabled-reasons
+```
+
+Observed command-palette output contains:
+
+- `data-scenario="gui-command-palette-baseline"`,
+- `role="command-palette"`,
+- `data-source="gui-core command registry"`,
+- `data-parked-tui-imported="false"`,
+- `data-command-count="10"`,
+- `data-command-id="project.open"`,
+- `data-command-id="document.save"`,
+- `data-command-id="runtime.run"`,
+- `data-capability="browser-unsupported"`,
+- `native execution provider unavailable`,
+- `data-command-id="runtime.immediate"`,
+- `no native OxVba runtime session`,
+- `data-command-id="runtime.debug"`,
+- `no OxVba debug session`,
+- `GUI-native command registry; parked TUI command model not imported`.
+
+Observed keyboard-context output contains:
+
+- `data-scenario="gui-keyboard-contexts-baseline"`,
+- `role="keyboard-contexts"`,
+- `data-source="gui-core keyboard map"`,
+- `data-host-specific-overrides-required="false"`,
+- `data-context-collisions="0"`,
+- `data-cross-context-collisions="0"`,
+- `data-context="global-shell"`,
+- `data-context="editor"`,
+- `data-context="immediate"`,
+- `data-context="debug"`,
+- `data-command-id="shell.command_palette" data-gesture="Ctrl+Shift+P"`,
+- `data-command-id="document.save" data-gesture="Ctrl+S"`,
+- `data-command-id="runtime.run" data-gesture="F5"`,
+- `data-command-id="runtime.immediate" data-gesture="Enter"`,
+- `data-allow-cross-context="true"`,
+- `no browser-specific key trap is product truth`.
+
+Observed focus-graph output contains:
+
+- `data-scenario="gui-focus-graph-no-mouse"`,
+- `role="focus-graph"`,
+- `data-source="gui-core focus graph"`,
+- `data-node-count="9"`,
+- `data-route-length="10"`,
+- `data-node-id="project-tree" data-kind="project-tree"`,
+- `data-node-id="source-editor" data-kind="editor"`,
+- `data-node-id="run-output" data-kind="run-output" data-focusable="true" data-disabled-reason-visible="true"`,
+- `data-node-id="immediate-panel" data-kind="immediate"`,
+- `data-node-id="debug-panel" data-kind="debug"`,
+- `data-node-id="command-palette" data-kind="command-palette"`,
+- `role="focus-restore-target">source-editor`,
+- `data-index="1" data-node-id="project-tree"`,
+- `data-index="9" data-node-id="command-palette"`,
+- `returns to source-editor`,
+- `Disabled reason panels remain reachable`.
+
+Observed accessibility output contains:
+
+- `data-scenario="gui-accessibility-disabled-reasons"`,
+- `role="accessibility-projection"`,
+- `data-source="gui-core accessibility projection"`,
+- `data-web-framework-bound="false"`,
+- `data-surface-count="10"`,
+- `data-surface-id="source-editor" data-role="editor"`,
+- `role="accessible-label">Source editor`,
+- `data-surface-id="diagnostics-panel" data-role="diagnostics"`,
+- `OxVba language-service diagnostics`,
+- `data-surface-id="run-output" data-role="run-output" data-has-disabled-reason="true"`,
+- `native execution provider unavailable`,
+- `data-surface-id="immediate-panel" data-role="immediate" data-has-disabled-reason="true"`,
+- `no native OxVba runtime session`,
+- `data-surface-id="debug-panel" data-role="debug" data-has-disabled-reason="true"`,
+- `no OxVba debug session`,
+- `data-surface-id="com-capability" data-role="com-capability" data-has-disabled-reason="true"`,
+- `COM discovery unavailable in browser-safe profile`,
+- `no web framework accessibility API is chosen in core`.
+
+Implementation notes:
+
+1. `oxide-core` owns pure command, keyboard, focus, and accessibility projections.
+2. `oxide-guilab` renders deterministic evidence without a concrete web framework.
+3. No parked TUI command/key/focus state is imported.
+4. Command availability reuses lifecycle/run/Immediate/debug/COM capability state.
+5. W280 does not claim real runtime, debug, Immediate, COM, or filesystem persistence.
+
+Known W280 limitations:
+
+1. no mounted browser/desktop GUI shell yet,
+2. no real DOM accessibility audit yet,
+3. no host-specific keybinding override layer yet,
+4. no visual theme/high-contrast implementation yet,
+5. no real runtime/debug/Immediate or COM support beyond capability/unavailable projections.
+
+## 14. W290 Handoff
+
+W290 should start from the sixteen current regression lab commands:
 
 ```powershell
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-loaded
@@ -536,17 +640,20 @@ cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-re
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-timeline-simulated
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-immediate-browser-disabled
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-debug-browser-disabled
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-command-palette-baseline
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-keyboard-contexts-baseline
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-focus-graph-no-mouse
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-accessibility-disabled-reasons
 ```
 
-W280 prerequisites:
+W290 prerequisites:
 
-1. add command/keyboard/focus/accessibility polish as pure GUI state first,
-2. keep runtime/debug/Immediate surfaces capability-gated,
-3. preserve W240 simulated run as simulated-only evidence,
-4. preserve W260 native-service-missing disabled reasons,
-5. route OxVba runtime/debug/Immediate interface gaps through handoffs rather than local duplicates,
-6. avoid pulling parked TUI interaction state into the GUI substrate.
+1. choose a first mounted GUI shell substrate without rewriting the pure projections,
+2. keep `oxide-guilab` deterministic as regression evidence,
+3. preserve W280 command/keyboard/focus/accessibility state as host-independent contracts,
+4. keep DnaOneCalc as a consumer/host boundary rather than owner of OxIde IDE state,
+5. do not claim DOM, filesystem, native runtime, debug, Immediate, or COM support until tested in the target host.
 
-## 14. Cross-Repo Fixture Policy
+## 15. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.

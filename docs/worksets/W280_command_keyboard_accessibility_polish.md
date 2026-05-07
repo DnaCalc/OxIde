@@ -193,6 +193,51 @@ Closure:
   - [ ] W210-W280 regression scenarios pass.
   - [ ] Next workset prerequisites are documented.
 
+## Acceptance Evidence
+
+W280 is accepted on 2026-05-07 with these shipped vertical behaviours:
+
+1. `oxide-core` owns pure command registry, keyboard map, focus graph, and accessibility projection types.
+2. Command availability reuses lifecycle/run/Immediate/debug/COM capability state and does not duplicate runtime truth.
+3. `oxide-guilab` registers and renders:
+   - `gui-command-palette-baseline`,
+   - `gui-keyboard-contexts-baseline`,
+   - `gui-focus-graph-no-mouse`,
+   - `gui-accessibility-disabled-reasons`.
+4. W280 output explicitly shows `data-parked-tui-imported="false"`, `data-web-framework-bound="false"`, and host-independent keyboard/focus policy notes.
+5. `docs/GUI_FIXTURES_AND_LAB.md` records W280 scenario tokens and W290 prerequisites.
+6. `docs/HANDOFF_W290_HOST_MOUNTED_GUI_SHELL.md` captures the next mounted-shell handoff.
+
+Acceptance commands:
+
+```powershell
+cargo test --manifest-path crates/Cargo.toml --workspace
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-loaded
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-edited-diagnostics
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-lifecycle
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-browser-disabled
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-simulated-supported
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-dnaonecalc-embedding-contract
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-browser-unavailable
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-nonwindows-unavailable
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-native-service-missing
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-timeline-simulated
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-immediate-browser-disabled
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-debug-browser-disabled
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-command-palette-baseline
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-keyboard-contexts-baseline
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-focus-graph-no-mouse
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-accessibility-disabled-reasons
+```
+
+Known W280 limitations remain intentional:
+
+1. no mounted browser/desktop GUI shell yet,
+2. no real DOM accessibility audit yet,
+3. no host-specific keybinding override layer yet,
+4. no visual theme/high-contrast implementation yet,
+5. no real runtime/debug/Immediate or COM support beyond capability/unavailable projections.
+
 ## Out-of-scope
 
 - Broad theming marketplace.
