@@ -68,7 +68,8 @@ Tests:
   - Grep for ownership disclaimers.
 
 Evidence:
-  - Placeholder contract docs/tests.
+  - [`docs/DNAOXIDE_COMPILE_REFERENCE_PANEL_CONTRACT.md`](../DNAOXIDE_COMPILE_REFERENCE_PANEL_CONTRACT.md).
+  - `target/w347-b00-placeholder-panel-contract.txt`.
 
 Closure:
   - [ ] Placeholder, subset-backed, and fixture-evidenced inputs exist or are documented.
@@ -157,7 +158,8 @@ Tests:
   - Anti-overclaim scan.
 
 Evidence:
-  - W347 acceptance outputs.
+  - `target/w347-acceptance.txt`.
+  - [`docs/HANDOFF_W347_COMPILE_REFERENCE_PLACEHOLDERS.md`](../HANDOFF_W347_COMPILE_REFERENCE_PLACEHOLDERS.md).
 
 Closure:
   - [ ] Placeholder panels are reviewable.

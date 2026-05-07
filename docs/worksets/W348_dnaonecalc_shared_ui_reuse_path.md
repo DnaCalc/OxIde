@@ -12,6 +12,9 @@ This workset preserves DnaOneCalc reuse while avoiding sibling repo writes.
 - W342 — shared IDE UI component layer.
 - W343 — OxIde host bridge facade.
 - W345 — DnaOxIde live host UI proof.
+- W346 — DnaOxIde interaction and e2e harness.
+- W347 — compile options and reference UI placeholders.
+- [`docs/HANDOFF_W347_COMPILE_REFERENCE_PLACEHOLDERS.md`](../HANDOFF_W347_COMPILE_REFERENCE_PLACEHOLDERS.md).
 - [`docs/HANDOFF_DNAOXIDE_OXVBA_FEEDBACK_ALIGNMENT.md`](../HANDOFF_DNAOXIDE_OXVBA_FEEDBACK_ALIGNMENT.md).
 
 ## Design

@@ -1294,6 +1294,39 @@ Implementation notes:
 3. `apps/dna-oxide/src/interaction-harness.js` owns only DnaOxIde static interaction proof logic; reusable UI/host truth remains in shared crates and W343/W344 boundaries.
 4. W347 owns compile/options/reference placeholder panels on this host UI and interaction base.
 
-## 25. Cross-Repo Fixture Policy
+## 25. W347 Compile / Reference Placeholder Acceptance Target
+
+W347 closes against DnaOxIde host-shell placeholder panels for compile/options/reference/COM surfaces:
+
+```powershell
+npm --prefix apps/dna-oxide run compile-panels:check
+npm --prefix apps/dna-oxide run reference-panels:check
+npm --prefix apps/dna-oxide run placeholder-commands:check
+npm --prefix apps/dna-oxide run host-ui:check
+npm --prefix apps/dna-oxide run interaction-services:check
+npm --prefix apps/dna-oxide run scaffold:check
+cargo test --manifest-path crates/Cargo.toml --workspace
+```
+
+Observed W347 acceptance evidence is captured in `target/w347-acceptance.txt` and contains:
+
+- project properties, compile options, build/check, and run target panels,
+- references, COM candidate, reference repair/apply, and COM runtime boundary panels,
+- `proven-oxide-only`, `pending-oxvba-hardening`, `oxvba-fixture-evidenced`, and `unavailable-no-claim` labels,
+- `EmbeddedBuildRunHost::build_workspace`,
+- `ComSelectionService direct Rust surface`,
+- `data-final-oxvba-dtos-owned-here="false"`,
+- zero output/roster/candidate/preview rows,
+- `data-com-runtime-invocation="false"`,
+- false runtime/COM/fake-data claim attributes.
+
+Implementation notes:
+
+1. W347 does not define final OxVba DTOs.
+2. Compile options, run targets, reference repair/apply, and COM native boundary remain pending-hardening or unavailable.
+3. COM runtime invocation remains unclaimed.
+4. W348 owns DnaOneCalc shared UI reuse proof without sibling repo writes.
+
+## 26. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.
