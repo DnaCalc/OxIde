@@ -39,7 +39,7 @@ pub struct GuiScenarioDescriptor {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScenarioSourceEdit {
     ReadOnly,
-    CommentOutOptionExplicit,
+    RemoveAnswerDeclaration,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -77,7 +77,7 @@ impl GuiScenarioRegistry {
                 id: GUI_THIN_SLICE_EDITED_DIAGNOSTICS,
                 title: "Thin-slice edited diagnostics",
                 fixture_path: thin_slice,
-                source_edit: ScenarioSourceEdit::CommentOutOptionExplicit,
+                source_edit: ScenarioSourceEdit::RemoveAnswerDeclaration,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -147,9 +147,9 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
     output.push_str("  </nav>\n");
     let source_text = match scenario.source_edit {
         ScenarioSourceEdit::ReadOnly => view.active_source.source_text.clone(),
-        ScenarioSourceEdit::CommentOutOptionExplicit => {
+        ScenarioSourceEdit::RemoveAnswerDeclaration => {
             SourceSnapshot::new(&view.active_source.source_text)
-                .apply(&EditOperation::comment_out_option_explicit())
+                .apply(&EditOperation::remove_first_answer_declaration())
                 .snapshot
                 .text()
                 .to_string()
@@ -296,7 +296,7 @@ mod tests {
         assert_eq!(scenario.title, "Thin-slice edited diagnostics");
         assert_eq!(
             scenario.source_edit,
-            ScenarioSourceEdit::CommentOutOptionExplicit
+            ScenarioSourceEdit::RemoveAnswerDeclaration
         );
     }
 
@@ -311,7 +311,9 @@ mod tests {
         assert!(rendered.contains("data-scenario=\"gui-thin-slice-edited-diagnostics\""));
         assert!(rendered.contains("ThinSliceHello"));
         assert!(rendered.contains("Module1.bas"));
-        assert!(rendered.contains("'Option Explicit"));
+        assert!(rendered.contains("Option Explicit"));
+        assert!(!rendered.contains("Dim answer"));
+        assert!(rendered.contains("answer = 40 + 2"));
         assert!(rendered.contains("Public Sub Main()"));
         assert!(rendered.contains("COM unavailable"));
     }

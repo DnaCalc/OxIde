@@ -27,18 +27,28 @@ impl SourceSnapshot {
                 applied: false,
             },
             EditOperation::CommentOutFirstLineContaining { needle } => {
-                let mut applied = false;
-                let mut lines = self.text.lines().map(String::from).collect::<Vec<_>>();
-                for line in &mut lines {
-                    if !applied && line.contains(needle) {
-                        line.insert_str(0, "'");
-                        applied = true;
+                let (text, applied) = transform_lines(&self.text, |line, applied| {
+                    if !*applied && line.contains(needle) {
+                        *applied = true;
+                        Some(format!("'{line}"))
+                    } else {
+                        Some(line.to_string())
                     }
+                });
+                EditOutcome {
+                    snapshot: SourceSnapshot::new(text),
+                    applied,
                 }
-                let mut text = lines.join("\n");
-                if self.text.ends_with('\n') {
-                    text.push('\n');
-                }
+            }
+            EditOperation::RemoveFirstLineContaining { needle } => {
+                let (text, applied) = transform_lines(&self.text, |line, applied| {
+                    if !*applied && line.contains(needle) {
+                        *applied = true;
+                        None
+                    } else {
+                        Some(line.to_string())
+                    }
+                });
                 EditOutcome {
                     snapshot: SourceSnapshot::new(text),
                     applied,
@@ -53,6 +63,7 @@ impl SourceSnapshot {
 pub enum EditOperation {
     Noop,
     CommentOutFirstLineContaining { needle: String },
+    RemoveFirstLineContaining { needle: String },
 }
 
 impl EditOperation {
@@ -61,6 +72,28 @@ impl EditOperation {
             needle: String::from("Option Explicit"),
         }
     }
+
+    pub fn remove_first_answer_declaration() -> Self {
+        Self::RemoveFirstLineContaining {
+            needle: String::from("Dim answer"),
+        }
+    }
+}
+
+fn transform_lines(
+    source: &str,
+    mut transform: impl FnMut(&str, &mut bool) -> Option<String>,
+) -> (String, bool) {
+    let mut applied = false;
+    let lines = source
+        .lines()
+        .filter_map(|line| transform(line, &mut applied))
+        .collect::<Vec<_>>();
+    let mut text = lines.join("\n");
+    if source.ends_with('\n') {
+        text.push('\n');
+    }
+    (text, applied)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -115,5 +148,17 @@ mod tests {
 
         assert!(!outcome.applied);
         assert_eq!(outcome.snapshot.text(), THIN_SLICE_SOURCE);
+    }
+
+    #[test]
+    fn remove_first_answer_declaration_creates_stable_diagnostics_edit() {
+        let source = "Option Explicit\nPublic Sub Main()\n    Dim answer As Integer\n    answer = 40 + 2\nEnd Sub\n";
+        let snapshot = SourceSnapshot::new(source);
+
+        let outcome = snapshot.apply(&EditOperation::remove_first_answer_declaration());
+
+        assert!(outcome.applied);
+        assert!(!outcome.snapshot.text().contains("Dim answer"));
+        assert!(outcome.snapshot.text().contains("answer = 40 + 2"));
     }
 }

@@ -74,6 +74,28 @@ pub struct ProjectOpenSpineView {
     pub capability: HostCapabilitySummary,
 }
 
+/// OxIde-owned diagnostic presentation row projected from authoritative OxVba
+/// diagnostics. Severity is presentation text to avoid copying OxVba enums.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiagnosticRow {
+    pub module_display_name: String,
+    pub severity_label: String,
+    pub message: String,
+    pub span_start: u32,
+    pub span_end: u32,
+    pub provenance_label: String,
+}
+
+/// GUI-neutral edited document diagnostic view for W220.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EditedDocumentDiagnosticsView {
+    pub project_name: String,
+    pub module_display_name: String,
+    pub edited_source_text: String,
+    pub diagnostics: Vec<DiagnosticRow>,
+    pub capability: HostCapabilitySummary,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
