@@ -6,6 +6,7 @@ members = [
     "oxide-editor-core",
     "oxide-guilab",
     "oxide-oxvba",
+    "oxide-ui-leptos",
     "oxide-webshell",
 ]
 resolver = "3"

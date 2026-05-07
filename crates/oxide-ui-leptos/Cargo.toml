@@ -1,0 +1,13 @@
+[package]
+name = "oxide-ui-leptos"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["html-strings"]
+html-strings = []
+leptos-components = []
+hydration = []
+
+[dependencies]
+oxide-core = { path = "../oxide-core" }
