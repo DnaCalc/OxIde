@@ -480,6 +480,7 @@ dependencies = [
  "oxide-domain",
  "oxide-editor-core",
  "oxide-oxvba",
+ "oxide-webshell",
 ]
 
 [[package]]
@@ -489,6 +490,13 @@ dependencies = [
  "oxide-domain",
  "oxvba-languageservice",
  "oxvba-project",
+]
+
+[[package]]
+name = "oxide-webshell"
+version = "0.1.0"
+dependencies = [
+ "oxide-core",
 ]
 
 [[package]]

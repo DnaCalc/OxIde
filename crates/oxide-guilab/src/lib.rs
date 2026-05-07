@@ -21,6 +21,7 @@ use oxide_oxvba::{
     EditedDocumentDiagnosticsError, ProjectOpenSpineError, load_edited_document_diagnostics,
     load_project_open_spine,
 };
+use oxide_webshell::render_web_shell_snapshot;
 
 pub const GUI_THIN_SLICE_LOADED: &str = "gui-thin-slice-loaded";
 pub const GUI_THIN_SLICE_EDITED_DIAGNOSTICS: &str = "gui-thin-slice-edited-diagnostics";
@@ -44,6 +45,7 @@ pub const GUI_SHELL_PACKET_BASELINE: &str = "gui-shell-packet-baseline";
 pub const GUI_MOUNTED_SHELL_STATIC: &str = "gui-mounted-shell-static";
 pub const GUI_MOUNTED_COMMAND_PALETTE: &str = "gui-mounted-command-palette";
 pub const GUI_MOUNTED_NO_MOUSE_ACCESSIBILITY: &str = "gui-mounted-no-mouse-accessibility";
+pub const GUI_WEB_SHELL_ADAPTER_BOUNDARY: &str = "gui-web-shell-adapter-boundary";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,6 +92,7 @@ pub enum GuiScenarioKind {
     MountedShellStatic,
     MountedCommandPalette,
     MountedNoMouseAccessibility,
+    WebShellAdapterBoundary,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -234,8 +237,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_MOUNTED_NO_MOUSE_ACCESSIBILITY,
                 title: "Mounted no-mouse accessibility",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::MountedNoMouseAccessibility,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_WEB_SHELL_ADAPTER_BOUNDARY,
+                title: "Web shell adapter boundary",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::WebShellAdapterBoundary,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -321,7 +330,8 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::ShellPacketBaseline
         | GuiScenarioKind::MountedShellStatic
         | GuiScenarioKind::MountedCommandPalette
-        | GuiScenarioKind::MountedNoMouseAccessibility => view.active_source.source_text.clone(),
+        | GuiScenarioKind::MountedNoMouseAccessibility
+        | GuiScenarioKind::WebShellAdapterBoundary => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -465,6 +475,18 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
                 &view.active_source.source_text,
             )
         }
+        GuiScenarioKind::WebShellAdapterBoundary => render_web_shell_adapter_boundary_section(
+            &mut output,
+            &scenario.fixture_path,
+            &view.project_name,
+            &view
+                .modules
+                .iter()
+                .map(|module| GuiShellModuleSummary::new(&module.display_name, module.is_active))
+                .collect::<Vec<_>>(),
+            &view.active_source.module_display_name,
+            &view.active_source.source_text,
+        ),
     }
     output.push_str("  <footer role=\"host-capability\">");
     output.push_str(scenario_host_capability_text(
@@ -1276,6 +1298,66 @@ fn render_mounted_no_mouse_accessibility_section(
     output.push_str("  </section>\n");
 }
 
+fn render_web_shell_adapter_boundary_section(
+    output: &mut String,
+    workspace_path: &Path,
+    project_name: &str,
+    modules: &[GuiShellModuleSummary],
+    active_module: &str,
+    source_text: &str,
+) {
+    let packet = build_shell_packet_baseline(
+        workspace_path,
+        project_name,
+        modules,
+        active_module,
+        source_text,
+    );
+    let snapshot = render_web_shell_snapshot(&packet);
+
+    output.push_str("  <section role=\"web-shell-boundary-snapshot\" data-source=\"");
+    output.push_str(snapshot.source_contract);
+    output.push_str("\" data-dom-smoke-tested=\"");
+    output.push_str(if snapshot.dom_smoke_tested {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-dom-audited=\"");
+    output.push_str(if snapshot.dom_accessibility_audited {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-filesystem-persistence=\"");
+    output.push_str(if snapshot.filesystem_persistence_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-native-runtime=\"");
+    output.push_str(if snapshot.native_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-com-runtime=\"");
+    output.push_str(if snapshot.com_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-parked-tui-imported=\"");
+    output.push_str(if snapshot.parked_tui_imported {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    output.push_str(snapshot.markup());
+    output.push_str("  </section>\n");
+}
+
 fn render_com_capability_section(output: &mut String, profile: ComCapabilityProfile) {
     output.push_str("  <section role=\"com-capability\" data-profile=\"");
     output.push_str(profile.host_kind.label());
@@ -1708,6 +1790,8 @@ mod tests {
         assert!(output.contains("Mounted command palette"));
         assert!(output.contains("gui-mounted-no-mouse-accessibility"));
         assert!(output.contains("Mounted no-mouse accessibility"));
+        assert!(output.contains("gui-web-shell-adapter-boundary"));
+        assert!(output.contains("Web shell adapter boundary"));
     }
 
     #[test]
@@ -1902,6 +1986,9 @@ mod tests {
         let mounted_no_mouse_accessibility = registry
             .find(GUI_MOUNTED_NO_MOUSE_ACCESSIBILITY)
             .expect("mounted no-mouse accessibility scenario");
+        let web_shell_adapter_boundary = registry
+            .find(GUI_WEB_SHELL_ADAPTER_BOUNDARY)
+            .expect("web shell adapter boundary scenario");
 
         assert_eq!(command_palette.title, "Command palette baseline");
         assert_eq!(
@@ -1936,6 +2023,14 @@ mod tests {
         assert_eq!(
             mounted_no_mouse_accessibility.kind,
             GuiScenarioKind::MountedNoMouseAccessibility
+        );
+        assert_eq!(
+            web_shell_adapter_boundary.title,
+            "Web shell adapter boundary"
+        );
+        assert_eq!(
+            web_shell_adapter_boundary.kind,
+            GuiScenarioKind::WebShellAdapterBoundary
         );
     }
 
@@ -2445,6 +2540,44 @@ mod tests {
         assert!(rendered.contains("COM discovery unavailable in browser-safe profile"));
         assert!(rendered.contains("Mounted accessibility projection is packet-derived"));
         assert!(rendered.contains("DOM accessibility audit is not claimed"));
+    }
+
+    #[test]
+    fn web_shell_adapter_boundary_scenario_renders_packet_markup_without_host_claims() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_WEB_SHELL_ADAPTER_BOUNDARY)
+            .expect("render web shell adapter boundary scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-web-shell-adapter-boundary\""));
+        assert!(rendered.contains("role=\"web-shell-boundary-snapshot\""));
+        assert!(rendered.contains("data-source=\"GuiShellPacket\""));
+        assert!(rendered.contains("data-dom-smoke-tested=\"false\""));
+        assert!(rendered.contains("data-dom-audited=\"false\""));
+        assert!(rendered.contains("data-filesystem-persistence=\"false\""));
+        assert!(rendered.contains("data-native-runtime=\"false\""));
+        assert!(rendered.contains("data-com-runtime=\"false\""));
+        assert!(rendered.contains("data-parked-tui-imported=\"false\""));
+        assert!(rendered.contains("role=\"web-shell-adapter\""));
+        assert!(rendered.contains("data-web-framework=\"unselected\""));
+        assert!(rendered.contains("role=\"web-project-tree\""));
+        assert!(rendered.contains("role=\"web-source-editor\""));
+        assert!(rendered.contains("role=\"web-diagnostics\" data-count=\"1\""));
+        assert!(rendered.contains("role=\"web-lifecycle\" data-profile=\"browser-limited\""));
+        assert!(rendered.contains(
+            "role=\"web-run-output\" data-provider=\"browser-unsupported\" data-status=\"disabled\""
+        ));
+        assert!(rendered.contains("native execution provider unavailable"));
+        assert!(rendered.contains("role=\"web-com-capability\" data-profile=\"browser-safe\" data-runtime-available=\"false\""));
+        assert!(rendered.contains(
+            "role=\"web-command-summary\" data-command-count=\"10\" data-keybinding-count=\"11\""
+        ));
+        assert!(rendered.contains("data-command-id=\"runtime.run\""));
+        assert!(rendered.contains("role=\"web-focus-accessibility-summary\" data-focus-node-count=\"9\" data-route-length=\"10\" data-accessibility-surface-count=\"10\""));
+        assert!(rendered.contains("role=\"web-accessible-label\">Source editor"));
+        assert!(rendered.contains("Web shell adapter consumes GuiShellPacket"));
+        assert!(rendered.contains("no framework, DOM audit, filesystem persistence, native runtime, or COM runtime is claimed"));
     }
 
     #[test]
