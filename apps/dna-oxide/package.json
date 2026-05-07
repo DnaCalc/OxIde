@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "scaffold:frontend": "node ./src/main.js --verify-scaffold",
-    "scaffold:check": "node ./scripts/verify-scaffold.mjs"
+    "scaffold:check": "node ./scripts/verify-scaffold.mjs",
+    "command-client:check": "node ./scripts/verify-command-client.mjs"
   },
   "dependencies": {},
   "devDependencies": {}

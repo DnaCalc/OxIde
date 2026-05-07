@@ -14,6 +14,7 @@ const requiredFiles = [
   "Trunk.toml",
   "index.html",
   "src/main.js",
+  "src/command-client.js",
   "src/styles.css",
   "src-tauri/Cargo.toml",
   "src-tauri/Cargo.lock",
@@ -65,9 +66,10 @@ assertContains("README.md", "Locked W341 Scaffold Shape");
 assertContains("index.html", "data-app=\"DnaOxIde\"");
 assertContains("index.html", "data-product=\"DNA OxIde\"");
 assertContains("src/main.js", "DNA_OXIDE_FRONTEND_SCAFFOLD");
+assertContains("src/command-client.js", "DNA_OXIDE_COMMANDS");
 assertContains("src-tauri/tauri.conf.json", "\"productName\": \"DNA OxIde\"");
 assertContains("src-tauri/src/services.rs", "tauri-native-scaffold");
-assertContains("src-tauri/src/commands.rs", "w341-command-name-scaffold-only");
+assertContains("src-tauri/src/commands.rs", "w344-rust-callable-tauri-ready");
 console.log("product/scaffold tokens present");
 
 console.log("== frontend coupling boundary ==");
@@ -97,6 +99,7 @@ for (const file of [
   "README.md",
   "index.html",
   "src/main.js",
+  "src/command-client.js",
   "src-tauri/README.md",
   "src-tauri/src/main.rs",
   "src-tauri/src/commands.rs",
