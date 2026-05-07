@@ -76,11 +76,12 @@ apps/dna-oxide/
 W341 scaffold verification should not require network access or sibling repo writes.
 
 ```powershell
-cargo test --manifest-path apps/dna-oxide/src-tauri/Cargo.toml
-rg -n "DNA OxIde|DnaOxIde|Tauri|real execution: `false`|native runtime: `false`|COM runtime: `false`|fake Immediate responses: `false`|fake debug data: `false`" apps/dna-oxide
-# Anti-overclaim scan: search for the same claim labels above set to an affirmative value.
-# The anti-overclaim scan is expected to return no matches.
+node apps/dna-oxide/scripts/verify-scaffold.mjs
+# or from apps/dna-oxide:
+npm run scaffold:check
 ```
+
+The verifier checks required files, product/scaffold tokens, frontend host-coupling boundaries, native scaffold tests, and anti-overclaim tokens.
 
 ## Workset Links
 

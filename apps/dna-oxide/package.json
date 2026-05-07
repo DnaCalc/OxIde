@@ -5,7 +5,8 @@
   "description": "DNA OxIde Tauri-ready frontend scaffold for the OxIde GUI host.",
   "type": "module",
   "scripts": {
-    "scaffold:frontend": "node ./src/main.js --verify-scaffold"
+    "scaffold:frontend": "node ./src/main.js --verify-scaffold",
+    "scaffold:check": "node ./scripts/verify-scaffold.mjs"
   },
   "dependencies": {},
   "devDependencies": {}
