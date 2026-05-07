@@ -1,7 +1,10 @@
 # OxIde Workset Register
 
-Ordered worksets for OxIde's current green-field implementation
-sequence.
+Ordered worksets for OxIde's current implementation sequence.
+
+The active direction is now the Rust/WASM-capable GUI pivot. The
+previous FrankenTui sequence is retained as parked TUI lineage rather
+than removed.
 
 This file owns **workset truth**: which worksets exist, in what order,
 and what ambition each carries. It does not own bead state; that lives
@@ -30,7 +33,11 @@ Worksets are **ambitious in scope** (a real user capability) and
 **comprehensive in design** (every bead in the list knows its tests
 and evidence shape before work starts).
 
-## Current Sequence
+## Parked TUI Lineage
+
+These worksets are retained as design/prototype/evidence history for
+the FrankenTui direction. They do not define the active implementation
+sequence for the GUI pivot.
 
 1. `W010` — shell mockup scaffold and design proof in FrankenTui
    *(historical — predates the current bead schema)*
@@ -62,6 +69,10 @@ and evidence shape before work starts).
 17. `W110` — polish, accessibility, and recovery; WTD regression
     suite locked
 
+## Active GUI Pivot Sequence
+
+1. `W200` — GUI pivot foundation, codebase review, and TUI parking
+
 ## Workset Specs
 
 - [W010_shell_mockup_scaffold.md](worksets/W010_shell_mockup_scaffold.md)
@@ -81,6 +92,7 @@ and evidence shape before work starts).
 - [W090_command_system.md](worksets/W090_command_system.md)
 - [W100_terminal_capability.md](worksets/W100_terminal_capability.md)
 - [W110_polish_and_recovery.md](worksets/W110_polish_and_recovery.md)
+- [W200_gui_pivot_foundation.md](worksets/W200_gui_pivot_foundation.md)
 
 ## Use Rule
 

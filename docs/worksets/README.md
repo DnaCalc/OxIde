@@ -23,15 +23,27 @@ Every workset spec at `W<NNN>_<slug>.md` follows the template from
 No `Progress` section. No `Status:` preamble. Progress lives in git
 log and in `.beads/` closure records.
 
-## Tier 1 — Current Shape
+## Active GUI Pivot
 
-Specs executors will touch next. Rewritten to the current template:
+Specs executors will touch next for the Rust/WASM-capable GUI pivot:
 
+- `W200_gui_pivot_foundation.md`
+
+## Parked TUI Lineage
+
+Specs retained for provenance, design evidence, and possible future
+companion-TUI work. They no longer define the active implementation
+sequence:
+
+- `W010_shell_mockup_scaffold.md`
+- `W020_runtime_shell_foundation.md`
+- `W030_service_integration.md`
 - `W035_ux_design_pass.md`
 - `W037_wtd_harness.md`
 - `W038_ux_development_lab.md`
 - `W039_firehorse_terminal_ux_proof.md`
 - `W040_project_workspace_management.md`
+- `W041_firehorse_ux_audit_lab.md`
 - `W045_wtd_demo_backfill.md`
 - `W050_file_document_services.md`
 - `W060_full_language_service_ux.md`
@@ -41,14 +53,5 @@ Specs executors will touch next. Rewritten to the current template:
 - `W100_terminal_capability.md`
 - `W110_polish_and_recovery.md`
 
-## Tier 2 — Historical
-
-Closed retrospective specs kept for provenance. They predate the
-current bead schema and are not reshaped:
-
-- `W010_shell_mockup_scaffold.md`
-- `W020_runtime_shell_foundation.md`
-- `W030_service_integration.md`
-
-New work against these areas starts with a new workset in the
-current template.
+New work against parked TUI areas should start with an explicit new
+workset rather than silently resuming the old sequence.
