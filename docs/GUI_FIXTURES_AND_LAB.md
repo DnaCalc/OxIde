@@ -83,7 +83,7 @@ The lab should support:
 
 ## 5. First W210 Acceptance Target
 
-W210 should close against a GUI scenario equivalent to:
+W210 closes against a GUI/lab scenario equivalent to:
 
 ```text
 Open examples/thin-slice/ThinSliceHello.basproj
@@ -93,7 +93,23 @@ Open examples/thin-slice/ThinSliceHello.basproj
   -> capability/status surface states current host profile
 ```
 
-This can start read-only. Editing belongs in W220.
+Current W210 evidence command:
+
+```powershell
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-loaded
+```
+
+Observed W210 output is deterministic text/HTML-like lab output rather
+than a full browser mount. It contains:
+
+- `data-scenario="gui-thin-slice-loaded"`,
+- `ThinSliceHello`,
+- `Module1.bas`,
+- `Public Sub Main()`,
+- browser-safe host capability text including `COM unavailable`.
+
+This is the accepted W210 rendering substitute before full Leptos/browser
+mounting. Editing belongs in W220.
 
 ## 6. Test Expectations
 
@@ -109,6 +125,26 @@ During W210 and later:
 - scenario IDs should be tested by name, not list position,
 - snapshots should assert product contracts rather than fragile prose where possible.
 
-## 7. Cross-Repo Fixture Policy
+## 7. W220 Handoff
+
+W220 should start from the W210 view model and lab command, then add the
+smallest editable module surface and diagnostics path.
+
+Known prerequisites:
+
+1. Keep `gui-thin-slice-loaded` stable as the read-only baseline.
+2. Add a new scenario ID for editable/diagnostic state rather than mutating the W210 baseline beyond recognition.
+3. Reuse `ProjectOpenSpineView` only where it remains true; introduce editor/document snapshot types deliberately.
+4. Use OxVba document/session APIs for diagnostics; do not parse VBA in OxIde.
+5. Keep browser-safe capability text visible while editing.
+
+Known gaps:
+
+1. no real DOM/Leptos mount yet,
+2. no editor buffer in GUI crates yet,
+3. no document snapshot update path to OxVba yet,
+4. no diagnostic fixture beyond current thin-slice source yet.
+
+## 8. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.
