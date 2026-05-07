@@ -6,6 +6,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+use oxide_bridge::EmbeddedIdePacket;
 use oxide_core::{
     DocumentLifecycleState, GuiSessionSnapshot, InMemoryDocumentPersistence, LifecycleCapabilities,
     LifecycleCommand, LifecycleCommandStatus, RunCapabilityProfile, RunRequest, RunTranscript,
@@ -23,6 +24,7 @@ pub const GUI_THIN_SLICE_EDITED_DIAGNOSTICS: &str = "gui-thin-slice-edited-diagn
 pub const GUI_THIN_SLICE_LIFECYCLE: &str = "gui-thin-slice-lifecycle";
 pub const GUI_RUN_OUTPUT_BROWSER_DISABLED: &str = "gui-run-output-browser-disabled";
 pub const GUI_RUN_OUTPUT_SIMULATED_SUPPORTED: &str = "gui-run-output-simulated-supported";
+pub const GUI_DNAONECALC_EMBEDDING_CONTRACT: &str = "gui-dnaonecalc-embedding-contract";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,6 +56,7 @@ pub enum GuiScenarioKind {
     Lifecycle,
     BrowserRunDisabled,
     SimulatedRunOutput,
+    DnaOneCalcEmbeddingContract,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,8 +111,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_RUN_OUTPUT_SIMULATED_SUPPORTED,
                 title: "Run output simulated supported",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::SimulatedRunOutput,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_DNAONECALC_EMBEDDING_CONTRACT,
+                title: "DnaOneCalc embedding contract",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::DnaOneCalcEmbeddingContract,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -180,7 +189,8 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
     let source_text = match scenario.kind {
         GuiScenarioKind::ReadOnlyProject
         | GuiScenarioKind::BrowserRunDisabled
-        | GuiScenarioKind::SimulatedRunOutput => view.active_source.source_text.clone(),
+        | GuiScenarioKind::SimulatedRunOutput
+        | GuiScenarioKind::DnaOneCalcEmbeddingContract => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -223,6 +233,15 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
             &view.project_name,
             &view.active_source.module_display_name,
         ),
+        GuiScenarioKind::DnaOneCalcEmbeddingContract => {
+            render_dnaonecalc_embedding_contract_section(
+                &mut output,
+                &scenario.fixture_path,
+                &view.project_name,
+                &view.active_source.module_display_name,
+                &view.active_source.source_text,
+            )
+        }
     }
     output.push_str("  <footer role=\"host-capability\">");
     output.push_str(&view.capability.status_text);
@@ -320,6 +339,97 @@ fn render_simulated_run_output_section(
         output.push_str(event.kind.label());
         output.push_str("\">");
         output.push_str(&html_escape(&event.message));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    </section>\n");
+    output.push_str("  </section>\n");
+}
+
+fn render_dnaonecalc_embedding_contract_section(
+    output: &mut String,
+    workspace_path: &Path,
+    project_name: &str,
+    module_display_name: &str,
+    source_text: &str,
+) {
+    let packet = EmbeddedIdePacket::dnaonecalc_thin_slice_browser_disabled(
+        workspace_path.display().to_string(),
+        project_name,
+        module_display_name,
+        source_text,
+    );
+
+    output.push_str("  <section role=\"embedded-host-contract\" data-host=\"");
+    output.push_str(&html_escape(&packet.consumer.host_name));
+    output.push_str("\" data-sibling-repo-writes=\"");
+    output.push_str(if packet.sibling_repo_writes {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    output.push_str("    <div role=\"embedded-consumer\">");
+    output.push_str(&html_escape(&packet.consumer.host_name));
+    output.push_str(" — ");
+    output.push_str(&html_escape(&packet.consumer.product_role));
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"host-shell-owner\">");
+    output.push_str(&html_escape(&packet.consumer.shell_owner));
+    output.push_str("</div>\n");
+    output.push_str("    <section role=\"embedded-surface-slots\">\n");
+    for surface in &packet.surfaces {
+        output.push_str("      <div role=\"embedded-surface\" data-slot=\"");
+        output.push_str(&html_escape(&surface.slot_id));
+        output.push_str("\" data-owner=\"");
+        output.push_str(&html_escape(&surface.owner));
+        output.push_str("\">");
+        output.push_str(&html_escape(&surface.label));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    </section>\n");
+    output.push_str("    <section role=\"ownership-boundaries\">\n");
+    for boundary in &packet.ownership_boundaries {
+        output.push_str("      <div role=\"ownership-boundary\" data-owner=\"");
+        output.push_str(&html_escape(&boundary.owner));
+        output.push_str("\">");
+        output.push_str(&html_escape(&boundary.responsibility));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    </section>\n");
+    output.push_str("    <section role=\"embedded-run-capability\" data-provider=\"");
+    output.push_str(packet.run_capability.provider_kind.label());
+    output.push_str("\" data-status=\"");
+    output.push_str(packet.run_transcript.status.label());
+    output.push_str("\" data-native-execution=\"");
+    output.push_str(if packet.run_capability.native_execution_available {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-com-runtime=\"");
+    output.push_str(if packet.run_capability.com_runtime_available {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    output.push_str("      <div role=\"embedded-run-target\">");
+    output.push_str(&html_escape(
+        &packet.run_transcript.request.display_target(),
+    ));
+    output.push_str("</div>\n");
+    for event in &packet.run_transcript.events {
+        output.push_str("      <div role=\"embedded-run-event\" data-event-kind=\"");
+        output.push_str(event.kind.label());
+        output.push_str("\">");
+        output.push_str(&html_escape(&event.message));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    </section>\n");
+    output.push_str("    <section role=\"embedding-limitations\">\n");
+    for limitation in &packet.limitations {
+        output.push_str("      <div role=\"embedding-limitation\">");
+        output.push_str(&html_escape(limitation));
         output.push_str("</div>\n");
     }
     output.push_str("    </section>\n");
@@ -581,6 +691,8 @@ mod tests {
         assert!(output.contains("Run output browser disabled"));
         assert!(output.contains("gui-run-output-simulated-supported"));
         assert!(output.contains("Run output simulated supported"));
+        assert!(output.contains("gui-dnaonecalc-embedding-contract"));
+        assert!(output.contains("DnaOneCalc embedding contract"));
     }
 
     #[test]
@@ -689,6 +801,18 @@ mod tests {
     }
 
     #[test]
+    fn built_in_registry_finds_dnaonecalc_embedding_contract_scenario_by_id() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let scenario = registry
+            .find(GUI_DNAONECALC_EMBEDDING_CONTRACT)
+            .expect("DnaOneCalc embedding contract scenario");
+
+        assert_eq!(scenario.title, "DnaOneCalc embedding contract");
+        assert_eq!(scenario.kind, GuiScenarioKind::DnaOneCalcEmbeddingContract);
+    }
+
+    #[test]
     fn browser_run_disabled_scenario_renders_structured_output_reason() {
         let registry = GuiScenarioRegistry::built_in(repo_root());
 
@@ -737,6 +861,40 @@ mod tests {
         assert!(rendered.contains("simulated provider invoked ThinSliceHello::Module1.Main"));
         assert!(rendered.contains("simulated output: Main completed with answer 42"));
         assert!(rendered.contains("run completed"));
+        assert!(rendered.contains("COM unavailable"));
+    }
+
+    #[test]
+    fn dnaonecalc_embedding_contract_scenario_renders_host_boundary() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_DNAONECALC_EMBEDDING_CONTRACT)
+            .expect("render DnaOneCalc embedding contract scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-dnaonecalc-embedding-contract\""));
+        assert!(rendered.contains("ThinSliceHello"));
+        assert!(rendered.contains("Module1.bas"));
+        assert!(rendered.contains("role=\"embedded-host-contract\" data-host=\"DnaOneCalc\""));
+        assert!(rendered.contains("data-sibling-repo-writes=\"false\""));
+        assert!(rendered.contains("DnaOneCalc owns product shell and host policy"));
+        assert!(rendered.contains("data-slot=\"project-spine\""));
+        assert!(rendered.contains("data-slot=\"source-editor\""));
+        assert!(rendered.contains("data-slot=\"diagnostics\""));
+        assert!(rendered.contains("data-slot=\"document-lifecycle\""));
+        assert!(rendered.contains("data-slot=\"run-output\""));
+        assert!(rendered.contains("data-slot=\"capability-footer\""));
+        assert!(rendered.contains("role=\"ownership-boundary\" data-owner=\"DnaOneCalc\""));
+        assert!(rendered.contains("role=\"ownership-boundary\" data-owner=\"OxIde\""));
+        assert!(rendered.contains("role=\"ownership-boundary\" data-owner=\"OxVba\""));
+        assert!(rendered.contains("role=\"embedded-run-capability\""));
+        assert!(rendered.contains("data-provider=\"browser-unsupported\""));
+        assert!(rendered.contains("data-status=\"disabled\""));
+        assert!(rendered.contains("data-native-execution=\"false\""));
+        assert!(rendered.contains("data-com-runtime=\"false\""));
+        assert!(rendered.contains("ThinSliceHello::Module1.Main"));
+        assert!(rendered.contains("native execution provider unavailable"));
+        assert!(rendered.contains("did not modify DnaOneCalc files"));
         assert!(rendered.contains("COM unavailable"));
     }
 

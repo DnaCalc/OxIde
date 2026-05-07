@@ -5,6 +5,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
+oxide-bridge = { path = "../oxide-bridge" }
 oxide-core = { path = "../oxide-core" }
 oxide-domain = { path = "../oxide-domain" }
 oxide-editor-core = { path = "../oxide-editor-core" }
