@@ -1291,6 +1291,290 @@ impl GuiCommandPalette {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum GuiKeyboardContext {
+    GlobalShell,
+    ProjectTree,
+    Editor,
+    Diagnostics,
+    RunOutput,
+    Immediate,
+    Debug,
+    CommandPalette,
+}
+
+impl GuiKeyboardContext {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::GlobalShell => "global-shell",
+            Self::ProjectTree => "project-tree",
+            Self::Editor => "editor",
+            Self::Diagnostics => "diagnostics",
+            Self::RunOutput => "run-output",
+            Self::Immediate => "immediate",
+            Self::Debug => "debug",
+            Self::CommandPalette => "command-palette",
+        }
+    }
+
+    pub fn display_label(self) -> &'static str {
+        match self {
+            Self::GlobalShell => "Global shell",
+            Self::ProjectTree => "Project tree",
+            Self::Editor => "Editor",
+            Self::Diagnostics => "Diagnostics",
+            Self::RunOutput => "Run output",
+            Self::Immediate => "Immediate",
+            Self::Debug => "Debug",
+            Self::CommandPalette => "Command palette",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiKeyboardContextDescriptor {
+    pub context: GuiKeyboardContext,
+    pub label: String,
+}
+
+impl GuiKeyboardContextDescriptor {
+    pub fn new(context: GuiKeyboardContext) -> Self {
+        Self {
+            context,
+            label: context.display_label().to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiKeyGesture {
+    pub display: String,
+    pub normalized: String,
+}
+
+impl GuiKeyGesture {
+    pub fn new(display: impl Into<String>) -> Self {
+        let display = display.into();
+        let normalized = display
+            .chars()
+            .filter(|character| !character.is_whitespace())
+            .collect::<String>()
+            .to_ascii_lowercase();
+        Self {
+            display,
+            normalized,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiKeyBinding {
+    pub context: GuiKeyboardContext,
+    pub command_id: GuiCommandId,
+    pub command_stable_id: String,
+    pub gesture: GuiKeyGesture,
+    pub availability: GuiCommandAvailability,
+    pub allow_same_gesture_in_distinct_contexts: bool,
+}
+
+impl GuiKeyBinding {
+    pub fn new(
+        context: GuiKeyboardContext,
+        command: &GuiCommand,
+        gesture: impl Into<String>,
+        allow_same_gesture_in_distinct_contexts: bool,
+    ) -> Self {
+        Self {
+            context,
+            command_id: command.id,
+            command_stable_id: command.stable_id.clone(),
+            gesture: GuiKeyGesture::new(gesture),
+            availability: command.availability.clone(),
+            allow_same_gesture_in_distinct_contexts,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiKeyBindingCollision {
+    pub gesture: String,
+    pub contexts: Vec<GuiKeyboardContext>,
+    pub command_stable_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiKeyboardMap {
+    pub contexts: Vec<GuiKeyboardContextDescriptor>,
+    pub bindings: Vec<GuiKeyBinding>,
+    pub source_label: String,
+    pub host_specific_overrides_required: bool,
+}
+
+impl GuiKeyboardMap {
+    pub fn baseline(palette: &GuiCommandPalette) -> Self {
+        let command = |id| palette.command(id).expect("baseline command exists");
+        let contexts = vec![
+            GuiKeyboardContextDescriptor::new(GuiKeyboardContext::GlobalShell),
+            GuiKeyboardContextDescriptor::new(GuiKeyboardContext::ProjectTree),
+            GuiKeyboardContextDescriptor::new(GuiKeyboardContext::Editor),
+            GuiKeyboardContextDescriptor::new(GuiKeyboardContext::Diagnostics),
+            GuiKeyboardContextDescriptor::new(GuiKeyboardContext::RunOutput),
+            GuiKeyboardContextDescriptor::new(GuiKeyboardContext::Immediate),
+            GuiKeyboardContextDescriptor::new(GuiKeyboardContext::Debug),
+            GuiKeyboardContextDescriptor::new(GuiKeyboardContext::CommandPalette),
+        ];
+        let bindings = vec![
+            GuiKeyBinding::new(
+                GuiKeyboardContext::GlobalShell,
+                command(GuiCommandId::ShellCommandPalette),
+                "Ctrl+Shift+P",
+                false,
+            ),
+            GuiKeyBinding::new(
+                GuiKeyboardContext::GlobalShell,
+                command(GuiCommandId::ProjectOpen),
+                "Ctrl+O",
+                false,
+            ),
+            GuiKeyBinding::new(
+                GuiKeyboardContext::Editor,
+                command(GuiCommandId::DocumentSave),
+                "Ctrl+S",
+                false,
+            ),
+            GuiKeyBinding::new(
+                GuiKeyboardContext::Editor,
+                command(GuiCommandId::DocumentReload),
+                "Ctrl+Alt+R",
+                false,
+            ),
+            GuiKeyBinding::new(
+                GuiKeyboardContext::Editor,
+                command(GuiCommandId::DocumentRevert),
+                "Ctrl+Alt+Backspace",
+                false,
+            ),
+            GuiKeyBinding::new(
+                GuiKeyboardContext::GlobalShell,
+                command(GuiCommandId::RuntimeRun),
+                "F5",
+                false,
+            ),
+            GuiKeyBinding::new(
+                GuiKeyboardContext::GlobalShell,
+                command(GuiCommandId::RuntimeStop),
+                "Shift+F5",
+                false,
+            ),
+            GuiKeyBinding::new(
+                GuiKeyboardContext::ProjectTree,
+                command(GuiCommandId::ProjectOpen),
+                "Enter",
+                true,
+            ),
+            GuiKeyBinding::new(
+                GuiKeyboardContext::Immediate,
+                command(GuiCommandId::RuntimeImmediate),
+                "Enter",
+                true,
+            ),
+            GuiKeyBinding::new(
+                GuiKeyboardContext::Debug,
+                command(GuiCommandId::RuntimeDebug),
+                "F10",
+                false,
+            ),
+            GuiKeyBinding::new(
+                GuiKeyboardContext::CommandPalette,
+                command(GuiCommandId::ShellCommandPalette),
+                "Escape",
+                false,
+            ),
+        ];
+
+        Self {
+            contexts,
+            bindings,
+            source_label: String::from("gui-core keyboard map"),
+            host_specific_overrides_required: false,
+        }
+    }
+
+    pub fn context_collisions(&self) -> Vec<GuiKeyBindingCollision> {
+        let mut groups: std::collections::BTreeMap<
+            (GuiKeyboardContext, String),
+            Vec<&GuiKeyBinding>,
+        > = std::collections::BTreeMap::new();
+        for binding in &self.bindings {
+            groups
+                .entry((binding.context, binding.gesture.normalized.clone()))
+                .or_default()
+                .push(binding);
+        }
+        groups
+            .into_iter()
+            .filter_map(|((context, gesture), bindings)| {
+                if bindings.len() > 1 {
+                    Some(GuiKeyBindingCollision {
+                        gesture,
+                        contexts: vec![context],
+                        command_stable_ids: bindings
+                            .iter()
+                            .map(|binding| binding.command_stable_id.clone())
+                            .collect(),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    pub fn disallowed_cross_context_collisions(&self) -> Vec<GuiKeyBindingCollision> {
+        let mut groups: std::collections::BTreeMap<String, Vec<&GuiKeyBinding>> =
+            std::collections::BTreeMap::new();
+        for binding in &self.bindings {
+            groups
+                .entry(binding.gesture.normalized.clone())
+                .or_default()
+                .push(binding);
+        }
+        groups
+            .into_iter()
+            .filter_map(|(gesture, bindings)| {
+                let contexts = bindings
+                    .iter()
+                    .map(|binding| binding.context)
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .into_iter()
+                    .collect::<Vec<_>>();
+                let crosses_contexts = contexts.len() > 1;
+                let allowed = bindings
+                    .iter()
+                    .all(|binding| binding.allow_same_gesture_in_distinct_contexts);
+                if crosses_contexts && !allowed {
+                    Some(GuiKeyBindingCollision {
+                        gesture,
+                        contexts,
+                        command_stable_ids: bindings
+                            .iter()
+                            .map(|binding| binding.command_stable_id.clone())
+                            .collect(),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    pub fn binding_for(&self, command_id: GuiCommandId) -> Option<&GuiKeyBinding> {
+        self.bindings
+            .iter()
+            .find(|binding| binding.command_id == command_id)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2036,5 +2320,109 @@ mod tests {
         assert!(run.availability.is_enabled);
         assert_eq!(run.availability.capability_label, "simulated");
         assert!(run.availability.disabled_reason.is_none());
+    }
+
+    #[test]
+    fn keyboard_contexts_are_explicit_and_default_map_has_no_collisions() {
+        let document = DocumentLifecycleState::open_clean(
+            "Option Explicit",
+            LifecycleCapabilities::browser_limited(),
+        );
+        let palette = GuiCommandPalette::browser_safe_baseline(&document);
+        let keyboard = GuiKeyboardMap::baseline(&palette);
+
+        assert_eq!(keyboard.source_label, "gui-core keyboard map");
+        assert!(!keyboard.host_specific_overrides_required);
+        assert_eq!(
+            keyboard
+                .contexts
+                .iter()
+                .map(|context| context.context.label())
+                .collect::<Vec<_>>(),
+            vec![
+                "global-shell",
+                "project-tree",
+                "editor",
+                "diagnostics",
+                "run-output",
+                "immediate",
+                "debug",
+                "command-palette",
+            ]
+        );
+        assert!(keyboard.context_collisions().is_empty());
+        assert!(keyboard.disallowed_cross_context_collisions().is_empty());
+    }
+
+    #[test]
+    fn same_gesture_across_contexts_requires_explicit_allowance() {
+        let document = DocumentLifecycleState::open_clean(
+            "Option Explicit",
+            LifecycleCapabilities::browser_limited(),
+        );
+        let palette = GuiCommandPalette::browser_safe_baseline(&document);
+        let keyboard = GuiKeyboardMap::baseline(&palette);
+
+        let enter_bindings = keyboard
+            .bindings
+            .iter()
+            .filter(|binding| binding.gesture.display == "Enter")
+            .collect::<Vec<_>>();
+        assert_eq!(enter_bindings.len(), 2);
+        assert!(
+            enter_bindings
+                .iter()
+                .all(|binding| binding.allow_same_gesture_in_distinct_contexts)
+        );
+
+        let mut invalid = keyboard.clone();
+        invalid.bindings[0].gesture = GuiKeyGesture::new("Enter");
+        invalid.bindings[0].allow_same_gesture_in_distinct_contexts = false;
+
+        let collisions = invalid.disallowed_cross_context_collisions();
+        assert_eq!(collisions.len(), 1);
+        assert_eq!(collisions[0].gesture, "enter");
+        assert!(
+            collisions[0]
+                .command_stable_ids
+                .contains(&String::from("shell.command_palette"))
+        );
+    }
+
+    #[test]
+    fn keyboard_bindings_preserve_disabled_reasons_from_command_palette() {
+        let document = DocumentLifecycleState::open_clean(
+            "Option Explicit",
+            LifecycleCapabilities::browser_limited(),
+        );
+        let palette = GuiCommandPalette::browser_safe_baseline(&document);
+        let keyboard = GuiKeyboardMap::baseline(&palette);
+
+        let run = keyboard
+            .binding_for(GuiCommandId::RuntimeRun)
+            .expect("run keybinding");
+        assert_eq!(run.context, GuiKeyboardContext::GlobalShell);
+        assert_eq!(run.gesture.display, "F5");
+        assert!(!run.availability.is_enabled);
+        assert!(
+            run.availability
+                .disabled_reason
+                .as_deref()
+                .expect("run disabled reason")
+                .contains("native execution provider unavailable")
+        );
+
+        let save = keyboard
+            .binding_for(GuiCommandId::DocumentSave)
+            .expect("save keybinding");
+        assert_eq!(save.context, GuiKeyboardContext::Editor);
+        assert_eq!(save.gesture.display, "Ctrl+S");
+        assert!(
+            save.availability
+                .disabled_reason
+                .as_deref()
+                .expect("save disabled reason")
+                .contains("filesystem persistence")
+        );
     }
 }

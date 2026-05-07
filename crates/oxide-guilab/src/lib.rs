@@ -9,10 +9,10 @@ use std::path::{Path, PathBuf};
 use oxide_bridge::EmbeddedIdePacket;
 use oxide_core::{
     ComCapabilityProfile, ComCapabilityStatus, ComReferenceFact, DebugCapabilityProfile,
-    DocumentLifecycleState, GuiCommandPalette, GuiSessionSnapshot, ImmediateCapabilityProfile,
-    InMemoryDocumentPersistence, LifecycleCapabilities, LifecycleCommand, LifecycleCommandStatus,
-    RunCapabilityProfile, RunRequest, RunTimeline, RunTranscript, SessionCapabilityProfile,
-    save_lifecycle_to_persistence,
+    DocumentLifecycleState, GuiCommandPalette, GuiKeyboardMap, GuiSessionSnapshot,
+    ImmediateCapabilityProfile, InMemoryDocumentPersistence, LifecycleCapabilities,
+    LifecycleCommand, LifecycleCommandStatus, RunCapabilityProfile, RunRequest, RunTimeline,
+    RunTranscript, SessionCapabilityProfile, save_lifecycle_to_persistence,
 };
 use oxide_domain::{DiagnosticRow, OxideDomainRole};
 use oxide_editor_core::{EditOperation, SourceSnapshot};
@@ -36,6 +36,7 @@ pub const GUI_RUN_TIMELINE_SIMULATED: &str = "gui-run-timeline-simulated";
 pub const GUI_IMMEDIATE_BROWSER_DISABLED: &str = "gui-immediate-browser-disabled";
 pub const GUI_DEBUG_BROWSER_DISABLED: &str = "gui-debug-browser-disabled";
 pub const GUI_COMMAND_PALETTE_BASELINE: &str = "gui-command-palette-baseline";
+pub const GUI_KEYBOARD_CONTEXTS_BASELINE: &str = "gui-keyboard-contexts-baseline";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -75,6 +76,7 @@ pub enum GuiScenarioKind {
     ImmediateBrowserDisabled,
     DebugBrowserDisabled,
     CommandPaletteBaseline,
+    KeyboardContextsBaseline,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -177,8 +179,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_COMMAND_PALETTE_BASELINE,
                 title: "Command palette baseline",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::CommandPaletteBaseline,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_KEYBOARD_CONTEXTS_BASELINE,
+                title: "Keyboard contexts baseline",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::KeyboardContextsBaseline,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -257,7 +265,8 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::RunTimelineSimulated
         | GuiScenarioKind::ImmediateBrowserDisabled
         | GuiScenarioKind::DebugBrowserDisabled
-        | GuiScenarioKind::CommandPaletteBaseline => view.active_source.source_text.clone(),
+        | GuiScenarioKind::CommandPaletteBaseline
+        | GuiScenarioKind::KeyboardContextsBaseline => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -336,6 +345,9 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         GuiScenarioKind::DebugBrowserDisabled => render_debug_browser_disabled_section(&mut output),
         GuiScenarioKind::CommandPaletteBaseline => {
             render_command_palette_baseline_section(&mut output, &view.active_source.source_text)
+        }
+        GuiScenarioKind::KeyboardContextsBaseline => {
+            render_keyboard_contexts_baseline_section(&mut output, &view.active_source.source_text)
         }
     }
     output.push_str("  <footer role=\"host-capability\">");
@@ -618,6 +630,72 @@ fn render_command_palette_baseline_section(output: &mut String, source_text: &st
         output.push_str("    </div>\n");
     }
     output.push_str("    <div role=\"command-registry-note\">GUI-native command registry; parked TUI command model not imported.</div>\n");
+    output.push_str("  </section>\n");
+}
+
+fn render_keyboard_contexts_baseline_section(output: &mut String, source_text: &str) {
+    let document =
+        DocumentLifecycleState::open_clean(source_text, LifecycleCapabilities::browser_limited());
+    let palette = GuiCommandPalette::browser_safe_baseline(&document);
+    let keyboard = GuiKeyboardMap::baseline(&palette);
+
+    output.push_str("  <section role=\"keyboard-contexts\" data-source=\"");
+    output.push_str(&html_escape(&keyboard.source_label));
+    output.push_str("\" data-host-specific-overrides-required=\"");
+    output.push_str(if keyboard.host_specific_overrides_required {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-context-collisions=\"");
+    output.push_str(&keyboard.context_collisions().len().to_string());
+    output.push_str("\" data-cross-context-collisions=\"");
+    output.push_str(
+        &keyboard
+            .disallowed_cross_context_collisions()
+            .len()
+            .to_string(),
+    );
+    output.push_str("\">\n");
+    output.push_str("    <section role=\"keyboard-context-list\">\n");
+    for context in &keyboard.contexts {
+        output.push_str("      <div role=\"keyboard-context\" data-context=\"");
+        output.push_str(context.context.label());
+        output.push_str("\">");
+        output.push_str(&html_escape(&context.label));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    </section>\n");
+    output.push_str("    <section role=\"keybinding-list\">\n");
+    for binding in &keyboard.bindings {
+        output.push_str("      <div role=\"keybinding\" data-context=\"");
+        output.push_str(binding.context.label());
+        output.push_str("\" data-command-id=\"");
+        output.push_str(&html_escape(&binding.command_stable_id));
+        output.push_str("\" data-gesture=\"");
+        output.push_str(&html_escape(&binding.gesture.display));
+        output.push_str("\" data-enabled=\"");
+        output.push_str(if binding.availability.is_enabled {
+            "true"
+        } else {
+            "false"
+        });
+        output.push_str("\" data-allow-cross-context=\"");
+        output.push_str(if binding.allow_same_gesture_in_distinct_contexts {
+            "true"
+        } else {
+            "false"
+        });
+        output.push_str("\">\n");
+        if let Some(reason) = &binding.availability.disabled_reason {
+            output.push_str("        <span role=\"keybinding-disabled-reason\">");
+            output.push_str(&html_escape(reason));
+            output.push_str("</span>\n");
+        }
+        output.push_str("      </div>\n");
+    }
+    output.push_str("    </section>\n");
+    output.push_str("    <div role=\"keyboard-policy-note\">Host-independent GUI keyboard map; no browser-specific key trap is product truth.</div>\n");
     output.push_str("  </section>\n");
 }
 
@@ -1039,6 +1117,8 @@ mod tests {
         assert!(output.contains("Debug browser disabled"));
         assert!(output.contains("gui-command-palette-baseline"));
         assert!(output.contains("Command palette baseline"));
+        assert!(output.contains("gui-keyboard-contexts-baseline"));
+        assert!(output.contains("Keyboard contexts baseline"));
     }
 
     #[test]
@@ -1206,15 +1286,26 @@ mod tests {
     }
 
     #[test]
-    fn built_in_registry_finds_w280_command_palette_scenario_by_id() {
+    fn built_in_registry_finds_w280_command_palette_scenarios_by_id() {
         let registry = GuiScenarioRegistry::built_in(repo_root());
 
-        let scenario = registry
+        let command_palette = registry
             .find(GUI_COMMAND_PALETTE_BASELINE)
             .expect("command palette baseline scenario");
+        let keyboard_contexts = registry
+            .find(GUI_KEYBOARD_CONTEXTS_BASELINE)
+            .expect("keyboard contexts baseline scenario");
 
-        assert_eq!(scenario.title, "Command palette baseline");
-        assert_eq!(scenario.kind, GuiScenarioKind::CommandPaletteBaseline);
+        assert_eq!(command_palette.title, "Command palette baseline");
+        assert_eq!(
+            command_palette.kind,
+            GuiScenarioKind::CommandPaletteBaseline
+        );
+        assert_eq!(keyboard_contexts.title, "Keyboard contexts baseline");
+        assert_eq!(
+            keyboard_contexts.kind,
+            GuiScenarioKind::KeyboardContextsBaseline
+        );
     }
 
     #[test]
@@ -1483,6 +1574,42 @@ mod tests {
             rendered.contains("GUI-native command registry; parked TUI command model not imported")
         );
         assert!(rendered.contains("COM unavailable"));
+    }
+
+    #[test]
+    fn keyboard_contexts_baseline_scenario_renders_contexts_bindings_and_disabled_reasons() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_KEYBOARD_CONTEXTS_BASELINE)
+            .expect("render keyboard contexts baseline scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-keyboard-contexts-baseline\""));
+        assert!(rendered.contains("role=\"keyboard-contexts\""));
+        assert!(rendered.contains("data-source=\"gui-core keyboard map\""));
+        assert!(rendered.contains("data-host-specific-overrides-required=\"false\""));
+        assert!(rendered.contains("data-context-collisions=\"0\""));
+        assert!(rendered.contains("data-cross-context-collisions=\"0\""));
+        assert!(rendered.contains("data-context=\"global-shell\""));
+        assert!(rendered.contains("data-context=\"project-tree\""));
+        assert!(rendered.contains("data-context=\"editor\""));
+        assert!(rendered.contains("data-context=\"diagnostics\""));
+        assert!(rendered.contains("data-context=\"run-output\""));
+        assert!(rendered.contains("data-context=\"immediate\""));
+        assert!(rendered.contains("data-context=\"debug\""));
+        assert!(rendered.contains("data-context=\"command-palette\""));
+        assert!(
+            rendered.contains(
+                "data-command-id=\"shell.command_palette\" data-gesture=\"Ctrl+Shift+P\""
+            )
+        );
+        assert!(rendered.contains("data-command-id=\"document.save\" data-gesture=\"Ctrl+S\""));
+        assert!(rendered.contains("data-command-id=\"runtime.run\" data-gesture=\"F5\""));
+        assert!(rendered.contains("native execution provider unavailable"));
+        assert!(rendered.contains("data-command-id=\"runtime.immediate\" data-gesture=\"Enter\""));
+        assert!(rendered.contains("data-allow-cross-context=\"true\""));
+        assert!(rendered.contains("no native OxVba runtime session"));
+        assert!(rendered.contains("no browser-specific key trap is product truth"));
     }
 
     #[test]
