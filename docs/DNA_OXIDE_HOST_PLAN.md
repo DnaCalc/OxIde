@@ -479,6 +479,8 @@ Required handoff/authorization points:
 - DnaOneCalc consumption of `oxide-ui-leptos` or serialized host packets,
 - any sibling repo writes.
 
+See [`HANDOFF_DNAOXIDE_OXVBA_REQUIREMENTS.md`](HANDOFF_DNAOXIDE_OXVBA_REQUIREMENTS.md) for the fast-track OxVba requirements note.
+
 ## 12. External References Checked
 
 - Tauri v2 overview/start docs: https://v2.tauri.app/start/
