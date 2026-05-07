@@ -13,6 +13,7 @@ This workset moves beyond static render checks without claiming full accessibili
 - W344 — Tauri command boundary stubs.
 - W345 — DnaOxIde live host UI proof.
 - [`docs/HANDOFF_W345_DNAOXIDE_HOST_UI_PROOF.md`](../HANDOFF_W345_DNAOXIDE_HOST_UI_PROOF.md).
+- [`docs/DNAOXIDE_INTERACTION_HARNESS.md`](../DNAOXIDE_INTERACTION_HARNESS.md).
 - [`docs/HANDOFF_DNAOXIDE_OXVBA_FEEDBACK_ALIGNMENT.md`](../HANDOFF_DNAOXIDE_OXVBA_FEEDBACK_ALIGNMENT.md).
 
 ## Design
