@@ -21,7 +21,9 @@ use oxide_oxvba::{
     EditedDocumentDiagnosticsError, ProjectOpenSpineError, load_edited_document_diagnostics,
     load_project_open_spine,
 };
-use oxide_webshell::{render_web_shell_snapshot, run_static_shell_dom_smoke};
+use oxide_webshell::{
+    render_web_shell_snapshot, run_command_palette_dom_smoke, run_static_shell_dom_smoke,
+};
 
 pub const GUI_THIN_SLICE_LOADED: &str = "gui-thin-slice-loaded";
 pub const GUI_THIN_SLICE_EDITED_DIAGNOSTICS: &str = "gui-thin-slice-edited-diagnostics";
@@ -47,6 +49,7 @@ pub const GUI_MOUNTED_COMMAND_PALETTE: &str = "gui-mounted-command-palette";
 pub const GUI_MOUNTED_NO_MOUSE_ACCESSIBILITY: &str = "gui-mounted-no-mouse-accessibility";
 pub const GUI_WEB_SHELL_ADAPTER_BOUNDARY: &str = "gui-web-shell-adapter-boundary";
 pub const GUI_WEB_SHELL_DOM_SMOKE: &str = "gui-web-shell-dom-smoke";
+pub const GUI_WEB_COMMAND_PALETTE_DOM_SMOKE: &str = "gui-web-command-palette-dom-smoke";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,6 +98,7 @@ pub enum GuiScenarioKind {
     MountedNoMouseAccessibility,
     WebShellAdapterBoundary,
     WebShellDomSmoke,
+    WebCommandPaletteDomSmoke,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -251,8 +255,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_WEB_SHELL_DOM_SMOKE,
                 title: "Web shell DOM smoke",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::WebShellDomSmoke,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_WEB_COMMAND_PALETTE_DOM_SMOKE,
+                title: "Web command palette DOM smoke",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::WebCommandPaletteDomSmoke,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -340,7 +350,8 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::MountedCommandPalette
         | GuiScenarioKind::MountedNoMouseAccessibility
         | GuiScenarioKind::WebShellAdapterBoundary
-        | GuiScenarioKind::WebShellDomSmoke => view.active_source.source_text.clone(),
+        | GuiScenarioKind::WebShellDomSmoke
+        | GuiScenarioKind::WebCommandPaletteDomSmoke => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -497,6 +508,18 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
             &view.active_source.source_text,
         ),
         GuiScenarioKind::WebShellDomSmoke => render_web_shell_dom_smoke_section(
+            &mut output,
+            &scenario.fixture_path,
+            &view.project_name,
+            &view
+                .modules
+                .iter()
+                .map(|module| GuiShellModuleSummary::new(&module.display_name, module.is_active))
+                .collect::<Vec<_>>(),
+            &view.active_source.module_display_name,
+            &view.active_source.source_text,
+        ),
+        GuiScenarioKind::WebCommandPaletteDomSmoke => render_web_command_palette_dom_smoke_section(
             &mut output,
             &scenario.fixture_path,
             &view.project_name,
@@ -1436,6 +1459,63 @@ fn render_web_shell_dom_smoke_section(
     output.push_str("  </section>\n");
 }
 
+fn render_web_command_palette_dom_smoke_section(
+    output: &mut String,
+    workspace_path: &Path,
+    project_name: &str,
+    modules: &[GuiShellModuleSummary],
+    active_module: &str,
+    source_text: &str,
+) {
+    let packet = build_shell_packet_baseline(
+        workspace_path,
+        project_name,
+        modules,
+        active_module,
+        source_text,
+    );
+    let report = run_command_palette_dom_smoke(&packet);
+
+    output.push_str("  <section role=\"web-command-palette-dom-smoke\" data-source=\"");
+    output.push_str(report.snapshot.source_contract);
+    output.push_str("\" data-smoke-kind=\"");
+    output.push_str(report.smoke_kind);
+    output.push_str("\" data-dom-smoke-tested=\"");
+    output.push_str(if report.dom_smoke_tested {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-browser-runtime=\"");
+    output.push_str(if report.browser_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-dom-audited=\"");
+    output.push_str(if report.dom_accessibility_audited {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-all-passed=\"");
+    output.push_str(if report.all_passed() { "true" } else { "false" });
+    output.push_str("\" data-check-count=\"");
+    output.push_str(&report.checks.len().to_string());
+    output.push_str("\">\n");
+    for check in &report.checks {
+        output.push_str("    <div role=\"web-command-palette-dom-check\" data-check=\"");
+        output.push_str(&html_escape(&check.name));
+        output.push_str("\" data-passed=\"");
+        output.push_str(if check.passed { "true" } else { "false" });
+        output.push_str("\">");
+        output.push_str(&html_escape(&check.detail));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    <div role=\"web-command-palette-dom-policy\">Command palette DOM smoke consumes GuiShellPacket command_palette and keyboard_map; parked TUI command model remains isolated.</div>\n");
+    output.push_str("  </section>\n");
+}
+
 fn render_com_capability_section(output: &mut String, profile: ComCapabilityProfile) {
     output.push_str("  <section role=\"com-capability\" data-profile=\"");
     output.push_str(profile.host_kind.label());
@@ -1872,6 +1952,8 @@ mod tests {
         assert!(output.contains("Web shell adapter boundary"));
         assert!(output.contains("gui-web-shell-dom-smoke"));
         assert!(output.contains("Web shell DOM smoke"));
+        assert!(output.contains("gui-web-command-palette-dom-smoke"));
+        assert!(output.contains("Web command palette DOM smoke"));
     }
 
     #[test]
@@ -2072,6 +2154,9 @@ mod tests {
         let web_shell_dom_smoke = registry
             .find(GUI_WEB_SHELL_DOM_SMOKE)
             .expect("web shell DOM smoke scenario");
+        let web_command_palette_dom_smoke = registry
+            .find(GUI_WEB_COMMAND_PALETTE_DOM_SMOKE)
+            .expect("web command palette DOM smoke scenario");
 
         assert_eq!(command_palette.title, "Command palette baseline");
         assert_eq!(
@@ -2117,6 +2202,14 @@ mod tests {
         );
         assert_eq!(web_shell_dom_smoke.title, "Web shell DOM smoke");
         assert_eq!(web_shell_dom_smoke.kind, GuiScenarioKind::WebShellDomSmoke);
+        assert_eq!(
+            web_command_palette_dom_smoke.title,
+            "Web command palette DOM smoke"
+        );
+        assert_eq!(
+            web_command_palette_dom_smoke.kind,
+            GuiScenarioKind::WebCommandPaletteDomSmoke
+        );
     }
 
     #[test]
@@ -2712,6 +2805,54 @@ mod tests {
         );
         assert!(rendered.contains("Parsed HTML DOM smoke only"));
         assert!(rendered.contains("no browser runtime or DOM accessibility audit is claimed"));
+    }
+
+    #[test]
+    fn web_command_palette_dom_smoke_scenario_reports_command_ids_gestures_and_disabled_reasons() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_WEB_COMMAND_PALETTE_DOM_SMOKE)
+            .expect("render web command palette DOM smoke scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-web-command-palette-dom-smoke\""));
+        assert!(rendered.contains("role=\"web-command-palette-dom-smoke\""));
+        assert!(rendered.contains("data-source=\"GuiShellPacket\""));
+        assert!(rendered.contains("data-smoke-kind=\"parsed-html-command-palette\""));
+        assert!(rendered.contains("data-dom-smoke-tested=\"true\""));
+        assert!(rendered.contains("data-browser-runtime=\"false\""));
+        assert!(rendered.contains("data-dom-audited=\"false\""));
+        assert!(rendered.contains("data-all-passed=\"true\""));
+        assert!(rendered.contains("data-check-count=\"15\""));
+        assert!(rendered.contains(
+            "data-check=\"project.open gesture survives DOM mounting\" data-passed=\"true\""
+        ));
+        assert!(rendered.contains("Ctrl+O"));
+        assert!(rendered.contains(
+            "data-check=\"document.save gesture survives DOM mounting\" data-passed=\"true\""
+        ));
+        assert!(rendered.contains("Ctrl+S"));
+        assert!(rendered.contains(
+            "data-check=\"runtime.run gesture survives DOM mounting\" data-passed=\"true\""
+        ));
+        assert!(rendered.contains("F5"));
+        assert!(rendered.contains(
+            "data-check=\"runtime.run disabled reason remains visible\" data-passed=\"true\""
+        ));
+        assert!(rendered.contains("native execution provider unavailable"));
+        assert!(rendered.contains(
+            "data-check=\"runtime.immediate gesture survives DOM mounting\" data-passed=\"true\""
+        ));
+        assert!(rendered.contains("Enter"));
+        assert!(rendered.contains("no native OxVba runtime session"));
+        assert!(rendered.contains(
+            "data-check=\"runtime.debug gesture survives DOM mounting\" data-passed=\"true\""
+        ));
+        assert!(rendered.contains("F10"));
+        assert!(rendered.contains("no OxVba debug session"));
+        assert!(rendered.contains("data-check=\"shell.command_palette gesture survives DOM mounting\" data-passed=\"true\""));
+        assert!(rendered.contains("Ctrl+Shift+P"));
+        assert!(rendered.contains("parked TUI command model remains isolated"));
     }
 
     #[test]

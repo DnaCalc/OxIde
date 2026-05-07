@@ -264,6 +264,144 @@ pub fn run_static_shell_dom_smoke(packet: &GuiShellPacket) -> WebShellDomSmokeRe
     }
 }
 
+/// Parse the adapter markup as an HTML tree and verify command palette
+/// command IDs, keyboard gestures, availability, and disabled reasons.
+pub fn run_command_palette_dom_smoke(packet: &GuiShellPacket) -> WebShellDomSmokeReport {
+    let snapshot = render_web_shell_snapshot(packet);
+    let document = Html::parse_fragment(snapshot.markup());
+    let checks = vec![
+        selector_attr_check(
+            &document,
+            "section[role='web-command-summary']",
+            "data-command-count",
+            &packet.command_palette.commands.len().to_string(),
+            "command summary carries packet command count",
+        ),
+        selector_attr_check(
+            &document,
+            "section[role='web-command-summary']",
+            "data-keybinding-count",
+            &packet.keyboard_map.bindings.len().to_string(),
+            "command summary carries packet keybinding count",
+        ),
+        command_attr_check(
+            &document,
+            "project.open",
+            "data-gesture",
+            "Ctrl+O",
+            "project.open gesture survives DOM mounting",
+        ),
+        command_text_check(
+            &document,
+            "project.open",
+            "Open Project",
+            "project.open label survives DOM mounting",
+        ),
+        command_attr_check(
+            &document,
+            "document.save",
+            "data-gesture",
+            "Ctrl+S",
+            "document.save gesture survives DOM mounting",
+        ),
+        command_text_check(
+            &document,
+            "document.save",
+            "browser-safe profile has no direct filesystem persistence",
+            "document.save disabled reason remains visible",
+        ),
+        command_attr_check(
+            &document,
+            "runtime.run",
+            "data-gesture",
+            "F5",
+            "runtime.run gesture survives DOM mounting",
+        ),
+        command_text_check(
+            &document,
+            "runtime.run",
+            "native execution provider unavailable",
+            "runtime.run disabled reason remains visible",
+        ),
+        command_attr_check(
+            &document,
+            "runtime.immediate",
+            "data-gesture",
+            "Enter",
+            "runtime.immediate gesture survives DOM mounting",
+        ),
+        command_text_check(
+            &document,
+            "runtime.immediate",
+            "no native OxVba runtime session",
+            "runtime.immediate disabled reason remains visible",
+        ),
+        command_attr_check(
+            &document,
+            "runtime.debug",
+            "data-gesture",
+            "F10",
+            "runtime.debug gesture survives DOM mounting",
+        ),
+        command_text_check(
+            &document,
+            "runtime.debug",
+            "no OxVba debug session",
+            "runtime.debug disabled reason remains visible",
+        ),
+        command_attr_check(
+            &document,
+            "shell.command_palette",
+            "data-gesture",
+            "Ctrl+Shift+P",
+            "shell.command_palette gesture survives DOM mounting",
+        ),
+        command_text_check(
+            &document,
+            "shell.command_palette",
+            "Command Palette",
+            "shell.command_palette label survives DOM mounting",
+        ),
+        selector_attr_check(
+            &document,
+            "section[role='web-shell-adapter']",
+            "data-parked-tui-imported",
+            "false",
+            "parked TUI command model remains isolated",
+        ),
+    ];
+
+    WebShellDomSmokeReport {
+        snapshot,
+        smoke_kind: "parsed-html-command-palette",
+        dom_smoke_tested: true,
+        browser_runtime_claimed: false,
+        dom_accessibility_audited: false,
+        checks,
+    }
+}
+
+fn command_attr_check(
+    document: &Html,
+    command_id: &str,
+    attr: &str,
+    expected: &str,
+    name: &str,
+) -> WebShellDomSmokeCheck {
+    let selector = format!("div[role='web-command-summary-row'][data-command-id='{command_id}']");
+    selector_attr_check(document, &selector, attr, expected, name)
+}
+
+fn command_text_check(
+    document: &Html,
+    command_id: &str,
+    expected: &str,
+    name: &str,
+) -> WebShellDomSmokeCheck {
+    let selector = format!("div[role='web-command-summary-row'][data-command-id='{command_id}']");
+    selector_text_check(document, &selector, expected, name)
+}
+
 fn selector_attr_check(
     document: &Html,
     selector: &str,
@@ -433,8 +571,17 @@ fn render_command_summary(markup: &mut String, packet: &GuiShellPacket) {
     markup.push_str(&packet.keyboard_map.bindings.len().to_string());
     markup.push_str("\">\n");
     for command in &packet.command_palette.commands {
+        let gesture = packet
+            .keyboard_map
+            .bindings
+            .iter()
+            .find(|binding| binding.command_id == command.id)
+            .map(|binding| binding.gesture.display.as_str())
+            .unwrap_or("unbound");
         markup.push_str("    <div role=\"web-command-summary-row\" data-command-id=\"");
         markup.push_str(&html_escape(&command.stable_id));
+        markup.push_str("\" data-gesture=\"");
+        markup.push_str(&html_escape(gesture));
         markup.push_str("\" data-enabled=\"");
         markup.push_str(if command.availability.is_enabled {
             "true"
@@ -590,6 +737,50 @@ mod tests {
                 .checks
                 .iter()
                 .any(|check| check.name == "COM runtime remains unclaimed")
+        );
+    }
+
+    #[test]
+    fn command_palette_dom_smoke_verifies_ids_gestures_and_disabled_reasons() {
+        let packet = baseline_packet();
+
+        let report = run_command_palette_dom_smoke(&packet);
+
+        assert!(report.dom_smoke_tested);
+        assert_eq!(report.smoke_kind, "parsed-html-command-palette");
+        assert!(!report.browser_runtime_claimed);
+        assert!(!report.dom_accessibility_audited);
+        assert!(report.all_passed());
+        assert_eq!(report.checks.len(), 15);
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.name == "document.save gesture survives DOM mounting")
+        );
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.name == "runtime.run disabled reason remains visible")
+        );
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.name == "runtime.immediate gesture survives DOM mounting")
+        );
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.name == "runtime.debug disabled reason remains visible")
+        );
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.name == "shell.command_palette gesture survives DOM mounting")
         );
     }
 
