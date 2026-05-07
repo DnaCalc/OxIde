@@ -18,6 +18,7 @@ downstream implementation owner.
 | `docs/firehorse_mockups/UX_PROJECTION_CONTRACT.md` | W039 projection, state ownership, action id, and OxVba seam contract. |
 | `docs/firehorse_mockups/HARDENING_REVIEW.md` | Mockup hardening and W039 handoff trail. |
 | `docs/firehorse_mockups/frankentui_terminal_review/README.md` | Current W038-B15 FrankenTui terminal review pack. |
+| `docs/firehorse_mockups/ux_audit_lab/DESKTOP_TUI_OXVBA_WORKLOAD_CALIBRATION.md` | Desktop-class TUI calibration grounded in real OxVba workload journeys. |
 
 ## Personas
 

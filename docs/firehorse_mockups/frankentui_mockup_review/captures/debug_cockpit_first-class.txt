@@ -1,0 +1,42 @@
+  OXIDE FIRE HORSE UX LAB   Debug Cockpit   target:ExcelDesktop   No cursor                                                                                     
+  NorthwindPricing   ok Ready   viewport:first-class 160x42   scenario:firehorse-debug-cockpit-standard                                                         
+                                                                                                                                                                
+┌───────────Project / Breakpoints───────────┐┌─────────────────────Code Canvas  PriceFor.bas─────────────────────┐┌─────────────────Debug Dock─────────────────┐
+│>  proj NorthwindPricing active            ││VBA    PriceFor.bas                                                ││Paused at PriceFor.bas:8                    │
+│>* mod    PriceFor.bas active              ││                                                                   ││                                            │
+│   mod    Orders.bas                       ││   1     Option Explicit                                           ││CALL STACK                                  │
+│   form   CustomerView.frm                 ││   3     Public Function PriceFor(productId As Long) As Currency   ││frame-0  PriceFor  line 8                   │
+│   tgt    ExcelDesktop                     ││   4         Dim basePrice As Currency                             ││frame-1  QuoteSelectedOrder  line 22        │
+│   ref    VBA                              ││   5         basePrice = LookupPrice(productId)                    ││                                            │
+│                                           ││   6         PriceFor = ApplyRegionalDiscount(basePrice)           ││LOCALS                                      │
+│                                           ││   8  =>     Debug.Print FormatCurrency(PriceFor)                  ││productId As Long = 42                      │
+│                                           ││   9     End Function                                              ││                                            │
+│                                           ││                                                                   ││WATCHES                                     │
+│                                           ││                                                                   ││PriceFor(productId) As Currency = 12.40     │
+│                                           ││                                                                   ││                                            │
+│                                           ││                                                                   ││W080 owns real debug contracts.             │
+│                                           ││                                                                   ││                                            │
+│                                           ││                                                                   ││                                            │
+│                                           ││                                                                   ││                                            │
+│                                           ││                                                                   ││                                            │
+│                                           ││                                                                   ││                                            │
+│                                           ││                                                                   ││                                            │
+│                                           ││                                                                   ││                                            │
+│                                           ││                                                                   ││                                            │
+│                                           ││                                                                   ││                                            │
+│                                           ││                                                                   ││                                            │
+│                                           ││                                                                   ││                                            │
+│                                           ││                                                                   ││                                            │
+│                                           ││                                                                   ││                                            │
+│                                           ││                                                                   ││                                            │
+└───────────────────────────────────────────┘└───────────────────────────────────────────────────────────────────┘└────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────Activity Deck / Watch Trace──────────────────────────────────────────────────────────────────┐
+│active: Watch/Trace                                                                                                                                           │
+│Watch/Trace (1)  |  Immediate (2)  |  Output (5)                                                                                                              │
+│                                                                                                                                                              │
+│stack frame-0  PriceFor line 8                                                                                                                                │
+│local productId As Long = 42                                                                                                                                  │
+│watch PriceFor(productId) As Currency = 12.40                                                                                                                 │
+│                                                                                                                                                              │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+F5 Continue   F8 Step   Shift+F8 Step Out   Ctrl+W Pin Watch   Esc Return                                                                                       

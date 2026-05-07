@@ -1,0 +1,48 @@
+  OXIDE FIRE HORSE UX LAB   Editing Lens   target:Exe   Ln 1 Col 1                                                                                                                            
+  ThinSliceHello   info Read-only adapter   viewport:studio 190x48   scenario:firehorse-real-editing                                                                                          
+                                                                                                                                                                                              
+┌───────────────Project Spine────────────────┐┌────────────────────────────────Code Canvas  Module1.bas─────────────────────────────────┐┌───────────────────Context Dock────────────────────┐
+│   proj ThinSliceHello BasProj              ││VBA    Module1.bas                                                                       ││Adapter Context                                    │
+│>  mod    Module1.bas active                ││                                                                                         ││HostWorkspaceSession::hover unavailable:           │
+│   tgt    Exe                               ││   1     Attribute VB_Name = "Module1"                                                   ││Unavailable seam: hover is not adapted from current│
+│                                            ││   2                                                                                     ││ShellState in W039.                                │
+│                                            ││   3     Option Explicit                                                                 ││                                                   │
+│                                            ││   4                                                                                     ││HostWorkspaceSession::references unavailable:      │
+│                                            ││   5     Public Sub Main()                                                               ││Unavailable seam: references remain an explicit    │
+│                                            ││   6         Dim answer As Integer                                                       ││W060 handoff.                                      │
+│                                            ││   7         answer = 40 + 2                                                             ││                                                   │
+│                                            ││   8     End Sub                                                                         ││ActionRegistry unavailable: Unavailable seam:      │
+│                                            ││                                                                                         ││action dispatch remains W090-owned.                │
+│                                            ││SOURCE LENS unavailable: current ShellState exposes no semantic hover                    ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+│                                            ││                                                                                         ││                                                   │
+└────────────────────────────────────────────┘└─────────────────────────────────────────────────────────────────────────────────────────┘└───────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────Activity Deck / Problems──────────────────────────────────────────────────────────────────────────────────┐
+│active: Problems                                                                                                                                                                            │
+│Problems (2)  |  Output (0)  |  References (1)                                                                                                                                              │
+│                                                                                                                                                                                            │
+│WorkspaceSemanticState::diagnostics: [generated] error call to unknown procedure: module1_main                                                                                              │
+│WorkspaceSemanticState::diagnostics: [generated] error PMR-E-OPTION-PRIVATE-MODULE-KIND-UNRESOLVED: `Option Private Module` requires project/module-kind integration: `Option Private       │
+│Module`                                                                                                                                                                                     │
+│HostWorkspaceSession::hover: Unavailable seam | HostWorkspaceSession::hover | hover/source-lens rows are not adapted from current ShellState in W039                                        │
+│                                                                                                                                                                                            │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+Ctrl+S Save   F6 Command Lens   F1 Semantic Lens   F5 Run   Ctrl+. Quick Fix                                                                                                                  

@@ -5,6 +5,18 @@ fixtures for the Fire Horse terminal IDE proof. The lab lives in
 `oxide-uxlab`; it reviews the Fire Horse mockup renderer and projection
 contracts without changing the production `ox-ide` renderer.
 
+## Design Calibration
+
+`DESKTOP_TUI_OXVBA_WORKLOAD_CALIBRATION.md` is the high-end calibration
+addendum for this lab. It translates the richer desktop-class TUI IDE
+benchmark into OxIde's simpler OxVba workload: project/module truth,
+source editing, diagnostics, source lenses, run/debug, Immediate,
+generated-code honesty, command truth, and terminal capability.
+
+Use it when reviewing whether Studio and First-class mockups feel like a
+real daily VBA IDE workspace rather than a tidy collection of named
+panels.
+
 ## Agent Loop
 
 ```text
