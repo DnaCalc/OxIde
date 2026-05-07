@@ -61,6 +61,19 @@ This layer is a frontend interaction model plus static DOM/token smoke over the 
 
 It does not claim live Tauri/WebView IPC, browser event-loop automation, Playwright/WebDriver coverage, full DOM accessibility audit, real OxVba runtime/debug/Immediate/COM behavior, or COM runtime invocation.
 
+## DnaOneCalc Shared UI Reuse Smoke
+
+W348 adds an OxIde-only reuse smoke for the future DnaOneCalc consumer path:
+
+```powershell
+node tools/verify-dnaonecalc-profile.mjs
+node tools/verify-dnaonecalc-reuse.mjs
+cargo test --manifest-path crates/Cargo.toml -p oxide-ui-leptos
+cargo test --manifest-path crates/Cargo.toml -p oxide-host-bridge
+```
+
+The smoke verifies the `dnaonecalc-consumer` profile, the DnaOneCalc web-shell host contract render, and the shared `oxide-ui-leptos` IDE surface render. It must keep sibling repo writes, real DnaOneCalc mount, native runtime, COM runtime, fake data, and DOM audit claims false until paired evidence exists.
+
 ## TUI Tests
 
 Existing WTD tests remain useful for the parked TUI lane. They are not the GUI default regression loop.

@@ -1327,6 +1327,39 @@ Implementation notes:
 3. COM runtime invocation remains unclaimed.
 4. W348 owns DnaOneCalc shared UI reuse proof without sibling repo writes.
 
-## 26. Cross-Repo Fixture Policy
+## 26. W348 DnaOneCalc Shared UI Reuse Acceptance Target
+
+W348 closes against an OxIde-only DnaOneCalc consumer profile and two deterministic GUI-lab renders:
+
+```powershell
+node tools/verify-dnaonecalc-profile.mjs
+node tools/verify-dnaonecalc-reuse.mjs
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-dnaonecalc-web-shell-host-contract
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-shared-ui-shell-component
+```
+
+Observed W348 acceptance evidence is captured in `target/w348-acceptance.txt` and contains:
+
+- `docs/fixtures/dnaonecalc-consumer-profile.json`,
+- `DnaOneCalcWebShellHostPacket`,
+- `GuiShellPacket`, `RuntimeServicePacket`, `ImmediateServicePacket`, and `DebugServicePacket`,
+- `oxide-ui-leptos`, `oxide-host-bridge`, `oxide-core`, `oxide-webshell`, and `oxide-guilab`,
+- `data-host="DnaOneCalc"`,
+- `data-sibling-repo-writes="false"`,
+- `data-host-mount-claimed="false"`,
+- `data-component-crate="oxide-ui-leptos"`,
+- `role="shared-ide-surface"`,
+- `ThinSliceHello` and `Module1.bas`,
+- false native runtime, COM runtime, fake response, fake debug data, and DOM-audit claims.
+
+Implementation notes:
+
+1. W348 proves reusable shared UI/host-bridge packets inside OxIde only.
+2. W348 does not write to `C:/Work/DnaCalc/DnaOneCalc`.
+3. W348 does not claim a real DnaOneCalc product mount.
+4. Real DnaOneCalc mount evidence remains gated on explicit sibling-repo authorization and paired DnaOneCalc tests.
+5. W349 owns the W341-W348 composition/readiness audit.
+
+## 27. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.

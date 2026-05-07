@@ -142,7 +142,8 @@ Tests:
   - Anti-overclaim scan.
 
 Evidence:
-  - W348 acceptance outputs.
+  - `target/w348-acceptance.txt`.
+  - [`docs/HANDOFF_W348_DNAONECALC_REUSE_PATH.md`](../HANDOFF_W348_DNAONECALC_REUSE_PATH.md).
 
 Closure:
   - [ ] Reuse path is reviewable.
