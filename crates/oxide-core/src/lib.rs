@@ -1324,6 +1324,166 @@ impl DebugCapabilityProfile {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DebugServiceState {
+    Unavailable,
+    Running,
+    Paused,
+    Stopped,
+}
+
+impl DebugServiceState {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Unavailable => "unavailable",
+            Self::Running => "running",
+            Self::Paused => "paused",
+            Self::Stopped => "stopped",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DebugServiceCommandId {
+    Continue,
+    Break,
+    StepInto,
+    StepOver,
+    StepOut,
+    Stop,
+}
+
+impl DebugServiceCommandId {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Continue => "continue",
+            Self::Break => "break",
+            Self::StepInto => "step-into",
+            Self::StepOver => "step-over",
+            Self::StepOut => "step-out",
+            Self::Stop => "stop",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DebugServiceCommandStatus {
+    pub command_id: DebugServiceCommandId,
+    pub is_enabled: bool,
+    pub disabled_reason: Option<String>,
+}
+
+impl DebugServiceCommandStatus {
+    pub fn disabled(command_id: DebugServiceCommandId, reason: impl Into<String>) -> Self {
+        Self {
+            command_id,
+            is_enabled: false,
+            disabled_reason: Some(reason.into()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DebugServiceCallstackFrame {
+    pub frame_id: String,
+    pub display_name: String,
+    pub source_span: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DebugServiceValueRow {
+    pub name: String,
+    pub value: String,
+    pub type_label: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DebugServiceBreakpointRow {
+    pub breakpoint_id: String,
+    pub module_name: String,
+    pub line: u32,
+    pub status_label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DebugServicePacket {
+    pub debug_session_id: Option<String>,
+    pub runtime_session_id: Option<String>,
+    pub provider_kind: RuntimeServiceProviderKind,
+    pub state: DebugServiceState,
+    pub command_status: RuntimeSurfaceCommandStatus,
+    pub debug_commands: Vec<DebugServiceCommandStatus>,
+    pub callstack: Vec<DebugServiceCallstackFrame>,
+    pub locals: Vec<DebugServiceValueRow>,
+    pub watches: Vec<DebugServiceValueRow>,
+    pub breakpoints: Vec<DebugServiceBreakpointRow>,
+    pub fake_debug_data: bool,
+    pub native_runtime_claimed: bool,
+    pub com_runtime_claimed: bool,
+}
+
+impl DebugServicePacket {
+    pub fn browser_disabled() -> Self {
+        let profile = DebugCapabilityProfile::browser_disabled();
+        Self::unavailable(
+            RuntimeServiceProviderKind::BrowserUnsupported,
+            profile.command_status,
+        )
+    }
+
+    pub fn native_service_missing() -> Self {
+        Self::unavailable(
+            RuntimeServiceProviderKind::NativeServiceMissing,
+            RuntimeSurfaceCommandStatus::disabled(
+                "Debug unavailable: native OxVba runtime/debug service not configured.",
+            ),
+        )
+    }
+
+    fn unavailable(
+        provider_kind: RuntimeServiceProviderKind,
+        command_status: RuntimeSurfaceCommandStatus,
+    ) -> Self {
+        let disabled_reason = command_status
+            .reason
+            .clone()
+            .unwrap_or_else(|| String::from("debug service unavailable"));
+        Self {
+            debug_session_id: None,
+            runtime_session_id: None,
+            provider_kind,
+            state: DebugServiceState::Unavailable,
+            command_status,
+            debug_commands: [
+                DebugServiceCommandId::Continue,
+                DebugServiceCommandId::Break,
+                DebugServiceCommandId::StepInto,
+                DebugServiceCommandId::StepOver,
+                DebugServiceCommandId::StepOut,
+                DebugServiceCommandId::Stop,
+            ]
+            .into_iter()
+            .map(|command_id| DebugServiceCommandStatus::disabled(command_id, &disabled_reason))
+            .collect(),
+            callstack: vec![],
+            locals: vec![],
+            watches: vec![],
+            breakpoints: vec![],
+            fake_debug_data: false,
+            native_runtime_claimed: false,
+            com_runtime_claimed: false,
+        }
+    }
+
+    pub fn provider_label(&self) -> &'static str {
+        self.provider_kind.label()
+    }
+
+    pub fn state_label(&self) -> &'static str {
+        self.state.label()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GuiCommandCategory {
     Project,
     Document,
@@ -3541,6 +3701,75 @@ mod tests {
                 .expect("debug disabled reason")
                 .contains("no OxVba debug session")
         );
+    }
+
+    #[test]
+    fn debug_service_packet_browser_disabled_round_trips_without_debug_data() {
+        let packet = DebugServicePacket::browser_disabled();
+
+        let encoded = serde_json::to_string(&packet).expect("serialize debug packet");
+        let decoded: DebugServicePacket =
+            serde_json::from_str(&encoded).expect("decode debug packet");
+
+        assert_eq!(decoded, packet);
+        assert_eq!(packet.provider_label(), "browser-unsupported");
+        assert_eq!(packet.state_label(), "unavailable");
+        assert!(packet.debug_session_id.is_none());
+        assert!(packet.runtime_session_id.is_none());
+        assert!(!packet.command_status.is_enabled);
+        assert!(
+            packet
+                .command_status
+                .reason
+                .as_deref()
+                .expect("debug disabled reason")
+                .contains("no OxVba debug session")
+        );
+        assert_eq!(packet.debug_commands.len(), 6);
+        assert!(
+            packet
+                .debug_commands
+                .iter()
+                .all(|command| !command.is_enabled)
+        );
+        assert!(packet.callstack.is_empty());
+        assert!(packet.locals.is_empty());
+        assert!(packet.watches.is_empty());
+        assert!(packet.breakpoints.is_empty());
+        assert!(!packet.fake_debug_data);
+        assert!(!packet.native_runtime_claimed);
+        assert!(!packet.com_runtime_claimed);
+    }
+
+    #[test]
+    fn debug_service_packet_native_missing_has_empty_debug_rows_and_no_claims() {
+        let packet = DebugServicePacket::native_service_missing();
+
+        assert_eq!(packet.provider_label(), "native-service-missing");
+        assert_eq!(packet.state, DebugServiceState::Unavailable);
+        assert!(!packet.command_status.is_enabled);
+        assert!(
+            packet
+                .command_status
+                .reason
+                .as_deref()
+                .expect("debug service missing reason")
+                .contains("native OxVba runtime/debug service not configured")
+        );
+        assert!(packet.debug_commands.iter().all(|command| {
+            command
+                .disabled_reason
+                .as_deref()
+                .expect("command disabled reason")
+                .contains("native OxVba runtime/debug service not configured")
+        }));
+        assert!(packet.callstack.is_empty());
+        assert!(packet.locals.is_empty());
+        assert!(packet.watches.is_empty());
+        assert!(packet.breakpoints.is_empty());
+        assert!(!packet.fake_debug_data);
+        assert!(!packet.native_runtime_claimed);
+        assert!(!packet.com_runtime_claimed);
     }
 
     #[test]
