@@ -196,6 +196,46 @@ Closure:
   - [ ] W280 prerequisites documented.
   - [ ] Runtime/debug/Immediate limitations remain explicit.
 
+## Acceptance Evidence
+
+W270 is accepted on 2026-05-07 with these shipped vertical behaviours:
+
+1. `oxide-core` projects `RunTimeline` from structured transcripts without reinterpreting OxVba runtime semantics.
+2. `oxide-core` models Immediate/debug browser-disabled, native-runtime-required, and future-supported capability profiles without fake runtime/debug data.
+3. `oxide-guilab` registers and renders:
+   - `gui-run-timeline-simulated`,
+   - `gui-immediate-browser-disabled`,
+   - `gui-debug-browser-disabled`.
+4. `docs/HANDOFF_OXVBA_RUNTIME_DEBUG_IMMEDIATE_INTERFACES.md` captures runtime/debug/Immediate interfaces needed from OxVba or shared DNA Calc code.
+5. `docs/GUI_FIXTURES_AND_LAB.md` records W270 scenario tokens and W280 prerequisites.
+
+Acceptance commands:
+
+```powershell
+cargo test --manifest-path crates/Cargo.toml --workspace
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-loaded
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-edited-diagnostics
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-lifecycle
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-browser-disabled
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-simulated-supported
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-dnaonecalc-embedding-contract
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-browser-unavailable
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-nonwindows-unavailable
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-native-service-missing
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-timeline-simulated
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-immediate-browser-disabled
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-debug-browser-disabled
+```
+
+Known W270 limitations remain intentional:
+
+1. no real OxVba runtime session,
+2. no real Immediate request/response path,
+3. no real debug adapter/session,
+4. no callstack/locals/watch/breakpoint binding,
+5. no COM-capable run/debug/Immediate proof,
+6. no DnaOneCalc-hosted runtime integration yet.
+
 ## Out-of-scope
 
 - Full debugger parity if OxVba seams are not ready.

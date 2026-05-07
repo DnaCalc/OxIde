@@ -456,9 +456,72 @@ Known W260 limitations:
 4. no authoritative OxVba COM-reference packet consumed yet,
 5. no run/debug/Immediate COM-capable session proof yet.
 
-## 12. W270 Handoff
+## 12. W270 Accepted Runtime Surfaces
 
-W270 should start from the nine current regression lab commands:
+W270 adds three runtime-surface lab scenarios:
+
+```powershell
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-timeline-simulated
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-immediate-browser-disabled
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-debug-browser-disabled
+```
+
+Observed run-timeline output contains:
+
+- `data-scenario="gui-run-timeline-simulated"`,
+- `role="run-timeline"`,
+- `data-provider="simulated"`,
+- `data-status="completed"`,
+- `data-native-execution="false"`,
+- `data-com-runtime="false"`,
+- `data-index="1"`,
+- `data-index="2"`,
+- `data-index="3"`,
+- `simulated output: Main completed with answer 42`.
+
+Observed Immediate browser-disabled output contains:
+
+- `data-scenario="gui-immediate-browser-disabled"`,
+- `role="immediate-panel"`,
+- `data-profile="browser-disabled"`,
+- `data-enabled="false"`,
+- `data-native-runtime-required="true"`,
+- `data-com-runtime-required="false"`,
+- `data-fake-responses="false"`,
+- `Immediate disabled: browser-safe profile has no native OxVba runtime session`,
+- `No Immediate responses rendered without runtime session`.
+
+Observed debug browser-disabled output contains:
+
+- `data-scenario="gui-debug-browser-disabled"`,
+- `role="debug-panel"`,
+- `data-profile="browser-disabled"`,
+- `data-enabled="false"`,
+- `data-native-runtime-required="true"`,
+- `data-com-runtime-required="false"`,
+- `data-fake-debug-data="false"`,
+- `Debug disabled: browser-safe profile has no OxVba debug session`,
+- `unavailable; no fake debug data`.
+
+Implementation notes:
+
+1. `oxide-core` owns the pure timeline/Immediate/debug capability projections.
+2. `oxide-guilab` renders runtime surfaces without invoking a real runtime.
+3. `docs/HANDOFF_OXVBA_RUNTIME_DEBUG_IMMEDIATE_INTERFACES.md` captures the required OxVba/shared runtime interfaces.
+4. W270 acceptance keeps simulated output distinct from native execution and COM-capable execution.
+
+Known W270 limitations:
+
+1. no real OxVba runtime session,
+2. no real Immediate request/response path,
+3. no real debug adapter/session,
+4. no callstack/locals/watch/breakpoint binding,
+5. no COM-capable run/debug/Immediate proof,
+6. no DnaOneCalc-hosted runtime integration yet.
+
+## 13. W280 Handoff
+
+W280 should start from the twelve current regression lab commands:
 
 ```powershell
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-loaded
@@ -470,16 +533,20 @@ cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-dnaone
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-browser-unavailable
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-nonwindows-unavailable
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-native-service-missing
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-timeline-simulated
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-immediate-browser-disabled
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-debug-browser-disabled
 ```
 
-W270 prerequisites:
+W280 prerequisites:
 
-1. keep run/debug/Immediate surfaces capability-gated,
-2. do not claim COM-capable run/debug/Immediate until a tested native service exists,
+1. add command/keyboard/focus/accessibility polish as pure GUI state first,
+2. keep runtime/debug/Immediate surfaces capability-gated,
 3. preserve W240 simulated run as simulated-only evidence,
 4. preserve W260 native-service-missing disabled reasons,
-5. route OxVba runtime/debug/Immediate interface gaps through handoffs rather than local duplicates.
+5. route OxVba runtime/debug/Immediate interface gaps through handoffs rather than local duplicates,
+6. avoid pulling parked TUI interaction state into the GUI substrate.
 
-## 13. Cross-Repo Fixture Policy
+## 14. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.
