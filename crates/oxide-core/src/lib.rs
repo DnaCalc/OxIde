@@ -2076,6 +2076,100 @@ pub struct GuiShellLifecycleCommandSummary {
     pub disabled_reason: Option<String>,
 }
 
+impl GuiShellLifecycleCommandSummary {
+    pub fn from_document(document: &DocumentLifecycleState, command: LifecycleCommand) -> Self {
+        let status = document.command_status(command);
+        Self {
+            command_name: lifecycle_command_stable_name(command).to_string(),
+            is_enabled: status.is_enabled,
+            disabled_reason: status.reason,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiNativeSaveReloadProjection {
+    pub provider_label: String,
+    pub filesystem_persistence: bool,
+    pub test_owned_temp_project: bool,
+    pub checked_in_fixture_mutated: bool,
+    pub dirty_before_save: bool,
+    pub dirty_after_save: bool,
+    pub save_acknowledged: bool,
+    pub reload_source_matches_disk: bool,
+    pub persisted_source_matches_disk: bool,
+    pub working_source_matches_disk: bool,
+    pub saved_source_excerpt: String,
+    pub reloaded_source_excerpt: String,
+    pub native_runtime: bool,
+    pub com_runtime: bool,
+}
+
+impl GuiNativeSaveReloadProjection {
+    pub fn from_disk_round_trip(
+        dirty_before_save: bool,
+        document_after_reload: &DocumentLifecycleState,
+        disk_source: &str,
+        checked_in_fixture_mutated: bool,
+    ) -> Self {
+        let persisted_source_matches_disk = document_after_reload.persisted_source() == disk_source;
+        let working_source_matches_disk = document_after_reload.working_source() == disk_source;
+        Self {
+            provider_label: String::from("native-filesystem"),
+            filesystem_persistence: true,
+            test_owned_temp_project: true,
+            checked_in_fixture_mutated,
+            dirty_before_save,
+            dirty_after_save: document_after_reload.is_dirty(),
+            save_acknowledged: !document_after_reload.is_dirty() && persisted_source_matches_disk,
+            reload_source_matches_disk: working_source_matches_disk,
+            persisted_source_matches_disk,
+            working_source_matches_disk,
+            saved_source_excerpt: persistence_source_excerpt(disk_source).to_string(),
+            reloaded_source_excerpt: persistence_source_excerpt(
+                document_after_reload.working_source(),
+            )
+            .to_string(),
+            native_runtime: false,
+            com_runtime: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiBrowserFilesystemDisabledProjection {
+    pub provider_label: String,
+    pub filesystem_persistence: bool,
+    pub save_command: GuiShellLifecycleCommandSummary,
+    pub reload_command: GuiShellLifecycleCommandSummary,
+    pub disabled_reason: String,
+    pub native_runtime: bool,
+    pub com_runtime: bool,
+}
+
+impl GuiBrowserFilesystemDisabledProjection {
+    pub fn from_document(document: &DocumentLifecycleState) -> Self {
+        let save_command =
+            GuiShellLifecycleCommandSummary::from_document(document, LifecycleCommand::Save);
+        let reload_command =
+            GuiShellLifecycleCommandSummary::from_document(document, LifecycleCommand::Reload);
+        let disabled_reason = save_command
+            .disabled_reason
+            .clone()
+            .or_else(|| reload_command.disabled_reason.clone())
+            .unwrap_or_else(|| String::from("browser filesystem persistence unavailable"));
+        Self {
+            provider_label: String::from("browser-limited"),
+            filesystem_persistence: false,
+            save_command,
+            reload_command,
+            disabled_reason,
+            native_runtime: false,
+            com_runtime: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GuiShellPacket {
     pub workspace_path: String,
@@ -2134,14 +2228,7 @@ impl GuiShellPacket {
             LifecycleCommand::Revert,
         ]
         .into_iter()
-        .map(|command| {
-            let status = document.command_status(command);
-            GuiShellLifecycleCommandSummary {
-                command_name: lifecycle_command_stable_name(command).to_string(),
-                is_enabled: status.is_enabled,
-                disabled_reason: status.reason,
-            }
-        })
+        .map(|command| GuiShellLifecycleCommandSummary::from_document(&document, command))
         .collect();
         let com_runtime_claimed = com_capability.runtime_invocation.is_available
             || run_capability.com_runtime_available
@@ -2183,6 +2270,14 @@ fn lifecycle_command_stable_name(command: LifecycleCommand) -> &'static str {
         LifecycleCommand::Reload => "reload",
         LifecycleCommand::Revert => "revert",
     }
+}
+
+fn persistence_source_excerpt(source: &str) -> &str {
+    source
+        .lines()
+        .find(|line| line.contains("answer ="))
+        .or_else(|| source.lines().find(|line| !line.trim().is_empty()))
+        .unwrap_or("")
 }
 
 #[cfg(test)]
@@ -2408,6 +2503,79 @@ mod tests {
             fixture_before,
             "native lifecycle save must only write the test-owned temp project copy"
         );
+    }
+
+    #[test]
+    fn native_save_reload_projection_reports_disk_backed_clean_state_without_runtime_claims() {
+        let (module_path, fixture_source, fixture_path) =
+            copy_thin_slice_module_to_temp("native-save-reload-projection");
+        let fixture_before = fs::read_to_string(&fixture_path).expect("read fixture before save");
+        let mut persistence = NativeFilesystemDocumentPersistence::new(&module_path);
+        let mut state = open_lifecycle_from_persistence(&persistence).expect("native load");
+
+        let edited = fixture_source.replace("answer = 40 + 2", "answer = 21 * 2");
+        state.edit_working_source(edited.clone());
+        let dirty_before_save = state.is_dirty();
+        save_lifecycle_to_persistence(&mut state, &mut persistence).expect("native save");
+        let disk_source = persistence.load().expect("reload disk source");
+        state
+            .reload_from_persisted(disk_source.clone())
+            .expect("native reload command supported");
+
+        let projection = GuiNativeSaveReloadProjection::from_disk_round_trip(
+            dirty_before_save,
+            &state,
+            &disk_source,
+            false,
+        );
+
+        assert_eq!(projection.provider_label, "native-filesystem");
+        assert!(projection.filesystem_persistence);
+        assert!(projection.test_owned_temp_project);
+        assert!(!projection.checked_in_fixture_mutated);
+        assert!(projection.dirty_before_save);
+        assert!(!projection.dirty_after_save);
+        assert!(projection.save_acknowledged);
+        assert!(projection.reload_source_matches_disk);
+        assert!(projection.persisted_source_matches_disk);
+        assert!(projection.working_source_matches_disk);
+        assert!(projection.saved_source_excerpt.contains("answer = 21 * 2"));
+        assert_eq!(
+            projection.saved_source_excerpt,
+            projection.reloaded_source_excerpt
+        );
+        assert!(!projection.native_runtime);
+        assert!(!projection.com_runtime);
+        assert_eq!(
+            fs::read_to_string(&fixture_path).expect("read checked-in fixture after projection"),
+            fixture_before,
+            "save/reload projection must be based on the temp copy, not the checked-in fixture"
+        );
+    }
+
+    #[test]
+    fn browser_filesystem_disabled_projection_preserves_w230_reasons_without_runtime_claims() {
+        let mut state = DocumentLifecycleState::open_clean(
+            "Option Explicit",
+            LifecycleCapabilities::browser_limited(),
+        );
+        state.edit_working_source("Option Explicit\n' dirty");
+
+        let projection = GuiBrowserFilesystemDisabledProjection::from_document(&state);
+
+        assert_eq!(projection.provider_label, "browser-limited");
+        assert!(!projection.filesystem_persistence);
+        assert_eq!(projection.save_command.command_name, "save");
+        assert!(!projection.save_command.is_enabled);
+        assert_eq!(projection.reload_command.command_name, "reload");
+        assert!(!projection.reload_command.is_enabled);
+        assert!(
+            projection
+                .disabled_reason
+                .contains("filesystem persistence")
+        );
+        assert!(!projection.native_runtime);
+        assert!(!projection.com_runtime);
     }
 
     #[test]
