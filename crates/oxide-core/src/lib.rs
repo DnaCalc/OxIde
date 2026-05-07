@@ -337,6 +337,8 @@ impl DocumentPersistence for NativeFilesystemDocumentPersistence {
 pub enum PersistenceOperation {
     Load,
     Save,
+    LoadSession,
+    SaveSession,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -350,17 +352,29 @@ pub enum PersistenceError {
         path: String,
         message: String,
     },
+    Format {
+        operation: PersistenceOperation,
+        path: String,
+        message: String,
+    },
 }
 
 impl std::fmt::Display for PersistenceError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Disabled { operation, reason } => write!(f, "{:?} disabled: {reason}", operation),
+            Self::Disabled { operation, reason } => {
+                write!(f, "{:?} disabled: {reason}", operation)
+            }
             Self::Io {
                 operation,
                 path,
                 message,
             } => write!(f, "{:?} failed for {path}: {message}", operation),
+            Self::Format {
+                operation,
+                path,
+                message,
+            } => write!(f, "{:?} format error for {path}: {message}", operation),
         }
     }
 }
@@ -461,6 +475,59 @@ pub struct RestoredGuiSession {
     pub active_module: String,
     pub document: DocumentLifecycleState,
     pub capability_profile: SessionCapabilityProfile,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NativeFilesystemSessionPersistence {
+    session_path: PathBuf,
+}
+
+impl NativeFilesystemSessionPersistence {
+    pub fn new(session_path: impl Into<PathBuf>) -> Self {
+        Self {
+            session_path: session_path.into(),
+        }
+    }
+
+    pub fn session_path(&self) -> &Path {
+        &self.session_path
+    }
+
+    pub fn provider_label(&self) -> &'static str {
+        "native-filesystem-session"
+    }
+
+    pub fn save_snapshot(&self, snapshot: &GuiSessionSnapshot) -> Result<(), PersistenceError> {
+        let encoded = serde_json::to_string_pretty(snapshot).map_err(|error| {
+            self.format_error(PersistenceOperation::SaveSession, error.to_string())
+        })?;
+        std::fs::write(&self.session_path, encoded)
+            .map_err(|error| self.io_error(PersistenceOperation::SaveSession, error))
+    }
+
+    pub fn load_snapshot(&self) -> Result<GuiSessionSnapshot, PersistenceError> {
+        let encoded = std::fs::read_to_string(&self.session_path)
+            .map_err(|error| self.io_error(PersistenceOperation::LoadSession, error))?;
+        serde_json::from_str(&encoded).map_err(|error| {
+            self.format_error(PersistenceOperation::LoadSession, error.to_string())
+        })
+    }
+
+    fn io_error(&self, operation: PersistenceOperation, error: std::io::Error) -> PersistenceError {
+        PersistenceError::Io {
+            operation,
+            path: self.session_path.display().to_string(),
+            message: error.to_string(),
+        }
+    }
+
+    fn format_error(&self, operation: PersistenceOperation, message: String) -> PersistenceError {
+        PersistenceError::Format {
+            operation,
+            path: self.session_path.display().to_string(),
+            message,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -2661,6 +2728,119 @@ mod tests {
         assert_eq!(restored.document.persisted_source(), "same");
         assert_eq!(restored.document.working_source(), "same");
         assert!(!restored.document.is_dirty());
+    }
+
+    #[test]
+    fn native_session_persistence_writes_and_restores_clean_session_from_temp_path() {
+        let (module_path, fixture_source, fixture_path) =
+            copy_thin_slice_module_to_temp("native-session-clean");
+        let fixture_before =
+            fs::read_to_string(&fixture_path).expect("read fixture before session");
+        let temp_dir = module_path.parent().expect("temp module parent");
+        let session_path = temp_dir.join("oxide.session.json");
+        let mut document = DocumentLifecycleState::open_clean(
+            fixture_source,
+            LifecycleCapabilities::all_supported(),
+        );
+        document.edit_working_source(
+            document
+                .working_source()
+                .replace("answer = 40 + 2", "answer = 84 / 2"),
+        );
+        document.acknowledge_saved().expect("clean saved document");
+        let snapshot = GuiSessionSnapshot::capture(
+            temp_dir
+                .join("ThinSliceHello.basproj")
+                .display()
+                .to_string(),
+            "Module1.bas",
+            &document,
+            SessionCapabilityProfile::AllSupported,
+        );
+        let persistence = NativeFilesystemSessionPersistence::new(&session_path);
+
+        assert_eq!(persistence.provider_label(), "native-filesystem-session");
+        persistence
+            .save_snapshot(&snapshot)
+            .expect("save session snapshot");
+        assert!(persistence.session_path().exists());
+
+        let loaded = persistence.load_snapshot().expect("load session snapshot");
+        let restored = loaded.restore();
+
+        assert_eq!(loaded, snapshot);
+        assert!(!loaded.is_dirty());
+        assert_eq!(restored.active_module, "Module1.bas");
+        assert_eq!(restored.workspace_path, snapshot.workspace_path);
+        assert_eq!(
+            restored.document.persisted_source(),
+            snapshot.persisted_source
+        );
+        assert_eq!(restored.document.working_source(), snapshot.working_source);
+        assert!(!restored.document.is_dirty());
+        assert_eq!(restored.capability_profile.label(), "all-supported");
+        assert_eq!(
+            fs::read_to_string(&fixture_path).expect("read checked-in fixture after session"),
+            fixture_before,
+            "session persistence must not mutate the checked-in fixture"
+        );
+    }
+
+    #[test]
+    fn native_session_persistence_round_trips_dirty_session_variant() {
+        let (module_path, fixture_source, fixture_path) =
+            copy_thin_slice_module_to_temp("native-session-dirty");
+        let fixture_before =
+            fs::read_to_string(&fixture_path).expect("read fixture before session");
+        let temp_dir = module_path.parent().expect("temp module parent");
+        let session_path = temp_dir.join("oxide.dirty-session.json");
+        let mut document = DocumentLifecycleState::open_clean(
+            fixture_source,
+            LifecycleCapabilities::all_supported(),
+        );
+        document.edit_working_source(
+            document
+                .working_source()
+                .replace("Dim answer As Integer", "Dim answer As Long"),
+        );
+        let snapshot = GuiSessionSnapshot::capture(
+            temp_dir
+                .join("ThinSliceHello.basproj")
+                .display()
+                .to_string(),
+            "Module1.bas",
+            &document,
+            SessionCapabilityProfile::AllSupported,
+        );
+        let persistence = NativeFilesystemSessionPersistence::new(&session_path);
+
+        persistence
+            .save_snapshot(&snapshot)
+            .expect("save dirty session snapshot");
+        let loaded = persistence.load_snapshot().expect("load dirty snapshot");
+        let restored = loaded.restore();
+
+        assert_eq!(loaded, snapshot);
+        assert!(loaded.is_dirty());
+        assert_eq!(restored.active_module, "Module1.bas");
+        assert!(restored.document.is_dirty());
+        assert!(
+            restored
+                .document
+                .working_source()
+                .contains("Dim answer As Long")
+        );
+        assert!(
+            restored
+                .document
+                .persisted_source()
+                .contains("Dim answer As Integer")
+        );
+        assert_eq!(
+            fs::read_to_string(&fixture_path).expect("read checked-in fixture after dirty session"),
+            fixture_before,
+            "dirty session persistence must not mutate the checked-in fixture"
+        );
     }
 
     #[test]
