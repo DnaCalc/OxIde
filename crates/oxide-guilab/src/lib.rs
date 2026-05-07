@@ -7,9 +7,11 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use oxide_domain::OxideDomainRole;
+use oxide_editor_core::{EditOperation, SourceSnapshot};
 use oxide_oxvba::{ProjectOpenSpineError, load_project_open_spine};
 
 pub const GUI_THIN_SLICE_LOADED: &str = "gui-thin-slice-loaded";
+pub const GUI_THIN_SLICE_EDITED_DIAGNOSTICS: &str = "gui-thin-slice-edited-diagnostics";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,6 +33,13 @@ pub struct GuiScenarioDescriptor {
     pub id: &'static str,
     pub title: &'static str,
     pub fixture_path: PathBuf,
+    pub source_edit: ScenarioSourceEdit,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScenarioSourceEdit {
+    ReadOnly,
+    CommentOutOptionExplicit,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -53,14 +62,24 @@ impl GuiScenarioRegistry {
 
     pub fn built_in(repo_root: impl AsRef<Path>) -> Self {
         let repo_root = repo_root.as_ref();
-        Self::new(vec![GuiScenarioDescriptor {
-            id: GUI_THIN_SLICE_LOADED,
-            title: "Thin-slice project loaded",
-            fixture_path: repo_root
-                .join("examples")
-                .join("thin-slice")
-                .join("ThinSliceHello.basproj"),
-        }])
+        let thin_slice = repo_root
+            .join("examples")
+            .join("thin-slice")
+            .join("ThinSliceHello.basproj");
+        Self::new(vec![
+            GuiScenarioDescriptor {
+                id: GUI_THIN_SLICE_LOADED,
+                title: "Thin-slice project loaded",
+                fixture_path: thin_slice.clone(),
+                source_edit: ScenarioSourceEdit::ReadOnly,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_THIN_SLICE_EDITED_DIAGNOSTICS,
+                title: "Thin-slice edited diagnostics",
+                fixture_path: thin_slice,
+                source_edit: ScenarioSourceEdit::CommentOutOptionExplicit,
+            },
+        ])
         .expect("built-in GUI scenarios have unique IDs")
     }
 
@@ -126,10 +145,21 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         output.push_str("</div>\n");
     }
     output.push_str("  </nav>\n");
+    let source_text = match scenario.source_edit {
+        ScenarioSourceEdit::ReadOnly => view.active_source.source_text.clone(),
+        ScenarioSourceEdit::CommentOutOptionExplicit => {
+            SourceSnapshot::new(&view.active_source.source_text)
+                .apply(&EditOperation::comment_out_option_explicit())
+                .snapshot
+                .text()
+                .to_string()
+        }
+    };
+
     output.push_str("  <pre role=\"source\" data-module=\"");
     output.push_str(&view.active_source.module_display_name);
     output.push_str("\">");
-    output.push_str(&html_escape(&view.active_source.source_text));
+    output.push_str(&html_escape(&source_text));
     output.push_str("</pre>\n");
     output.push_str("  <footer role=\"host-capability\">");
     output.push_str(&view.capability.status_text);
@@ -199,6 +229,7 @@ mod tests {
             id: GUI_THIN_SLICE_LOADED,
             title: "duplicate",
             fixture_path: PathBuf::from("unused.basproj"),
+            source_edit: ScenarioSourceEdit::ReadOnly,
         };
 
         let error = GuiScenarioRegistry::new(vec![duplicate.clone(), duplicate])
@@ -218,6 +249,8 @@ mod tests {
 
         assert!(output.contains("gui-thin-slice-loaded"));
         assert!(output.contains("Thin-slice project loaded"));
+        assert!(output.contains("gui-thin-slice-edited-diagnostics"));
+        assert!(output.contains("Thin-slice edited diagnostics"));
     }
 
     #[test]
@@ -247,6 +280,38 @@ mod tests {
         assert!(rendered.contains("data-scenario=\"gui-thin-slice-loaded\""));
         assert!(rendered.contains("ThinSliceHello"));
         assert!(rendered.contains("Module1.bas"));
+        assert!(rendered.contains("Public Sub Main()"));
+        assert!(rendered.contains("COM unavailable"));
+        assert!(!rendered.contains("'Option Explicit"));
+    }
+
+    #[test]
+    fn built_in_registry_finds_edited_diagnostics_scenario_by_id() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let scenario = registry
+            .find(GUI_THIN_SLICE_EDITED_DIAGNOSTICS)
+            .expect("edited diagnostics scenario");
+
+        assert_eq!(scenario.title, "Thin-slice edited diagnostics");
+        assert_eq!(
+            scenario.source_edit,
+            ScenarioSourceEdit::CommentOutOptionExplicit
+        );
+    }
+
+    #[test]
+    fn edited_diagnostics_scenario_renders_deterministic_edit_token() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_THIN_SLICE_EDITED_DIAGNOSTICS)
+            .expect("render edited diagnostics scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-thin-slice-edited-diagnostics\""));
+        assert!(rendered.contains("ThinSliceHello"));
+        assert!(rendered.contains("Module1.bas"));
+        assert!(rendered.contains("'Option Explicit"));
         assert!(rendered.contains("Public Sub Main()"));
         assert!(rendered.contains("COM unavailable"));
     }

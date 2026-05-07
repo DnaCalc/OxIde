@@ -6,4 +6,5 @@ publish = false
 
 [dependencies]
 oxide-domain = { path = "../oxide-domain" }
+oxide-editor-core = { path = "../oxide-editor-core" }
 oxide-oxvba = { path = "../oxide-oxvba" }
