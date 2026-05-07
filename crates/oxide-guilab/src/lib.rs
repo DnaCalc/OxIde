@@ -8,8 +8,9 @@ use std::path::{Path, PathBuf};
 
 use oxide_bridge::EmbeddedIdePacket;
 use oxide_core::{
-    DocumentLifecycleState, GuiSessionSnapshot, InMemoryDocumentPersistence, LifecycleCapabilities,
-    LifecycleCommand, LifecycleCommandStatus, RunCapabilityProfile, RunRequest, RunTranscript,
+    ComCapabilityProfile, ComCapabilityStatus, ComReferenceFact, DocumentLifecycleState,
+    GuiSessionSnapshot, InMemoryDocumentPersistence, LifecycleCapabilities, LifecycleCommand,
+    LifecycleCommandStatus, RunCapabilityProfile, RunRequest, RunTranscript,
     SessionCapabilityProfile, save_lifecycle_to_persistence,
 };
 use oxide_domain::{DiagnosticRow, OxideDomainRole};
@@ -25,6 +26,9 @@ pub const GUI_THIN_SLICE_LIFECYCLE: &str = "gui-thin-slice-lifecycle";
 pub const GUI_RUN_OUTPUT_BROWSER_DISABLED: &str = "gui-run-output-browser-disabled";
 pub const GUI_RUN_OUTPUT_SIMULATED_SUPPORTED: &str = "gui-run-output-simulated-supported";
 pub const GUI_DNAONECALC_EMBEDDING_CONTRACT: &str = "gui-dnaonecalc-embedding-contract";
+pub const GUI_COM_REFERENCE_BROWSER_UNAVAILABLE: &str = "gui-com-reference-browser-unavailable";
+pub const GUI_COM_REFERENCE_NONWINDOWS_UNAVAILABLE: &str =
+    "gui-com-reference-nonwindows-unavailable";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,6 +61,8 @@ pub enum GuiScenarioKind {
     BrowserRunDisabled,
     SimulatedRunOutput,
     DnaOneCalcEmbeddingContract,
+    BrowserComUnavailable,
+    NonWindowsComUnavailable,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -117,8 +123,20 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_DNAONECALC_EMBEDDING_CONTRACT,
                 title: "DnaOneCalc embedding contract",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::DnaOneCalcEmbeddingContract,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_COM_REFERENCE_BROWSER_UNAVAILABLE,
+                title: "COM reference browser unavailable",
+                fixture_path: thin_slice.clone(),
+                kind: GuiScenarioKind::BrowserComUnavailable,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_COM_REFERENCE_NONWINDOWS_UNAVAILABLE,
+                title: "COM reference non-Windows unavailable",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::NonWindowsComUnavailable,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -190,7 +208,9 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         GuiScenarioKind::ReadOnlyProject
         | GuiScenarioKind::BrowserRunDisabled
         | GuiScenarioKind::SimulatedRunOutput
-        | GuiScenarioKind::DnaOneCalcEmbeddingContract => view.active_source.source_text.clone(),
+        | GuiScenarioKind::DnaOneCalcEmbeddingContract
+        | GuiScenarioKind::BrowserComUnavailable
+        | GuiScenarioKind::NonWindowsComUnavailable => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -242,12 +262,34 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
                 &view.active_source.source_text,
             )
         }
+        GuiScenarioKind::BrowserComUnavailable => render_com_capability_section(
+            &mut output,
+            ComCapabilityProfile::browser_unavailable(ComReferenceFact::scripting_dictionary_demo()),
+        ),
+        GuiScenarioKind::NonWindowsComUnavailable => render_com_capability_section(
+            &mut output,
+            ComCapabilityProfile::non_windows_native_unavailable(
+                ComReferenceFact::scripting_dictionary_demo(),
+            ),
+        ),
     }
     output.push_str("  <footer role=\"host-capability\">");
-    output.push_str(&view.capability.status_text);
+    output.push_str(scenario_host_capability_text(
+        scenario.kind,
+        &view.capability.status_text,
+    ));
     output.push_str("</footer>\n");
     output.push_str("</section>\n");
     Ok(output)
+}
+
+fn scenario_host_capability_text<'a>(kind: GuiScenarioKind, default_text: &'a str) -> &'a str {
+    match kind {
+        GuiScenarioKind::NonWindowsComUnavailable => {
+            "Non-Windows native profile: native execution capability is separate from Windows COM; COM unavailable."
+        }
+        _ => default_text,
+    }
 }
 
 fn render_browser_run_disabled_section(
@@ -343,6 +385,62 @@ fn render_simulated_run_output_section(
     }
     output.push_str("    </section>\n");
     output.push_str("  </section>\n");
+}
+
+fn render_com_capability_section(output: &mut String, profile: ComCapabilityProfile) {
+    output.push_str("  <section role=\"com-capability\" data-profile=\"");
+    output.push_str(profile.host_kind.label());
+    output.push_str("\" data-native-execution=\"");
+    output.push_str(if profile.native_execution_available {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-com-service-configured=\"");
+    output.push_str(if profile.native_com_service_configured {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-windows-native-host-required=\"");
+    output.push_str(if profile.windows_native_host_required {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    output.push_str("    <div role=\"com-reference-fact\">");
+    output.push_str(&html_escape(&profile.reference.display_name));
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"com-reference-identifier\">");
+    output.push_str(&html_escape(&profile.reference.identifier));
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"com-reference-source\">");
+    output.push_str(&html_escape(&profile.reference.source_label));
+    output.push_str("</div>\n");
+    render_com_status(output, &profile.reference_discovery);
+    render_com_status(output, &profile.runtime_invocation);
+    if profile.windows_native_host_required {
+        output.push_str("    <div role=\"com-required-host\">Windows native host required</div>\n");
+    }
+    output.push_str("    <div role=\"com-honesty-note\">No COM runtime support is claimed in this profile.</div>\n");
+    output.push_str("  </section>\n");
+}
+
+fn render_com_status(output: &mut String, status: &ComCapabilityStatus) {
+    output.push_str("    <div role=\"com-status\" data-feature=\"");
+    output.push_str(status.feature.label());
+    output.push_str("\" data-available=\"");
+    output.push_str(if status.is_available { "true" } else { "false" });
+    output.push_str("\">");
+    if status.is_available {
+        output.push_str("available");
+    } else if let Some(reason) = &status.reason {
+        output.push_str(&html_escape(reason));
+    } else {
+        output.push_str("unavailable");
+    }
+    output.push_str("</div>\n");
 }
 
 fn render_dnaonecalc_embedding_contract_section(
@@ -693,6 +791,10 @@ mod tests {
         assert!(output.contains("Run output simulated supported"));
         assert!(output.contains("gui-dnaonecalc-embedding-contract"));
         assert!(output.contains("DnaOneCalc embedding contract"));
+        assert!(output.contains("gui-com-reference-browser-unavailable"));
+        assert!(output.contains("COM reference browser unavailable"));
+        assert!(output.contains("gui-com-reference-nonwindows-unavailable"));
+        assert!(output.contains("COM reference non-Windows unavailable"));
     }
 
     #[test]
@@ -813,6 +915,23 @@ mod tests {
     }
 
     #[test]
+    fn built_in_registry_finds_com_unavailable_scenarios_by_id() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let browser = registry
+            .find(GUI_COM_REFERENCE_BROWSER_UNAVAILABLE)
+            .expect("browser COM unavailable scenario");
+        let nonwindows = registry
+            .find(GUI_COM_REFERENCE_NONWINDOWS_UNAVAILABLE)
+            .expect("non-Windows COM unavailable scenario");
+
+        assert_eq!(browser.title, "COM reference browser unavailable");
+        assert_eq!(browser.kind, GuiScenarioKind::BrowserComUnavailable);
+        assert_eq!(nonwindows.title, "COM reference non-Windows unavailable");
+        assert_eq!(nonwindows.kind, GuiScenarioKind::NonWindowsComUnavailable);
+    }
+
+    #[test]
     fn browser_run_disabled_scenario_renders_structured_output_reason() {
         let registry = GuiScenarioRegistry::built_in(repo_root());
 
@@ -895,6 +1014,57 @@ mod tests {
         assert!(rendered.contains("ThinSliceHello::Module1.Main"));
         assert!(rendered.contains("native execution provider unavailable"));
         assert!(rendered.contains("did not modify DnaOneCalc files"));
+        assert!(rendered.contains("COM unavailable"));
+    }
+
+    #[test]
+    fn browser_com_unavailable_scenario_renders_reference_and_disabled_reasons() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_COM_REFERENCE_BROWSER_UNAVAILABLE)
+            .expect("render browser COM unavailable scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-com-reference-browser-unavailable\""));
+        assert!(rendered.contains("ThinSliceHello"));
+        assert!(rendered.contains("Module1.bas"));
+        assert!(rendered.contains("role=\"com-capability\" data-profile=\"browser-safe\""));
+        assert!(rendered.contains("data-native-execution=\"false\""));
+        assert!(rendered.contains("data-com-service-configured=\"false\""));
+        assert!(rendered.contains("data-windows-native-host-required=\"true\""));
+        assert!(rendered.contains("COM reference present: Scripting.Dictionary"));
+        assert!(rendered.contains(
+            "role=\"com-status\" data-feature=\"reference-discovery\" data-available=\"false\""
+        ));
+        assert!(rendered.contains("COM discovery unavailable in browser-safe profile"));
+        assert!(rendered.contains(
+            "role=\"com-status\" data-feature=\"runtime-invocation\" data-available=\"false\""
+        ));
+        assert!(rendered.contains("pure browser/WASM cannot directly call Windows COM"));
+        assert!(rendered.contains("Windows native host required"));
+        assert!(rendered.contains("No COM runtime support is claimed"));
+        assert!(rendered.contains("COM unavailable"));
+    }
+
+    #[test]
+    fn nonwindows_com_unavailable_scenario_keeps_native_execution_distinct() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_COM_REFERENCE_NONWINDOWS_UNAVAILABLE)
+            .expect("render non-Windows COM unavailable scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-com-reference-nonwindows-unavailable\""));
+        assert!(rendered.contains("role=\"com-capability\" data-profile=\"non-windows-native\""));
+        assert!(rendered.contains("data-native-execution=\"true\""));
+        assert!(rendered.contains("data-com-service-configured=\"false\""));
+        assert!(rendered.contains("data-windows-native-host-required=\"true\""));
+        assert!(rendered.contains("COM reference present: Scripting.Dictionary"));
+        assert!(rendered.contains("COM discovery unavailable on non-Windows native host"));
+        assert!(rendered.contains("COM runtime unavailable on non-Windows native host"));
+        assert!(rendered.contains("Windows native host required"));
+        assert!(rendered.contains("No COM runtime support is claimed"));
+        assert!(rendered.contains("Non-Windows native profile"));
         assert!(rendered.contains("COM unavailable"));
     }
 
