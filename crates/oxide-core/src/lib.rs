@@ -790,6 +790,142 @@ pub struct RunTimelineEntry {
     pub provenance_label: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RuntimeServiceProviderKind {
+    BrowserUnsupported,
+    Simulated,
+    NativeServiceMissing,
+    NativeServiceAvailable,
+}
+
+impl RuntimeServiceProviderKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::BrowserUnsupported => "browser-unsupported",
+            Self::Simulated => "simulated",
+            Self::NativeServiceMissing => "native-service-missing",
+            Self::NativeServiceAvailable => "native-service-available",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeServiceCommandStatus {
+    pub is_enabled: bool,
+    pub disabled_reason: Option<String>,
+}
+
+impl RuntimeServiceCommandStatus {
+    pub fn enabled() -> Self {
+        Self {
+            is_enabled: true,
+            disabled_reason: None,
+        }
+    }
+
+    pub fn disabled(reason: impl Into<String>) -> Self {
+        Self {
+            is_enabled: false,
+            disabled_reason: Some(reason.into()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeServicePacket {
+    pub runtime_session_id: Option<String>,
+    pub workspace_path: String,
+    pub request: RunRequest,
+    pub provider_kind: RuntimeServiceProviderKind,
+    pub command_status: RuntimeServiceCommandStatus,
+    pub events: Vec<RunOutputEvent>,
+    pub real_execution_claimed: bool,
+    pub native_runtime_claimed: bool,
+    pub com_runtime_claimed: bool,
+}
+
+impl RuntimeServicePacket {
+    pub fn browser_disabled(
+        workspace_path: impl Into<String>,
+        project_name: impl Into<String>,
+        module_name: impl Into<String>,
+        entrypoint: impl Into<String>,
+    ) -> Self {
+        let request = RunRequest::new(project_name, module_name, entrypoint);
+        let reason = String::from(
+            "Browser-safe profile cannot execute VBA; native execution provider unavailable.",
+        );
+        Self {
+            runtime_session_id: None,
+            workspace_path: workspace_path.into(),
+            request,
+            provider_kind: RuntimeServiceProviderKind::BrowserUnsupported,
+            command_status: RuntimeServiceCommandStatus::disabled(reason.clone()),
+            events: vec![
+                RunOutputEvent::new(RunOutputEventKind::Lifecycle, "run requested"),
+                RunOutputEvent::new(
+                    RunOutputEventKind::Diagnostic,
+                    format!("Run disabled: {reason}"),
+                ),
+            ],
+            real_execution_claimed: false,
+            native_runtime_claimed: false,
+            com_runtime_claimed: false,
+        }
+    }
+
+    pub fn native_service_missing(
+        workspace_path: impl Into<String>,
+        project_name: impl Into<String>,
+        module_name: impl Into<String>,
+        entrypoint: impl Into<String>,
+    ) -> Self {
+        let request = RunRequest::new(project_name, module_name, entrypoint);
+        let reason = String::from(
+            "native OxVba runtime service not configured; real execution unavailable.",
+        );
+        Self {
+            runtime_session_id: None,
+            workspace_path: workspace_path.into(),
+            request,
+            provider_kind: RuntimeServiceProviderKind::NativeServiceMissing,
+            command_status: RuntimeServiceCommandStatus::disabled(reason.clone()),
+            events: vec![
+                RunOutputEvent::new(RunOutputEventKind::Lifecycle, "native run requested"),
+                RunOutputEvent::new(RunOutputEventKind::Diagnostic, reason),
+            ],
+            real_execution_claimed: false,
+            native_runtime_claimed: false,
+            com_runtime_claimed: false,
+        }
+    }
+
+    pub fn simulated(
+        workspace_path: impl Into<String>,
+        project_name: impl Into<String>,
+        module_name: impl Into<String>,
+        entrypoint: impl Into<String>,
+    ) -> Self {
+        let request = RunRequest::new(project_name, module_name, entrypoint);
+        let transcript = RunTranscript::simulated_completed(request.clone());
+        Self {
+            runtime_session_id: Some(String::from("simulated-runtime-session")),
+            workspace_path: workspace_path.into(),
+            request,
+            provider_kind: RuntimeServiceProviderKind::Simulated,
+            command_status: RuntimeServiceCommandStatus::enabled(),
+            events: transcript.events,
+            real_execution_claimed: false,
+            native_runtime_claimed: false,
+            com_runtime_claimed: false,
+        }
+    }
+
+    pub fn provider_label(&self) -> &'static str {
+        self.provider_kind.label()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ComReferenceFact {
     pub display_name: String,
@@ -3009,6 +3145,106 @@ mod tests {
                 .message
                 .contains("native execution provider unavailable")
         );
+    }
+
+    #[test]
+    fn runtime_service_packet_browser_disabled_round_trips_without_real_execution() {
+        let packet = RuntimeServicePacket::browser_disabled(
+            "examples/thin-slice/ThinSliceHello.basproj",
+            "ThinSliceHello",
+            "Module1",
+            "Main",
+        );
+
+        let encoded = serde_json::to_string(&packet).expect("serialize runtime packet");
+        let decoded: RuntimeServicePacket =
+            serde_json::from_str(&encoded).expect("decode runtime packet");
+
+        assert_eq!(decoded, packet);
+        assert_eq!(packet.provider_label(), "browser-unsupported");
+        assert!(packet.runtime_session_id.is_none());
+        assert!(!packet.command_status.is_enabled);
+        assert!(
+            packet
+                .command_status
+                .disabled_reason
+                .as_deref()
+                .expect("runtime disabled reason")
+                .contains("native execution provider unavailable")
+        );
+        assert_eq!(
+            packet.request.display_target(),
+            "ThinSliceHello::Module1.Main"
+        );
+        assert_eq!(packet.events.len(), 2);
+        assert!(!packet.real_execution_claimed);
+        assert!(!packet.native_runtime_claimed);
+        assert!(!packet.com_runtime_claimed);
+    }
+
+    #[test]
+    fn runtime_service_packet_native_missing_is_distinct_from_browser_unsupported() {
+        let packet = RuntimeServicePacket::native_service_missing(
+            "examples/thin-slice/ThinSliceHello.basproj",
+            "ThinSliceHello",
+            "Module1",
+            "Main",
+        );
+
+        assert_eq!(packet.provider_label(), "native-service-missing");
+        assert_eq!(
+            packet.provider_kind,
+            RuntimeServiceProviderKind::NativeServiceMissing
+        );
+        assert_ne!(
+            packet.provider_kind,
+            RuntimeServiceProviderKind::BrowserUnsupported
+        );
+        assert!(packet.runtime_session_id.is_none());
+        assert!(!packet.command_status.is_enabled);
+        assert!(
+            packet
+                .command_status
+                .disabled_reason
+                .as_deref()
+                .expect("native service missing reason")
+                .contains("native OxVba runtime service not configured")
+        );
+        assert!(
+            packet
+                .events
+                .iter()
+                .any(|event| event.message.contains("real execution unavailable"))
+        );
+        assert!(!packet.real_execution_claimed);
+        assert!(!packet.native_runtime_claimed);
+        assert!(!packet.com_runtime_claimed);
+    }
+
+    #[test]
+    fn runtime_service_packet_simulated_remains_labeled_simulated_without_native_claims() {
+        let packet = RuntimeServicePacket::simulated(
+            "examples/thin-slice/ThinSliceHello.basproj",
+            "ThinSliceHello",
+            "Module1",
+            "Main",
+        );
+
+        assert_eq!(packet.provider_label(), "simulated");
+        assert_eq!(
+            packet.runtime_session_id.as_deref(),
+            Some("simulated-runtime-session")
+        );
+        assert!(packet.command_status.is_enabled);
+        assert!(packet.command_status.disabled_reason.is_none());
+        assert!(packet.events.iter().any(|event| {
+            event
+                .message
+                .contains("simulated output: Main completed with answer 42")
+        }));
+        assert!(!packet.real_execution_claimed);
+        assert!(!packet.native_runtime_claimed);
+        assert!(!packet.com_runtime_claimed);
     }
 
     #[test]
