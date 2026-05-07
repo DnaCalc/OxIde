@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OxIde GUI Showcase — Accepted Slices</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090b10;
+      --panel: #111722;
+      --panel-2: #151d2a;
+      --panel-3: #0d1320;
+      --line: #293348;
+      --text: #e8eef9;
+      --muted: #9aa8be;
+      --soft: #66758d;
+      --accent: #80d8ff;
+      --accent-2: #b38cff;
+      --good: #73e6a2;
+      --warn: #ffd166;
+      --bad: #ff7a8a;
+      --shadow: rgba(0, 0, 0, 0.38);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(128, 216, 255, 0.18), transparent 32rem),
+        radial-gradient(circle at top right, rgba(179, 140, 255, 0.14), transparent 34rem),
+        var(--bg);
+      color: var(--text);
+    }
+
+    main {
+      width: min(1440px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 32px 0 56px;
+    }
+
+    header.hero {
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 24px;
+      align-items: stretch;
+      margin-bottom: 24px;
+    }
+
+    .hero-card, .truth-card, .workspace, .panel, .strip-card {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(21, 29, 42, 0.96), rgba(13, 19, 32, 0.96));
+      box-shadow: 0 24px 64px var(--shadow);
+      border-radius: 22px;
+    }
+
+    .hero-card { padding: 28px; }
+    .truth-card { padding: 22px; }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--good);
+      box-shadow: 0 0 22px var(--good);
+    }
+
+    h1 {
+      margin: 14px 0 10px;
+      font-size: clamp(34px, 5vw, 70px);
+      letter-spacing: -0.06em;
+      line-height: 0.95;
+    }
+
+    h2, h3 { margin: 0; }
+    h2 { font-size: 18px; letter-spacing: -0.02em; }
+    h3 { font-size: 14px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; }
+
+    p { color: var(--muted); line-height: 1.55; }
+    code, pre { font-family: "Cascadia Code", "Fira Code", Consolas, monospace; }
+
+    .hero-copy {
+      max-width: 880px;
+      font-size: 17px;
+      margin-bottom: 20px;
+    }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 11px;
+      border: 1px solid rgba(128, 216, 255, 0.25);
+      background: rgba(128, 216, 255, 0.08);
+      color: #ccefff;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .chip.good { border-color: rgba(115, 230, 162, 0.35); color: #d8ffe7; background: rgba(115, 230, 162, 0.09); }
+    .chip.warn { border-color: rgba(255, 209, 102, 0.35); color: #ffe8a8; background: rgba(255, 209, 102, 0.08); }
+    .chip.no { border-color: rgba(255, 122, 138, 0.35); color: #ffd6dc; background: rgba(255, 122, 138, 0.08); }
+
+    .truth-grid { display: grid; gap: 10px; margin-top: 14px; }
+    .truth-row {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .truth-row strong { color: var(--text); }
+
+    .workspace {
+      overflow: hidden;
+      min-height: 820px;
+    }
+
+    .titlebar {
+      height: 46px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(6, 9, 16, 0.7);
+    }
+
+    .traffic { display: flex; gap: 8px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot.red { background: #ff5f57; }
+    .dot.yellow { background: #ffbd2e; }
+    .dot.green { background: #28c840; }
+    .titlebar-title { color: var(--muted); font-size: 13px; }
+
+    .ide-grid {
+      display: grid;
+      grid-template-columns: 250px minmax(520px, 1fr) 360px;
+      grid-template-rows: minmax(500px, auto) auto;
+      gap: 1px;
+      background: var(--line);
+    }
+
+    .sidebar, .editor, .rightbar, .bottom {
+      background: rgba(15, 21, 33, 0.98);
+    }
+
+    .sidebar { padding: 16px; }
+    .editor { min-width: 0; }
+    .rightbar { padding: 16px; }
+    .bottom {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1px;
+      background: var(--line);
+    }
+
+    .bottom > section { background: rgba(15, 21, 33, 0.98); padding: 16px; }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+
+    .tree-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 11px;
+      border-radius: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .tree-item.active {
+      background: rgba(128, 216, 255, 0.12);
+      color: var(--text);
+      border: 1px solid rgba(128, 216, 255, 0.25);
+    }
+
+    .editor-toolbar {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(10, 15, 24, 0.72);
+    }
+
+    .tab {
+      padding: 8px 12px;
+      border: 1px solid rgba(128, 216, 255, 0.24);
+      background: rgba(128, 216, 255, 0.08);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .source-wrap {
+      display: grid;
+      grid-template-columns: 54px 1fr;
+      min-height: 450px;
+    }
+
+    .gutter, .code {
+      margin: 0;
+      padding: 18px 0;
+      font-size: 14px;
+      line-height: 1.75;
+    }
+    .gutter {
+      color: var(--soft);
+      text-align: right;
+      padding-right: 14px;
+      border-right: 1px solid rgba(255,255,255,0.06);
+      user-select: none;
+    }
+    .code { padding-left: 18px; color: #d8e5ff; overflow-x: auto; }
+    .kw { color: #b38cff; }
+    .fn { color: #80d8ff; }
+    .num { color: #ffd166; }
+    .comment { color: #7b8aa2; }
+    .diag-squiggle { text-decoration: underline wavy var(--bad); text-underline-offset: 4px; }
+
+    .diagnostic {
+      border: 1px solid rgba(255, 122, 138, 0.26);
+      background: rgba(255, 122, 138, 0.08);
+      border-radius: 16px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .diagnostic strong { color: #ffd7dc; }
+
+    .command-list, .run-list, .proof-list { display: grid; gap: 8px; }
+    .command {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 9px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.03);
+      font-size: 13px;
+    }
+    kbd {
+      font: inherit;
+      font-size: 11px;
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.16);
+      border-bottom-width: 2px;
+      border-radius: 7px;
+      padding: 2px 7px;
+      background: rgba(255,255,255,0.06);
+    }
+
+    .status-card {
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.035);
+      border-radius: 16px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .status-card.good { border-color: rgba(115, 230, 162, 0.28); background: rgba(115, 230, 162, 0.07); }
+    .status-card.warn { border-color: rgba(255, 209, 102, 0.28); background: rgba(255, 209, 102, 0.07); }
+    .status-card.no { border-color: rgba(255, 122, 138, 0.28); background: rgba(255, 122, 138, 0.07); }
+
+    .event {
+      padding: 8px 10px;
+      border-left: 3px solid var(--accent);
+      background: rgba(128, 216, 255, 0.06);
+      border-radius: 0 10px 10px 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .event.output { border-left-color: var(--good); color: #dfffe9; }
+    .event.disabled { border-left-color: var(--warn); color: #ffe8a8; }
+
+    .showcase-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-top: 22px;
+    }
+    .strip-card { padding: 18px; min-height: 180px; }
+
+    .evidence {
+      margin-top: 22px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .evidence pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #c9d7ee;
+      background: #070b12;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 14px;
+      min-height: 140px;
+      margin: 12px 0 0;
+      font-size: 12px;
+    }
+
+    footer.page-footer {
+      margin-top: 24px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+    }
+
+    @media (max-width: 1180px) {
+      header.hero, .ide-grid, .bottom, .showcase-strip, .evidence { grid-template-columns: 1fr; }
+      .bottom { grid-column: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main
+    data-showcase="oxide-gui-accepted-slices"
+    data-source="W210-W330 acceptance evidence"
+    data-live-app="false"
+    data-browser-runtime="false"
+    data-dom-audited="false"
+    data-real-execution="false"
+    data-native-runtime="false"
+    data-com-runtime="false"
+    data-dnaonecalc-host-mount="false">
+    <header class="hero">
+      <section class="hero-card">
+        <div class="eyebrow">Accepted GUI pivot showcase</div>
+        <h1>OxIde as a web-shell-shaped IDE</h1>
+        <p class="hero-copy">
+          This is a static showcase of the GUI IDE shape proven by the accepted W210–W330 slices.
+          It is intentionally conservative: every visible capability is backed by current OxIde
+          GUI-lab/acceptance evidence, and every unimplemented runtime/host capability remains
+          labeled as unavailable or unclaimed.
+        </p>
+        <div class="chips" aria-label="accepted capability chips">
+          <span class="chip good">ThinSliceHello opens</span>
+          <span class="chip good">Module editor projection</span>
+          <span class="chip good">OxVba diagnostics projection</span>
+          <span class="chip good">Command palette / keyboard / focus</span>
+          <span class="chip good">Native persistence proof</span>
+          <span class="chip warn">Simulated run only</span>
+          <span class="chip no">No real runtime/debug/Immediate yet</span>
+          <span class="chip no">No COM runtime yet</span>
+        </div>
+      </section>
+
+      <aside class="truth-card" role="note" aria-label="truth and no claim summary">
+        <h2>Truth boundaries</h2>
+        <div class="truth-grid">
+          <div class="truth-row"><strong>OxIde</strong><span>Owns GUI state, shell packet, command/focus/accessibility projections, and static web-shell adapter.</span></div>
+          <div class="truth-row"><strong>OxVba</strong><span>Owns language, semantic, runtime, debug, Immediate, and COM truth.</span></div>
+          <div class="truth-row"><strong>DnaOneCalc</strong><span>Is a consuming host boundary; real host mount is not claimed yet.</span></div>
+          <div class="truth-row"><strong>Evidence</strong><span>Acceptance outputs live in <code>target/w330-acceptance-*.txt</code>; scenario summaries live in <code>docs/GUI_FIXTURES_AND_LAB.md</code>.</span></div>
+        </div>
+      </aside>
+    </header>
+
+    <section class="workspace" aria-label="OxIde GUI showcase window">
+      <div class="titlebar">
+        <div class="traffic"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></div>
+        <div class="titlebar-title">OxIde · ThinSliceHello · accepted static showcase</div>
+        <div class="small muted">not a live browser runtime</div>
+      </div>
+
+      <div class="ide-grid">
+        <aside class="sidebar" role="navigation" aria-label="Project spine">
+          <div class="section-title"><h3>Project</h3><span class="chip good">opened</span></div>
+          <div class="tree-item active"><span>ThinSliceHello</span><span>basproj</span></div>
+          <div class="tree-item active"><span>Module1.bas</span><span>active</span></div>
+
+          <div class="status-card warn" style="margin-top:16px;" role="status">
+            <strong>Browser-safe profile</strong>
+            <p class="small">Editing and semantic projection are available. Direct browser filesystem, native runtime, and COM remain unavailable.</p>
+          </div>
+
+          <div class="section-title" style="margin-top:16px;"><h3>Focus route</h3><span class="small muted">W280/W300</span></div>
+          <ol class="small muted">
+            <li>project-tree</li>
+            <li>source-editor</li>
+            <li>diagnostics-panel</li>
+            <li>lifecycle-controls</li>
+            <li>run-output</li>
+            <li>immediate-panel</li>
+            <li>debug-panel</li>
+            <li>com-capability</li>
+            <li>command-palette</li>
+          </ol>
+        </aside>
+
+        <section class="editor" aria-label="Source editor">
+          <div class="editor-toolbar">
+            <div class="tab">Module1.bas</div>
+            <div class="chips">
+              <span class="chip good">source-editor</span>
+              <span class="chip warn">edited diagnostics slice</span>
+            </div>
+          </div>
+          <div class="source-wrap">
+            <pre class="gutter">1
+2
+3
+4
+5
+6</pre>
+            <pre class="code" role="textbox" aria-label="Source editor static projection"><span class="kw">Attribute</span> VB_Name = <span class="fn">"Module1"</span>
+
+<span class="kw">Option Explicit</span>
+
+<span class="kw">Public Sub</span> <span class="fn">Main</span>()
+    <span class="diag-squiggle">answer</span> = <span class="num">40</span> + <span class="num">2</span>
+<span class="kw">End Sub</span></pre>
+          </div>
+          <div class="status-card no" role="status" aria-label="diagnostic panel preview">
+            <strong>Diagnostic · error</strong>
+            <p>use of undeclared variable: answer <span class="muted">· OxVba language service</span></p>
+            <p class="small">This diagnostic is from the accepted W220 edited in-memory slice where the declaration is removed; the checked-in fixture is not mutated.</p>
+          </div>
+        </section>
+
+        <aside class="rightbar" aria-label="Command and capability side panels">
+          <div class="section-title"><h3>Command palette</h3><kbd>Ctrl+Shift+P</kbd></div>
+          <div class="command-list" role="list" aria-label="accepted command palette projection">
+            <div class="command" role="listitem"><span>project.open</span><kbd>Ctrl+O</kbd></div>
+            <div class="command" role="listitem"><span>document.save</span><kbd>Ctrl+S</kbd></div>
+            <div class="command" role="listitem"><span>document.reload</span><kbd>Ctrl+R</kbd></div>
+            <div class="command" role="listitem"><span>runtime.run <span class="muted">sim/browser-gated</span></span><kbd>F5</kbd></div>
+            <div class="command" role="listitem"><span>runtime.immediate <span class="muted">disabled</span></span><kbd>Enter</kbd></div>
+            <div class="command" role="listitem"><span>runtime.debug <span class="muted">disabled</span></span><kbd>F10</kbd></div>
+          </div>
+
+          <div class="section-title" style="margin-top:18px;"><h3>Capability footer</h3></div>
+          <div class="status-card no" data-com-runtime="false">
+            <strong>COM capability</strong>
+            <p class="small">COM reference facts can be projected, but browser/non-Windows/native-service-missing profiles do not claim COM discovery or runtime invocation.</p>
+          </div>
+          <div class="status-card warn" data-dom-audited="false">
+            <strong>Web shell DOM smoke</strong>
+            <p class="small">Parsed HTML smoke verifies shell, command palette, focus/accessibility labels. Full browser runtime and accessibility audit are not claimed.</p>
+          </div>
+        </aside>
+
+        <div class="bottom" aria-label="Lower IDE panels">
+          <section aria-label="Lifecycle and persistence">
+            <div class="section-title"><h3>Lifecycle / persistence</h3><span class="chip good">W320</span></div>
+            <div class="status-card warn" data-provider="browser-limited" data-filesystem-persistence="false">
+              <strong>Browser save/reload disabled</strong>
+              <p class="small">browser-safe profile has no direct filesystem persistence</p>
+            </div>
+            <div class="status-card good" data-provider="native-filesystem" data-filesystem-persistence="true" data-test-owned-temp-project="true" data-checked-in-fixture-mutated="false">
+              <strong>Native disk proof</strong>
+              <p class="small">Save/reload and session restore are proven against GUI-lab test-owned temp project copies. Checked-in fixture mutation: false.</p>
+            </div>
+          </section>
+
+          <section aria-label="Run output">
+            <div class="section-title"><h3>Run output</h3><span class="chip warn">simulated</span></div>
+            <div class="run-list" data-real-execution="false" data-native-runtime="false" data-com-runtime="false">
+              <div class="event">run started</div>
+              <div class="event">simulated provider invoked ThinSliceHello::Module1.Main</div>
+              <div class="event output">simulated output: Main completed with answer 42</div>
+              <div class="event">run completed</div>
+            </div>
+            <p class="small muted">Real OxVba execution is represented only as a native-service contract/missing state today.</p>
+          </section>
+
+          <section aria-label="Immediate and debug">
+            <div class="section-title"><h3>Immediate / debug</h3><span class="chip no">service missing</span></div>
+            <div class="status-card no" data-provider="native-service-missing" data-fake-responses="false" data-native-runtime="false" data-com-runtime="false">
+              <strong>Immediate</strong>
+              <p class="small">No Immediate responses are rendered without a native OxVba runtime service.</p>
+            </div>
+            <div class="status-card no" data-provider="native-service-missing" data-fake-debug-data="false" data-callstack-count="0" data-locals-count="0" data-watches-count="0" data-breakpoints-count="0">
+              <strong>Debug</strong>
+              <p class="small">No callstack, locals, watches, or breakpoints are rendered without a native OxVba debug service.</p>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section class="showcase-strip" aria-label="Accepted slice cards">
+      <article class="strip-card" data-slice="W290-W300">
+        <h2>Mounted web shell</h2>
+        <p>Static shell consumes <code>GuiShellPacket</code>, preserving project tree, editor, diagnostics, command palette, focus route, and labels.</p>
+        <span class="chip warn">parsed HTML smoke only</span>
+      </article>
+      <article class="strip-card" data-slice="W310" data-dnaonecalc-host-mount="false">
+        <h2>DnaOneCalc host contract</h2>
+        <p>OxIde can render the DnaOneCalc web-shell host contract and mount inputs, but a real DnaOneCalc browser host smoke is not claimed.</p>
+        <span class="chip no">host mount unclaimed</span>
+      </article>
+      <article class="strip-card" data-slice="W320">
+        <h2>Native persistence proof</h2>
+        <p>Disk-backed save/reload/session restore are proven with test-owned temp copies and explicit fixture-mutation checks.</p>
+        <span class="chip good">filesystem proof exists</span>
+      </article>
+      <article class="strip-card" data-slice="W330" data-real-execution="false">
+        <h2>Runtime service contract</h2>
+        <p>Runtime, Immediate, and debug packets are ready for a future native OxVba service while keeping fake data and real execution false.</p>
+        <span class="chip no">native service missing</span>
+      </article>
+    </section>
+
+    <section class="evidence" aria-label="Evidence token excerpts">
+      <article class="panel" style="padding:18px;">
+        <h2>Native persistence tokens</h2>
+        <pre>data-provider="native-filesystem"
+data-filesystem-persistence="true"
+data-test-owned-temp-project="true"
+data-checked-in-fixture-mutated="false"
+data-native-runtime="false"
+data-com-runtime="false"</pre>
+      </article>
+      <article class="panel" style="padding:18px;">
+        <h2>Runtime contract tokens</h2>
+        <pre>data-provider="native-service-missing"
+data-real-execution="false"
+data-response-count="0"
+data-fake-responses="false"
+data-fake-debug-data="false"</pre>
+      </article>
+      <article class="panel" style="padding:18px;">
+        <h2>Web / host no-claims</h2>
+        <pre>data-browser-runtime="false"
+data-dom-audited="false"
+data-dnaonecalc-host-mount="false"
+DnaOneCalc browser host smoke is not claimed</pre>
+      </article>
+    </section>
+
+    <footer class="page-footer">
+      Static showcase only. For machine-checkable evidence, inspect <code>target/w330-acceptance-renders.txt</code>,
+      <code>target/w330-acceptance-grep.txt</code>, and <code>docs/GUI_FIXTURES_AND_LAB.md</code>.
+    </footer>
+  </main>
+</body>
+</html>
