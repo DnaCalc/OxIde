@@ -56,6 +56,10 @@ body {
   color: #d8f3ff;
 }
 
+.placeholder-deck {
+  border-color: rgba(126, 224, 184, 0.28);
+}
+
 .command-grid [role="host-command"] {
   display: grid;
   gap: 0.35rem;

@@ -5,6 +5,7 @@ import {
   createBrowserFixtureCommandClient,
   unavailableFixtureResponse
 } from "./command-client.js";
+import { renderPlaceholderPanelDeck } from "./placeholder-panels.js";
 
 export const DNA_OXIDE_HOST_UI_PROOF = Object.freeze({
   productName: "DNA OxIde",
@@ -132,6 +133,8 @@ export function renderDnaOxIdeHostShell(model = createDnaOxIdeHostShellModel()) 
     <h2>Command palette availability</h2>
 ${commandMarkup}
   </section>
+
+  ${renderPlaceholderPanelDeck()}
 
   ${renderServicePanel("Runtime", "host-runtime-panel", model.services.runtime)}
   ${renderServicePanel("Immediate", "host-immediate-panel", model.services.immediate)}

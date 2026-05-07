@@ -17,6 +17,7 @@ const requiredFiles = [
   "src/command-client.js",
   "src/host-shell.js",
   "src/interaction-harness.js",
+  "src/placeholder-panels.js",
   "src/styles.css",
   "src-tauri/Cargo.toml",
   "src-tauri/Cargo.lock",
@@ -71,6 +72,7 @@ assertContains("src/main.js", "DNA_OXIDE_FRONTEND_SCAFFOLD");
 assertContains("src/command-client.js", "DNA_OXIDE_COMMANDS");
 assertContains("src/host-shell.js", "DNA_OXIDE_HOST_UI_PROOF");
 assertContains("src/interaction-harness.js", "DNA_OXIDE_INTERACTION_HARNESS");
+assertContains("src/placeholder-panels.js", "DNA_OXIDE_PLACEHOLDER_PANEL_CONTRACT");
 assertContains("src-tauri/tauri.conf.json", "\"productName\": \"DNA OxIde\"");
 assertContains("src-tauri/src/services.rs", "tauri-native-scaffold");
 assertContains("src-tauri/src/commands.rs", "w344-rust-callable-tauri-ready");
@@ -106,6 +108,7 @@ for (const file of [
   "src/command-client.js",
   "src/host-shell.js",
   "src/interaction-harness.js",
+  "src/placeholder-panels.js",
   "src-tauri/README.md",
   "src-tauri/src/main.rs",
   "src-tauri/src/commands.rs",
