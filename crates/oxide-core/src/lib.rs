@@ -1977,6 +1977,158 @@ impl GuiAccessibilityProjection {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiShellModuleSummary {
+    pub display_name: String,
+    pub is_active: bool,
+}
+
+impl GuiShellModuleSummary {
+    pub fn new(display_name: impl Into<String>, is_active: bool) -> Self {
+        Self {
+            display_name: display_name.into(),
+            is_active,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiShellDiagnosticSummary {
+    pub severity_label: String,
+    pub message: String,
+    pub provenance_label: String,
+}
+
+impl GuiShellDiagnosticSummary {
+    pub fn new(
+        severity_label: impl Into<String>,
+        message: impl Into<String>,
+        provenance_label: impl Into<String>,
+    ) -> Self {
+        Self {
+            severity_label: severity_label.into(),
+            message: message.into(),
+            provenance_label: provenance_label.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiShellLifecycleCommandSummary {
+    pub command_name: String,
+    pub is_enabled: bool,
+    pub disabled_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiShellPacket {
+    pub workspace_path: String,
+    pub project_name: String,
+    pub modules: Vec<GuiShellModuleSummary>,
+    pub active_module: String,
+    pub source_text: String,
+    pub diagnostics: Vec<GuiShellDiagnosticSummary>,
+    pub lifecycle_profile_label: String,
+    pub lifecycle_commands: Vec<GuiShellLifecycleCommandSummary>,
+    pub run_capability: RunCapabilityProfile,
+    pub run_transcript: RunTranscript,
+    pub run_timeline: RunTimeline,
+    pub com_capability: ComCapabilityProfile,
+    pub command_palette: GuiCommandPalette,
+    pub keyboard_map: GuiKeyboardMap,
+    pub focus_graph: GuiFocusGraph,
+    pub accessibility: GuiAccessibilityProjection,
+    pub capability_footer: String,
+    pub parked_tui_imported: bool,
+    pub native_execution_claimed: bool,
+    pub com_runtime_claimed: bool,
+    pub web_framework_bound: bool,
+}
+
+impl GuiShellPacket {
+    pub fn browser_safe_baseline(
+        workspace_path: impl Into<String>,
+        project_name: impl Into<String>,
+        modules: Vec<GuiShellModuleSummary>,
+        active_module: impl Into<String>,
+        active_module_stem: impl Into<String>,
+        source_text: impl Into<String>,
+        diagnostics: Vec<GuiShellDiagnosticSummary>,
+    ) -> Self {
+        let project_name = project_name.into();
+        let source_text = source_text.into();
+        let document = DocumentLifecycleState::open_clean(
+            source_text.clone(),
+            LifecycleCapabilities::browser_limited(),
+        );
+        let run_capability = RunCapabilityProfile::browser_safe_unsupported();
+        let request = RunRequest::new(project_name.clone(), active_module_stem, "Main");
+        let run_transcript = RunTranscript::browser_disabled(request, run_capability.clone());
+        let run_timeline = RunTimeline::from_transcript(&run_transcript, &run_capability);
+        let com_capability = ComCapabilityProfile::browser_unavailable(
+            ComReferenceFact::scripting_dictionary_demo(),
+        );
+        let command_palette = GuiCommandPalette::browser_safe_baseline(&document);
+        let keyboard_map = GuiKeyboardMap::baseline(&command_palette);
+        let focus_graph = GuiFocusGraph::baseline(&command_palette);
+        let accessibility = GuiAccessibilityProjection::baseline(&command_palette);
+        let lifecycle_commands = [
+            LifecycleCommand::Save,
+            LifecycleCommand::Reload,
+            LifecycleCommand::Revert,
+        ]
+        .into_iter()
+        .map(|command| {
+            let status = document.command_status(command);
+            GuiShellLifecycleCommandSummary {
+                command_name: lifecycle_command_stable_name(command).to_string(),
+                is_enabled: status.is_enabled,
+                disabled_reason: status.reason,
+            }
+        })
+        .collect();
+        let com_runtime_claimed = com_capability.runtime_invocation.is_available
+            || run_capability.com_runtime_available
+            || run_timeline.com_runtime_available;
+        let native_execution_claimed =
+            run_capability.native_execution_available || run_timeline.native_execution_available;
+
+        Self {
+            workspace_path: workspace_path.into(),
+            project_name,
+            modules,
+            active_module: active_module.into(),
+            source_text,
+            diagnostics,
+            lifecycle_profile_label: String::from("browser-limited"),
+            lifecycle_commands,
+            run_capability,
+            run_transcript,
+            run_timeline,
+            com_capability,
+            parked_tui_imported: command_palette.parked_tui_imported,
+            web_framework_bound: accessibility.web_framework_bound,
+            command_palette,
+            keyboard_map,
+            focus_graph,
+            accessibility,
+            capability_footer: String::from(
+                "Browser-safe profile: editing and semantic projection available; native execution and COM unavailable.",
+            ),
+            native_execution_claimed,
+            com_runtime_claimed,
+        }
+    }
+}
+
+fn lifecycle_command_stable_name(command: LifecycleCommand) -> &'static str {
+    match command {
+        LifecycleCommand::Save => "save",
+        LifecycleCommand::Reload => "reload",
+        LifecycleCommand::Revert => "revert",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2994,6 +3146,70 @@ mod tests {
                 .and_then(|node| node.disabled_reason.as_deref())
                 .expect("COM disabled reason")
                 .contains("COM discovery unavailable in browser-safe profile")
+        );
+    }
+
+    #[test]
+    fn shell_packet_round_trips_and_reuses_existing_projections() {
+        let packet = GuiShellPacket::browser_safe_baseline(
+            "examples/thin-slice/ThinSliceHello.basproj",
+            "ThinSliceHello",
+            vec![GuiShellModuleSummary::new("Module1.bas", true)],
+            "Module1.bas",
+            "Module1",
+            "Option Explicit",
+            vec![],
+        );
+
+        let encoded = serde_json::to_string(&packet).expect("serialize shell packet");
+        let decoded: GuiShellPacket = serde_json::from_str(&encoded).expect("decode shell packet");
+
+        assert_eq!(decoded, packet);
+        assert_eq!(packet.command_palette.commands.len(), 10);
+        assert_eq!(packet.keyboard_map.contexts.len(), 8);
+        assert_eq!(packet.focus_graph.nodes.len(), 9);
+        assert_eq!(packet.accessibility.nodes.len(), 10);
+        assert_eq!(packet.run_timeline.provider_label, "browser-unsupported");
+    }
+
+    #[test]
+    fn shell_packet_preserves_browser_safe_limitations_without_tui_import() {
+        let packet = GuiShellPacket::browser_safe_baseline(
+            "examples/thin-slice/ThinSliceHello.basproj",
+            "ThinSliceHello",
+            vec![GuiShellModuleSummary::new("Module1.bas", true)],
+            "Module1.bas",
+            "Module1",
+            "Option Explicit",
+            vec![GuiShellDiagnosticSummary::new(
+                "error",
+                "use of undeclared variable: answer",
+                "OxVba language service",
+            )],
+        );
+
+        assert_eq!(packet.project_name, "ThinSliceHello");
+        assert_eq!(packet.active_module, "Module1.bas");
+        assert_eq!(packet.diagnostics.len(), 1);
+        assert_eq!(packet.lifecycle_profile_label, "browser-limited");
+        assert!(!packet.parked_tui_imported);
+        assert!(!packet.native_execution_claimed);
+        assert!(!packet.com_runtime_claimed);
+        assert!(!packet.web_framework_bound);
+        assert!(!packet.run_capability.can_run);
+        assert!(
+            packet
+                .run_capability
+                .disabled_reason
+                .as_deref()
+                .expect("run disabled reason")
+                .contains("native execution provider unavailable")
+        );
+        assert!(!packet.com_capability.runtime_invocation.is_available);
+        assert!(
+            packet
+                .capability_footer
+                .contains("native execution and COM unavailable")
         );
     }
 }

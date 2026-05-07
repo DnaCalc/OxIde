@@ -10,10 +10,10 @@ use oxide_bridge::EmbeddedIdePacket;
 use oxide_core::{
     ComCapabilityProfile, ComCapabilityStatus, ComReferenceFact, DebugCapabilityProfile,
     DocumentLifecycleState, GuiAccessibilityProjection, GuiCommandPalette, GuiFocusGraph,
-    GuiKeyboardMap, GuiSessionSnapshot, ImmediateCapabilityProfile, InMemoryDocumentPersistence,
-    LifecycleCapabilities, LifecycleCommand, LifecycleCommandStatus, RunCapabilityProfile,
-    RunRequest, RunTimeline, RunTranscript, SessionCapabilityProfile,
-    save_lifecycle_to_persistence,
+    GuiKeyboardMap, GuiSessionSnapshot, GuiShellDiagnosticSummary, GuiShellModuleSummary,
+    GuiShellPacket, ImmediateCapabilityProfile, InMemoryDocumentPersistence, LifecycleCapabilities,
+    LifecycleCommand, LifecycleCommandStatus, RunCapabilityProfile, RunRequest, RunTimeline,
+    RunTranscript, SessionCapabilityProfile, save_lifecycle_to_persistence,
 };
 use oxide_domain::{DiagnosticRow, OxideDomainRole};
 use oxide_editor_core::{EditOperation, SourceSnapshot};
@@ -40,6 +40,7 @@ pub const GUI_COMMAND_PALETTE_BASELINE: &str = "gui-command-palette-baseline";
 pub const GUI_KEYBOARD_CONTEXTS_BASELINE: &str = "gui-keyboard-contexts-baseline";
 pub const GUI_FOCUS_GRAPH_NO_MOUSE: &str = "gui-focus-graph-no-mouse";
 pub const GUI_ACCESSIBILITY_DISABLED_REASONS: &str = "gui-accessibility-disabled-reasons";
+pub const GUI_SHELL_PACKET_BASELINE: &str = "gui-shell-packet-baseline";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -82,6 +83,7 @@ pub enum GuiScenarioKind {
     KeyboardContextsBaseline,
     FocusGraphNoMouse,
     AccessibilityDisabledReasons,
+    ShellPacketBaseline,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -202,8 +204,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_ACCESSIBILITY_DISABLED_REASONS,
                 title: "Accessibility disabled reasons",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::AccessibilityDisabledReasons,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_SHELL_PACKET_BASELINE,
+                title: "Shell packet baseline",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::ShellPacketBaseline,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -285,7 +293,8 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::CommandPaletteBaseline
         | GuiScenarioKind::KeyboardContextsBaseline
         | GuiScenarioKind::FocusGraphNoMouse
-        | GuiScenarioKind::AccessibilityDisabledReasons => view.active_source.source_text.clone(),
+        | GuiScenarioKind::AccessibilityDisabledReasons
+        | GuiScenarioKind::ShellPacketBaseline => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -377,6 +386,18 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
                 &view.active_source.source_text,
             )
         }
+        GuiScenarioKind::ShellPacketBaseline => render_shell_packet_baseline_section(
+            &mut output,
+            &scenario.fixture_path,
+            &view.project_name,
+            &view
+                .modules
+                .iter()
+                .map(|module| GuiShellModuleSummary::new(&module.display_name, module.is_active))
+                .collect::<Vec<_>>(),
+            &view.active_source.module_display_name,
+            &view.active_source.source_text,
+        ),
     }
     output.push_str("  <footer role=\"host-capability\">");
     output.push_str(scenario_host_capability_text(
@@ -831,6 +852,121 @@ fn render_accessibility_disabled_reasons_section(output: &mut String, source_tex
     output.push_str("  </section>\n");
 }
 
+fn render_shell_packet_baseline_section(
+    output: &mut String,
+    workspace_path: &Path,
+    project_name: &str,
+    modules: &[GuiShellModuleSummary],
+    active_module: &str,
+    source_text: &str,
+) {
+    let packet = GuiShellPacket::browser_safe_baseline(
+        workspace_path.display().to_string(),
+        project_name,
+        modules.to_vec(),
+        active_module,
+        module_stem(active_module),
+        source_text,
+        vec![GuiShellDiagnosticSummary::new(
+            "info",
+            "shell packet baseline keeps diagnostics surface available",
+            "OxIde GUI shell packet",
+        )],
+    );
+
+    output.push_str("  <section role=\"shell-packet\" data-source=\"oxide-core GuiShellPacket\" data-project=\"");
+    output.push_str(&html_escape(&packet.project_name));
+    output.push_str("\" data-active-module=\"");
+    output.push_str(&html_escape(&packet.active_module));
+    output.push_str("\" data-module-count=\"");
+    output.push_str(&packet.modules.len().to_string());
+    output.push_str("\" data-diagnostics-count=\"");
+    output.push_str(&packet.diagnostics.len().to_string());
+    output.push_str("\" data-native-execution-claimed=\"");
+    output.push_str(if packet.native_execution_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-com-runtime-claimed=\"");
+    output.push_str(if packet.com_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-web-framework-bound=\"");
+    output.push_str(if packet.web_framework_bound {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-parked-tui-imported=\"");
+    output.push_str(if packet.parked_tui_imported {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    output.push_str("    <div role=\"shell-packet-workspace\">");
+    output.push_str(&html_escape(&packet.workspace_path));
+    output.push_str("</div>\n");
+    output.push_str("    <section role=\"shell-packet-surfaces\">\n");
+    for surface in [
+        "project-spine",
+        "source-editor",
+        "diagnostics",
+        "document-lifecycle",
+        "run-output",
+        "run-timeline",
+        "com-capability",
+        "command-palette",
+        "keyboard-map",
+        "focus-graph",
+        "accessibility-projection",
+        "capability-footer",
+    ] {
+        output.push_str("      <div role=\"shell-packet-surface\" data-surface=\"");
+        output.push_str(surface);
+        output.push_str("\"></div>\n");
+    }
+    output.push_str("    </section>\n");
+    output.push_str("    <div role=\"shell-packet-command-count\">");
+    output.push_str(&packet.command_palette.commands.len().to_string());
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"shell-packet-keybinding-count\">");
+    output.push_str(&packet.keyboard_map.bindings.len().to_string());
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"shell-packet-focus-node-count\">");
+    output.push_str(&packet.focus_graph.nodes.len().to_string());
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"shell-packet-accessibility-count\">");
+    output.push_str(&packet.accessibility.nodes.len().to_string());
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"shell-packet-run-provider\" data-provider=\"");
+    output.push_str(packet.run_capability.provider_kind.label());
+    output.push_str("\">");
+    if let Some(reason) = &packet.run_capability.disabled_reason {
+        output.push_str(&html_escape(reason));
+    }
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"shell-packet-com-profile\" data-profile=\"");
+    output.push_str(packet.com_capability.host_kind.label());
+    output.push_str("\">");
+    output.push_str(&html_escape(
+        packet
+            .com_capability
+            .runtime_invocation
+            .reason
+            .as_deref()
+            .unwrap_or("COM runtime available"),
+    ));
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"shell-packet-capability-footer\">");
+    output.push_str(&html_escape(&packet.capability_footer));
+    output.push_str("</div>\n");
+    output.push_str("  </section>\n");
+}
+
 fn render_com_capability_section(output: &mut String, profile: ComCapabilityProfile) {
     output.push_str("  <section role=\"com-capability\" data-profile=\"");
     output.push_str(profile.host_kind.label());
@@ -1255,6 +1391,8 @@ mod tests {
         assert!(output.contains("Focus graph no-mouse"));
         assert!(output.contains("gui-accessibility-disabled-reasons"));
         assert!(output.contains("Accessibility disabled reasons"));
+        assert!(output.contains("gui-shell-packet-baseline"));
+        assert!(output.contains("Shell packet baseline"));
     }
 
     #[test]
@@ -1437,6 +1575,9 @@ mod tests {
         let accessibility = registry
             .find(GUI_ACCESSIBILITY_DISABLED_REASONS)
             .expect("accessibility disabled reasons scenario");
+        let shell_packet = registry
+            .find(GUI_SHELL_PACKET_BASELINE)
+            .expect("shell packet baseline scenario");
 
         assert_eq!(command_palette.title, "Command palette baseline");
         assert_eq!(
@@ -1455,6 +1596,8 @@ mod tests {
             accessibility.kind,
             GuiScenarioKind::AccessibilityDisabledReasons
         );
+        assert_eq!(shell_packet.title, "Shell packet baseline");
+        assert_eq!(shell_packet.kind, GuiScenarioKind::ShellPacketBaseline);
     }
 
     #[test]
@@ -1827,6 +1970,42 @@ mod tests {
                 .contains("data-surface-id=\"capability-footer\" data-role=\"capability-footer\"")
         );
         assert!(rendered.contains("no web framework accessibility API is chosen in core"));
+    }
+
+    #[test]
+    fn shell_packet_baseline_scenario_renders_projection_contract_tokens() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_SHELL_PACKET_BASELINE)
+            .expect("render shell packet baseline scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-shell-packet-baseline\""));
+        assert!(rendered.contains("role=\"shell-packet\""));
+        assert!(rendered.contains("data-source=\"oxide-core GuiShellPacket\""));
+        assert!(rendered.contains("data-project=\"ThinSliceHello\""));
+        assert!(rendered.contains("data-active-module=\"Module1.bas\""));
+        assert!(rendered.contains("data-module-count=\"1\""));
+        assert!(rendered.contains("data-diagnostics-count=\"1\""));
+        assert!(rendered.contains("data-native-execution-claimed=\"false\""));
+        assert!(rendered.contains("data-com-runtime-claimed=\"false\""));
+        assert!(rendered.contains("data-web-framework-bound=\"false\""));
+        assert!(rendered.contains("data-parked-tui-imported=\"false\""));
+        assert!(rendered.contains("data-surface=\"project-spine\""));
+        assert!(rendered.contains("data-surface=\"source-editor\""));
+        assert!(rendered.contains("data-surface=\"run-timeline\""));
+        assert!(rendered.contains("data-surface=\"command-palette\""));
+        assert!(rendered.contains("data-surface=\"keyboard-map\""));
+        assert!(rendered.contains("data-surface=\"focus-graph\""));
+        assert!(rendered.contains("data-surface=\"accessibility-projection\""));
+        assert!(rendered.contains("role=\"shell-packet-command-count\">10"));
+        assert!(rendered.contains("role=\"shell-packet-keybinding-count\">11"));
+        assert!(rendered.contains("role=\"shell-packet-focus-node-count\">9"));
+        assert!(rendered.contains("role=\"shell-packet-accessibility-count\">10"));
+        assert!(rendered.contains("data-provider=\"browser-unsupported\""));
+        assert!(rendered.contains("native execution provider unavailable"));
+        assert!(rendered.contains("data-profile=\"browser-safe\""));
+        assert!(rendered.contains("COM runtime unavailable in browser-safe profile"));
     }
 
     #[test]
