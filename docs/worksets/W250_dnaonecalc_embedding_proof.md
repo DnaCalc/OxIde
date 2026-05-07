@@ -199,6 +199,28 @@ Closure:
   - [ ] W260 prerequisites documented.
   - [ ] Browser/native/COM limitations remain explicit.
 
+## Acceptance Evidence
+
+W250 was accepted with:
+
+```powershell
+cargo test --manifest-path crates/Cargo.toml --workspace
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-loaded
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-edited-diagnostics
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-lifecycle
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-browser-disabled
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-simulated-supported
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-dnaonecalc-embedding-contract
+```
+
+The accepted W250 lab output contains `gui-dnaonecalc-embedding-contract`,
+`DnaOneCalc`, `ThinSliceHello`, `Module1.bas`, OxIde-owned embedded surface
+slots, distinct `DnaOneCalc` / `OxIde` / `OxVba` ownership boundaries,
+`browser-unsupported` run state, `data-status="disabled"`,
+`data-native-execution="false"`, `data-com-runtime="false"`,
+`native execution provider unavailable`, `did not modify DnaOneCalc files`,
+and browser-safe `COM unavailable` capability text.
+
 ## Out-of-scope
 
 - Editing sibling DnaOneCalc repo files from this OxIde-scoped run.

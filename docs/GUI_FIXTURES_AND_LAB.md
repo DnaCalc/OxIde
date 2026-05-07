@@ -302,9 +302,72 @@ Known W240 limitations:
 3. no dedicated `run-output-demo` fixture yet,
 4. no debugger or Immediate Window surface yet.
 
-## 10. W250 Handoff
+## 10. W250 Acceptance Target
 
-W250 should start from the five current regression lab commands:
+W250 closes against a deterministic DnaOneCalc embedding contract lab scenario:
+
+```text
+DnaOneCalc embedding contract
+  -> project spine shows ThinSliceHello and Module1.bas
+  -> DnaOneCalc is identified as the consuming host
+  -> OxIde-owned embedded surface slots are listed
+  -> ownership boundaries keep DnaOneCalc, OxIde, and OxVba distinct
+  -> run capability remains browser-disabled with native execution unavailable
+  -> native execution and COM runtime are not claimed
+  -> the scenario states no DnaOneCalc repo files were modified
+  -> capability/status surface still states browser-safe COM-unavailable profile
+```
+
+Current W250 evidence command:
+
+```powershell
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-dnaonecalc-embedding-contract
+```
+
+Observed W250 output contains:
+
+- `data-scenario="gui-dnaonecalc-embedding-contract"`,
+- `ThinSliceHello`,
+- `Module1.bas`,
+- `role="embedded-host-contract" data-host="DnaOneCalc"`,
+- `data-sibling-repo-writes="false"`,
+- `role="embedded-surface" data-slot="project-spine"`,
+- `data-slot="source-editor"`,
+- `data-slot="diagnostics"`,
+- `data-slot="document-lifecycle"`,
+- `data-slot="run-output"`,
+- `data-slot="capability-footer"`,
+- `role="ownership-boundary" data-owner="DnaOneCalc"`,
+- `role="ownership-boundary" data-owner="OxIde"`,
+- `role="ownership-boundary" data-owner="OxVba"`,
+- `role="embedded-run-capability"`,
+- `data-provider="browser-unsupported"`,
+- `data-status="disabled"`,
+- `data-native-execution="false"`,
+- `data-com-runtime="false"`,
+- `ThinSliceHello::Module1.Main`,
+- `native execution provider unavailable`,
+- `did not modify DnaOneCalc files`,
+- browser-safe host capability text including `COM unavailable`.
+
+Implementation notes:
+
+1. `oxide-bridge` owns the serializable embedding packet boundary.
+2. The packet consumes `oxide-core` session/run state rather than duplicating lifecycle/run/session models.
+3. DnaOneCalc remains a read-only sibling repo for this OxIde-scoped run.
+4. W250 proves a contract and lab scenario, not a real DnaOneCalc Leptos mount.
+
+Known W250 limitations:
+
+1. no DnaOneCalc repo changes were made,
+2. no paired DnaOneCalc smoke exists yet,
+3. no native execution provider yet,
+4. no Windows COM capability yet,
+5. no package/versioning decision for `oxide-bridge` yet.
+
+## 11. W260 Handoff
+
+W260 should start from the six current regression lab commands:
 
 ```powershell
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-loaded
@@ -312,16 +375,17 @@ cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-s
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-lifecycle
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-browser-disabled
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-simulated-supported
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-dnaonecalc-embedding-contract
 ```
 
-W250 prerequisites:
+W260 prerequisites:
 
-1. preserve OxIde ownership of IDE state and DnaOneCalc ownership of its app shell,
-2. document dependency direction before any embedding proof,
-3. consume OxIde artifacts/contracts rather than duplicating GUI/run/lifecycle types in DnaOneCalc,
-4. coordinate sibling-repo changes by handoff rather than editing DnaOneCalc from this OxIde-scoped run,
-5. keep OxVba as semantic/runtime owner.
+1. keep browser/WASM COM unavailable states as regressions,
+2. distinguish COM reference presence/discovery from COM runtime invocation,
+3. introduce any native Windows proof behind an explicit capability profile,
+4. avoid claiming COM support from simulated run evidence,
+5. coordinate OxVba-owned COM/runtime interface needs by handoff rather than duplication.
 
-## 11. Cross-Repo Fixture Policy
+## 12. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.
