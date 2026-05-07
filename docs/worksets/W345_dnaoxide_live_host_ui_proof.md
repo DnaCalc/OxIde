@@ -12,6 +12,7 @@ This workset is the first live host UI proof. It must remain clear whether the p
 - W342 — shared IDE UI component layer.
 - W343 — OxIde host bridge facade.
 - W344 — DnaOxIde Tauri command boundary stubs.
+- [`docs/HANDOFF_W344_DNAOXIDE_COMMAND_BOUNDARY.md`](../HANDOFF_W344_DNAOXIDE_COMMAND_BOUNDARY.md).
 - [`docs/HANDOFF_DNAOXIDE_OXVBA_FEEDBACK_ALIGNMENT.md`](../HANDOFF_DNAOXIDE_OXVBA_FEEDBACK_ALIGNMENT.md).
 
 ## Design

@@ -1191,6 +1191,37 @@ Implementation notes:
 4. OxVba ThinSliceHello fixture-evidenced commands remain adapter-target labels until OxIde adds direct adapter tests.
 5. Real DnaOxIde runtime/debug/Immediate/COM claims remain false.
 
-## 22. Cross-Repo Fixture Policy
+## 22. W344 DnaOxIde Command Boundary Acceptance Target
+
+W344 closes against Rust-callable DnaOxIde command stubs plus a frontend command client shim:
+
+```powershell
+npm --prefix apps/dna-oxide run command-client:check
+npm --prefix apps/dna-oxide run scaffold:check
+cargo test --manifest-path apps/dna-oxide/src-tauri/Cargo.toml
+cargo test --manifest-path crates/Cargo.toml --workspace
+```
+
+Observed W344 acceptance evidence is captured in `target/w344-acceptance.txt` and contains:
+
+- `dna_oxide_open_project_path`, `dna_oxide_load_active_module`, `dna_oxide_save_active_module`, and session snapshot commands;
+- `dna_oxide_get_host_capabilities` over W343 host bridge availability;
+- compile/reference/COM/runtime/Immediate/debug/watch/breakpoint command stubs;
+- `proven-oxide-only`, `oxvba-available-subset`, `oxvba-fixture-evidenced`, and `pending-oxvba-hardening` labels;
+- `createDnaOxIdeCommandClient` and `createBrowserFixtureCommandClient`;
+- `native-service-missing` runtime/Immediate/debug packets;
+- checked-in `examples/thin-slice/Module1.bas` mutation guard;
+- no direct Tauri import/global in frontend/shared UI/host bridge paths;
+- no true runtime/COM/fake-data claim tokens.
+
+Implementation notes:
+
+1. Lifecycle commands operate on explicit/test-owned project paths and temp copies.
+2. Runtime, Immediate, and debug commands return empty native-service-missing packets; they do not synthesize responses, callstacks, locals, watches, or breakpoints.
+3. COM discovery/capability commands are disabled/subset/fixture labels; COM runtime invocation remains unclaimed.
+4. The frontend command client accepts an injected invoke implementation for the future Tauri path and provides a browser fixture client for review.
+5. W345 owns live host UI proof and must state whether it drives Tauri/WebView IPC, static frontend output, Rust render, or another bounded proof mode.
+
+## 23. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.

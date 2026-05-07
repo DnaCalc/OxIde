@@ -88,7 +88,7 @@ Tests:
   - Checked-in fixture mutation guard.
 
 Evidence:
-  - `target/w344-project-document-command-tests.txt`.
+  - `target/w344-b01-project-document-command-tests.txt`.
 
 Closure:
   - [ ] Project/document commands work on temp copies.
@@ -111,7 +111,7 @@ Tests:
   - Anti-fake-data tests for empty or explicitly subset-backed debug/Immediate data.
 
 Evidence:
-  - `target/w344-unavailable-service-command-tests.txt`.
+  - `target/w344-b02-unavailable-service-command-tests.txt`.
 
 Closure:
   - [ ] Available-subset and fixture-evidenced commands are labeled and tested.
@@ -134,7 +134,7 @@ Tests:
   - Dependency grep verifies shared UI has no Tauri dependency.
 
 Evidence:
-  - Command client tests or grep output.
+  - `target/w344-b03-command-client-shim.txt`.
 
 Closure:
   - [ ] DnaOxIde has a command client shim.
@@ -156,7 +156,8 @@ Tests:
   - Anti-overclaim scan.
 
 Evidence:
-  - W344 acceptance outputs.
+  - `target/w344-acceptance.txt`.
+  - [`docs/HANDOFF_W344_DNAOXIDE_COMMAND_BOUNDARY.md`](../HANDOFF_W344_DNAOXIDE_COMMAND_BOUNDARY.md).
 
 Closure:
   - [ ] Proven commands are implemented.
