@@ -6,7 +6,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use oxide_bridge::EmbeddedIdePacket;
+use oxide_bridge::{DnaOneCalcWebShellHostPacket, EmbeddedIdePacket, WebShellDomReadinessSummary};
 use oxide_core::{
     ComCapabilityProfile, ComCapabilityStatus, ComReferenceFact, DebugCapabilityProfile,
     DocumentLifecycleState, GuiAccessibilityProjection, GuiCommandPalette, GuiFocusGraph,
@@ -53,6 +53,7 @@ pub const GUI_WEB_SHELL_DOM_SMOKE: &str = "gui-web-shell-dom-smoke";
 pub const GUI_WEB_COMMAND_PALETTE_DOM_SMOKE: &str = "gui-web-command-palette-dom-smoke";
 pub const GUI_WEB_NO_MOUSE_ACCESSIBILITY_DOM_SMOKE: &str =
     "gui-web-no-mouse-accessibility-dom-smoke";
+pub const GUI_DNAONECALC_WEB_SHELL_HOST_CONTRACT: &str = "gui-dnaonecalc-web-shell-host-contract";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -103,6 +104,7 @@ pub enum GuiScenarioKind {
     WebShellDomSmoke,
     WebCommandPaletteDomSmoke,
     WebNoMouseAccessibilityDomSmoke,
+    DnaOneCalcWebShellHostContract,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -271,8 +273,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_WEB_NO_MOUSE_ACCESSIBILITY_DOM_SMOKE,
                 title: "Web no-mouse accessibility DOM smoke",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::WebNoMouseAccessibilityDomSmoke,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_DNAONECALC_WEB_SHELL_HOST_CONTRACT,
+                title: "DnaOneCalc web shell host contract",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::DnaOneCalcWebShellHostContract,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -362,9 +370,8 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::WebShellAdapterBoundary
         | GuiScenarioKind::WebShellDomSmoke
         | GuiScenarioKind::WebCommandPaletteDomSmoke
-        | GuiScenarioKind::WebNoMouseAccessibilityDomSmoke => {
-            view.active_source.source_text.clone()
-        }
+        | GuiScenarioKind::WebNoMouseAccessibilityDomSmoke
+        | GuiScenarioKind::DnaOneCalcWebShellHostContract => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -546,6 +553,22 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         ),
         GuiScenarioKind::WebNoMouseAccessibilityDomSmoke => {
             render_web_no_mouse_accessibility_dom_smoke_section(
+                &mut output,
+                &scenario.fixture_path,
+                &view.project_name,
+                &view
+                    .modules
+                    .iter()
+                    .map(|module| {
+                        GuiShellModuleSummary::new(&module.display_name, module.is_active)
+                    })
+                    .collect::<Vec<_>>(),
+                &view.active_source.module_display_name,
+                &view.active_source.source_text,
+            )
+        }
+        GuiScenarioKind::DnaOneCalcWebShellHostContract => {
+            render_dnaonecalc_web_shell_host_contract_section(
                 &mut output,
                 &scenario.fixture_path,
                 &view.project_name,
@@ -1033,6 +1056,33 @@ fn build_shell_packet_baseline(
             "shell packet baseline keeps diagnostics surface available",
             "OxIde GUI shell packet",
         )],
+    )
+}
+
+fn build_dnaonecalc_web_shell_host_packet(
+    workspace_path: &Path,
+    project_name: &str,
+    modules: &[GuiShellModuleSummary],
+    active_module: &str,
+    source_text: &str,
+) -> DnaOneCalcWebShellHostPacket {
+    let embedded = EmbeddedIdePacket::dnaonecalc_thin_slice_browser_disabled(
+        workspace_path.display().to_string(),
+        project_name,
+        active_module,
+        source_text,
+    );
+    let shell_packet = build_shell_packet_baseline(
+        workspace_path,
+        project_name,
+        modules,
+        active_module,
+        source_text,
+    );
+    DnaOneCalcWebShellHostPacket::from_packets(
+        embedded,
+        &shell_packet,
+        WebShellDomReadinessSummary::parsed_html_all_passed(),
     )
 }
 
@@ -1602,6 +1652,179 @@ fn render_web_no_mouse_accessibility_dom_smoke_section(
     output.push_str("  </section>\n");
 }
 
+fn render_dnaonecalc_web_shell_host_contract_section(
+    output: &mut String,
+    workspace_path: &Path,
+    project_name: &str,
+    modules: &[GuiShellModuleSummary],
+    active_module: &str,
+    source_text: &str,
+) {
+    let packet = build_dnaonecalc_web_shell_host_packet(
+        workspace_path,
+        project_name,
+        modules,
+        active_module,
+        source_text,
+    );
+
+    output.push_str("  <section role=\"dnaonecalc-web-shell-host-contract\" data-host=\"");
+    output.push_str(&html_escape(&packet.embedded_ide.consumer.host_name));
+    output.push_str("\" data-state-contract=\"");
+    output.push_str(&html_escape(&packet.web_shell.state_contract));
+    output.push_str("\" data-embedding-contract=\"EmbeddedIdePacket\" data-web-adapter=\"");
+    output.push_str(&html_escape(&packet.web_shell.adapter_crate));
+    output.push_str("\" data-sibling-repo-writes=\"");
+    output.push_str(if packet.sibling_repo_writes() {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-host-mount-claimed=\"");
+    output.push_str(if packet.web_shell.host_mount_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-filesystem-persistence=\"");
+    output.push_str(if packet.web_shell.filesystem_persistence_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-native-runtime=\"");
+    output.push_str(if packet.web_shell.native_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-com-runtime=\"");
+    output.push_str(if packet.web_shell.com_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-dom-audited=\"");
+    output.push_str(if packet.web_shell.dom_accessibility_audit_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    output.push_str("    <div role=\"host-product-role\">");
+    output.push_str(&html_escape(&packet.embedded_ide.consumer.product_role));
+    output.push_str("</div>\n");
+    output.push_str("    <section role=\"host-mount-inputs\">\n");
+    for input in &packet.required_mount_inputs {
+        output.push_str("      <div role=\"host-mount-input\">");
+        output.push_str(&html_escape(input));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    </section>\n");
+    output.push_str("    <section role=\"host-surface-slots\">\n");
+    for surface in &packet.embedded_ide.surfaces {
+        output.push_str("      <div role=\"host-surface-slot\" data-slot=\"");
+        output.push_str(&html_escape(&surface.slot_id));
+        output.push_str("\" data-owner=\"");
+        output.push_str(&html_escape(&surface.owner));
+        output.push_str("\">");
+        output.push_str(&html_escape(&surface.label));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    </section>\n");
+    output.push_str("    <section role=\"host-ownership-boundaries\">\n");
+    for boundary in &packet.embedded_ide.ownership_boundaries {
+        output.push_str("      <div role=\"host-ownership-boundary\" data-owner=\"");
+        output.push_str(&html_escape(&boundary.owner));
+        output.push_str("\">");
+        output.push_str(&html_escape(&boundary.responsibility));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    </section>\n");
+    output.push_str("    <section role=\"host-web-shell-summary\" data-project=\"");
+    output.push_str(&html_escape(&packet.web_shell.project_name));
+    output.push_str("\" data-active-module=\"");
+    output.push_str(&html_escape(&packet.web_shell.active_module));
+    output.push_str("\" data-module-count=\"");
+    output.push_str(&packet.web_shell.module_count.to_string());
+    output.push_str("\" data-command-count=\"");
+    output.push_str(&packet.web_shell.command_count.to_string());
+    output.push_str("\" data-keybinding-count=\"");
+    output.push_str(&packet.web_shell.keybinding_count.to_string());
+    output.push_str("\" data-focus-route-length=\"");
+    output.push_str(&packet.web_shell.focus_route_length.to_string());
+    output.push_str("\" data-accessibility-surface-count=\"");
+    output.push_str(&packet.web_shell.accessibility_surface_count.to_string());
+    output.push_str("\"></section>\n");
+    output.push_str("    <section role=\"host-dom-readiness\" data-smoke-kind=\"");
+    output.push_str(&html_escape(&packet.web_shell.dom_readiness.smoke_kind));
+    output.push_str("\" data-all-passed=\"");
+    output.push_str(if packet.web_shell.dom_readiness.all_passed() {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-static-shell=\"");
+    output.push_str(
+        if packet.web_shell.dom_readiness.static_shell_dom_smoke_passed {
+            "true"
+        } else {
+            "false"
+        },
+    );
+    output.push_str("\" data-command-palette=\"");
+    output.push_str(
+        if packet
+            .web_shell
+            .dom_readiness
+            .command_palette_dom_smoke_passed
+        {
+            "true"
+        } else {
+            "false"
+        },
+    );
+    output.push_str("\" data-no-mouse-accessibility=\"");
+    output.push_str(
+        if packet
+            .web_shell
+            .dom_readiness
+            .no_mouse_accessibility_dom_smoke_passed
+        {
+            "true"
+        } else {
+            "false"
+        },
+    );
+    output.push_str("\" data-browser-runtime=\"");
+    output.push_str(if packet.web_shell.dom_readiness.browser_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-dom-audited=\"");
+    output.push_str(
+        if packet
+            .web_shell
+            .dom_readiness
+            .dom_accessibility_audit_claimed
+        {
+            "true"
+        } else {
+            "false"
+        },
+    );
+    output.push_str("\"></section>\n");
+    output.push_str("    <section role=\"host-limitations\">\n");
+    for limitation in &packet.limitations {
+        output.push_str("      <div role=\"host-limitation\">");
+        output.push_str(&html_escape(limitation));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    </section>\n");
+    output.push_str("  </section>\n");
+}
+
 fn render_com_capability_section(output: &mut String, profile: ComCapabilityProfile) {
     output.push_str("  <section role=\"com-capability\" data-profile=\"");
     output.push_str(profile.host_kind.label());
@@ -2042,6 +2265,8 @@ mod tests {
         assert!(output.contains("Web command palette DOM smoke"));
         assert!(output.contains("gui-web-no-mouse-accessibility-dom-smoke"));
         assert!(output.contains("Web no-mouse accessibility DOM smoke"));
+        assert!(output.contains("gui-dnaonecalc-web-shell-host-contract"));
+        assert!(output.contains("DnaOneCalc web shell host contract"));
     }
 
     #[test]
@@ -2248,6 +2473,9 @@ mod tests {
         let web_no_mouse_accessibility_dom_smoke = registry
             .find(GUI_WEB_NO_MOUSE_ACCESSIBILITY_DOM_SMOKE)
             .expect("web no-mouse accessibility DOM smoke scenario");
+        let dnaonecalc_web_shell_host_contract = registry
+            .find(GUI_DNAONECALC_WEB_SHELL_HOST_CONTRACT)
+            .expect("DnaOneCalc web shell host contract scenario");
 
         assert_eq!(command_palette.title, "Command palette baseline");
         assert_eq!(
@@ -2308,6 +2536,14 @@ mod tests {
         assert_eq!(
             web_no_mouse_accessibility_dom_smoke.kind,
             GuiScenarioKind::WebNoMouseAccessibilityDomSmoke
+        );
+        assert_eq!(
+            dnaonecalc_web_shell_host_contract.title,
+            "DnaOneCalc web shell host contract"
+        );
+        assert_eq!(
+            dnaonecalc_web_shell_host_contract.kind,
+            GuiScenarioKind::DnaOneCalcWebShellHostContract
         );
     }
 
@@ -3020,6 +3256,56 @@ mod tests {
         assert!(rendered.contains("no OxVba debug session"));
         assert!(rendered.contains("COM discovery unavailable in browser-safe profile"));
         assert!(rendered.contains("not a full accessibility audit"));
+    }
+
+    #[test]
+    fn dnaonecalc_web_shell_host_contract_scenario_renders_boundaries_and_no_claims() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_DNAONECALC_WEB_SHELL_HOST_CONTRACT)
+            .expect("render DnaOneCalc web shell host contract scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-dnaonecalc-web-shell-host-contract\""));
+        assert!(rendered.contains("role=\"dnaonecalc-web-shell-host-contract\""));
+        assert!(rendered.contains("data-host=\"DnaOneCalc\""));
+        assert!(rendered.contains("data-state-contract=\"GuiShellPacket\""));
+        assert!(rendered.contains("data-embedding-contract=\"EmbeddedIdePacket\""));
+        assert!(rendered.contains("data-web-adapter=\"oxide-webshell\""));
+        assert!(rendered.contains("data-sibling-repo-writes=\"false\""));
+        assert!(rendered.contains("data-host-mount-claimed=\"false\""));
+        assert!(rendered.contains("data-filesystem-persistence=\"false\""));
+        assert!(rendered.contains("data-native-runtime=\"false\""));
+        assert!(rendered.contains("data-com-runtime=\"false\""));
+        assert!(rendered.contains("data-dom-audited=\"false\""));
+        assert!(rendered.contains("role=\"host-mount-input\">EmbeddedIdePacket"));
+        assert!(rendered.contains("role=\"host-mount-input\">GuiShellPacket"));
+        assert!(
+            rendered
+                .contains("role=\"host-mount-input\">oxide-webshell snapshot or mounted component")
+        );
+        assert!(rendered.contains(
+            "role=\"host-surface-slot\" data-slot=\"project-spine\" data-owner=\"OxIde\""
+        ));
+        assert!(rendered.contains(
+            "role=\"host-surface-slot\" data-slot=\"source-editor\" data-owner=\"OxIde\""
+        ));
+        assert!(rendered.contains("role=\"host-ownership-boundary\" data-owner=\"DnaOneCalc\""));
+        assert!(rendered.contains("role=\"host-ownership-boundary\" data-owner=\"OxIde\""));
+        assert!(rendered.contains("role=\"host-ownership-boundary\" data-owner=\"OxVba\""));
+        assert!(rendered.contains("role=\"host-web-shell-summary\" data-project=\"ThinSliceHello\" data-active-module=\"Module1.bas\""));
+        assert!(rendered.contains("data-command-count=\"10\""));
+        assert!(rendered.contains("data-keybinding-count=\"11\""));
+        assert!(rendered.contains("data-focus-route-length=\"10\""));
+        assert!(rendered.contains("data-accessibility-surface-count=\"10\""));
+        assert!(rendered.contains(
+            "role=\"host-dom-readiness\" data-smoke-kind=\"parsed-html\" data-all-passed=\"true\""
+        ));
+        assert!(rendered.contains("data-static-shell=\"true\""));
+        assert!(rendered.contains("data-command-palette=\"true\""));
+        assert!(rendered.contains("data-no-mouse-accessibility=\"true\""));
+        assert!(rendered.contains("DnaOneCalc browser host smoke is not claimed"));
+        assert!(rendered.contains("did not modify DnaOneCalc files"));
     }
 
     #[test]
