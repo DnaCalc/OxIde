@@ -272,6 +272,172 @@ impl<T> HostBridgeResponse<T> {
     }
 }
 
+/// Current OxVba available-subset adapter target names, kept separate from full claims.
+pub const OXVBA_AVAILABLE_SUBSET_ADAPTERS: &[&str] = &[
+    "HostWorkspaceSession",
+    "inspect_workspace_target",
+    "ComSelectionService",
+    "EmbeddedBuildRunHost",
+    "EmbeddedRunSession",
+    "ImmediateSession",
+    "DebugSession",
+];
+
+/// Browser-review fixture host for deterministic bridge tests.
+#[derive(Debug, Clone)]
+pub struct BrowserReviewFixtureHost {
+    consumer: HostBridgeConsumerKind,
+    shell: GuiShellPacket,
+    runtime: RuntimeServicePacket,
+    immediate: ImmediateServicePacket,
+    debug: DebugServicePacket,
+}
+
+impl BrowserReviewFixtureHost {
+    pub fn new(shell: GuiShellPacket) -> Self {
+        let runtime = RuntimeServicePacket::native_service_missing(
+            shell.workspace_path.clone(),
+            shell.project_name.clone(),
+            module_stem(&shell.active_module),
+            "Main",
+        );
+        let immediate =
+            ImmediateServicePacket::native_service_missing(Some(String::from("?answer")));
+        let debug = DebugServicePacket::native_service_missing();
+        Self {
+            consumer: HostBridgeConsumerKind::BrowserReview,
+            shell,
+            runtime,
+            immediate,
+            debug,
+        }
+    }
+
+    pub fn consumer(&self) -> HostBridgeConsumerKind {
+        self.consumer
+    }
+
+    pub fn available_subset_adapters(&self) -> &'static [&'static str] {
+        OXVBA_AVAILABLE_SUBSET_ADAPTERS
+    }
+}
+
+impl HostProjectApi for BrowserReviewFixtureHost {
+    fn project_status(&self) -> HostBridgeServiceStatus {
+        HostBridgeServiceStatus::proven_oxide_only(HostBridgeServiceCategory::Project)
+    }
+
+    fn shell_packet(&self) -> HostBridgeResponse<GuiShellPacket> {
+        HostBridgeResponse::proven(self.shell.clone())
+    }
+}
+
+impl HostDocumentApi for BrowserReviewFixtureHost {
+    fn document_status(&self) -> HostBridgeServiceStatus {
+        HostBridgeServiceStatus::proven_oxide_only(HostBridgeServiceCategory::Document)
+    }
+}
+
+impl HostLanguageApi for BrowserReviewFixtureHost {
+    fn language_status(&self) -> HostBridgeServiceStatus {
+        HostBridgeServiceStatus::oxvba_available_subset(
+            HostBridgeServiceCategory::Language,
+            "HostWorkspaceSession language subset available; stable DTO hardening pending",
+        )
+    }
+}
+
+impl HostCompileApi for BrowserReviewFixtureHost {
+    fn compile_status(&self) -> HostBridgeServiceStatus {
+        HostBridgeServiceStatus::pending_oxvba_hardening(
+            HostBridgeServiceCategory::Compile,
+            "compile options and run target DTOs pending",
+        )
+    }
+}
+
+impl HostReferenceApi for BrowserReviewFixtureHost {
+    fn reference_status(&self) -> HostBridgeServiceStatus {
+        HostBridgeServiceStatus::oxvba_available_subset(
+            HostBridgeServiceCategory::Reference,
+            "ComSelectionService subset available; COM capability/native boundary hardening pending",
+        )
+    }
+}
+
+impl HostRuntimeApi for BrowserReviewFixtureHost {
+    fn runtime_status(&self) -> HostBridgeServiceStatus {
+        HostBridgeServiceStatus::pending_oxvba_hardening(
+            HostBridgeServiceCategory::Runtime,
+            "runtime session IDs, events, command availability, and source spans pending",
+        )
+    }
+
+    fn runtime_packet(&self) -> RuntimeServicePacket {
+        self.runtime.clone()
+    }
+}
+
+impl HostImmediateApi for BrowserReviewFixtureHost {
+    fn immediate_status(&self) -> HostBridgeServiceStatus {
+        HostBridgeServiceStatus::pending_oxvba_hardening(
+            HostBridgeServiceCategory::Immediate,
+            "Immediate attach/session ID hardening pending",
+        )
+    }
+
+    fn immediate_packet(&self) -> ImmediateServicePacket {
+        self.immediate.clone()
+    }
+}
+
+impl HostDebugApi for BrowserReviewFixtureHost {
+    fn debug_status(&self) -> HostBridgeServiceStatus {
+        HostBridgeServiceStatus::pending_oxvba_hardening(
+            HostBridgeServiceCategory::Debug,
+            "debug watch/breakpoint/source-span DTOs pending",
+        )
+    }
+
+    fn debug_packet(&self) -> DebugServicePacket {
+        self.debug.clone()
+    }
+}
+
+impl HostSettingsApi for BrowserReviewFixtureHost {
+    fn settings_status(&self) -> HostBridgeServiceStatus {
+        HostBridgeServiceStatus::proven_oxide_only(HostBridgeServiceCategory::Settings)
+    }
+}
+
+impl HostCapabilityApi for BrowserReviewFixtureHost {
+    fn capability_statuses(&self) -> Vec<HostBridgeServiceStatus> {
+        vec![
+            self.project_status(),
+            self.document_status(),
+            self.language_status(),
+            self.compile_status(),
+            self.reference_status(),
+            self.runtime_status(),
+            self.immediate_status(),
+            self.debug_status(),
+            self.settings_status(),
+            HostBridgeServiceStatus::pending_oxvba_hardening(
+                HostBridgeServiceCategory::Capability,
+                "shared capability/error taxonomy pending",
+            ),
+        ]
+    }
+}
+
+fn module_stem(display_name: &str) -> String {
+    display_name
+        .strip_suffix(".bas")
+        .or_else(|| display_name.strip_suffix(".cls"))
+        .unwrap_or(display_name)
+        .to_string()
+}
+
 /// All service categories in stable display order.
 pub fn host_bridge_service_categories() -> Vec<HostBridgeServiceCategory> {
     vec![
@@ -291,6 +457,23 @@ pub fn host_bridge_service_categories() -> Vec<HostBridgeServiceCategory> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use oxide_core::{GuiShellDiagnosticSummary, GuiShellModuleSummary};
+
+    fn fixture_shell_packet() -> GuiShellPacket {
+        GuiShellPacket::browser_safe_baseline(
+            "examples/thin-slice",
+            "ThinSliceHello",
+            vec![GuiShellModuleSummary::new("Module1.bas", true)],
+            "Module1.bas",
+            "Module1",
+            "Public Sub Main()\nEnd Sub\n",
+            vec![GuiShellDiagnosticSummary::new(
+                "info",
+                "host bridge fixture diagnostic",
+                "oxide-host-bridge test",
+            )],
+        )
+    }
 
     #[test]
     fn role_is_host_neutral_and_not_tauri_coupled() {
@@ -360,5 +543,103 @@ mod tests {
             "browser-review"
         );
         assert_eq!(HostBridgeConsumerKind::GuiLab.label(), "oxide-guilab");
+    }
+
+    #[test]
+    fn browser_review_fixture_exposes_proven_project_document_shell_packet() {
+        let host = BrowserReviewFixtureHost::new(fixture_shell_packet());
+
+        assert_eq!(host.consumer(), HostBridgeConsumerKind::BrowserReview);
+        assert_eq!(
+            host.project_status().state,
+            HostBridgeCapabilityState::ProvenOxideOnly
+        );
+        assert_eq!(
+            host.document_status().state,
+            HostBridgeCapabilityState::ProvenOxideOnly
+        );
+
+        let shell = host.shell_packet();
+        assert_eq!(shell.state_label(), "proven-oxide-only");
+        match shell {
+            HostBridgeResponse::Ready { value, .. } => {
+                assert_eq!(value.project_name, "ThinSliceHello");
+                assert_eq!(value.active_module, "Module1.bas");
+            }
+            HostBridgeResponse::Unavailable { .. } => panic!("shell packet should be available"),
+        }
+    }
+
+    #[test]
+    fn browser_review_fixture_separates_available_subset_adapters_from_claims() {
+        let host = BrowserReviewFixtureHost::new(fixture_shell_packet());
+        let adapters = host.available_subset_adapters();
+
+        assert!(adapters.contains(&"HostWorkspaceSession"));
+        assert!(adapters.contains(&"inspect_workspace_target"));
+        assert!(adapters.contains(&"ComSelectionService"));
+        assert!(adapters.contains(&"EmbeddedBuildRunHost"));
+        assert!(adapters.contains(&"EmbeddedRunSession"));
+        assert!(adapters.contains(&"ImmediateSession"));
+        assert!(adapters.contains(&"DebugSession"));
+
+        let language = host.language_status();
+        let reference = host.reference_status();
+        assert_eq!(
+            language.state,
+            HostBridgeCapabilityState::OxVbaAvailableSubset
+        );
+        assert_eq!(
+            reference.state,
+            HostBridgeCapabilityState::OxVbaAvailableSubset
+        );
+        assert!(language.no_claim_flags_false());
+        assert!(reference.no_claim_flags_false());
+    }
+
+    #[test]
+    fn browser_review_fixture_keeps_runtime_immediate_debug_unavailable_without_fake_data() {
+        let host = BrowserReviewFixtureHost::new(fixture_shell_packet());
+
+        let runtime = host.runtime_packet();
+        let immediate = host.immediate_packet();
+        let debug = host.debug_packet();
+
+        assert_eq!(runtime.provider_label(), "native-service-missing");
+        assert!(!runtime.real_execution_claimed);
+        assert!(!runtime.native_runtime_claimed);
+        assert!(!runtime.com_runtime_claimed);
+
+        assert_eq!(immediate.provider_label(), "native-service-missing");
+        assert_eq!(immediate.responses.len(), 0);
+        assert!(!immediate.fake_responses);
+        assert!(!immediate.native_runtime_claimed);
+        assert!(!immediate.com_runtime_claimed);
+
+        assert_eq!(debug.provider_label(), "native-service-missing");
+        assert_eq!(debug.callstack.len(), 0);
+        assert_eq!(debug.locals.len(), 0);
+        assert_eq!(debug.watches.len(), 0);
+        assert_eq!(debug.breakpoints.len(), 0);
+        assert!(!debug.fake_debug_data);
+        assert!(!debug.native_runtime_claimed);
+        assert!(!debug.com_runtime_claimed);
+    }
+
+    #[test]
+    fn browser_review_fixture_capability_statuses_cover_all_categories() {
+        let host = BrowserReviewFixtureHost::new(fixture_shell_packet());
+        let statuses = host.capability_statuses();
+
+        assert_eq!(statuses.len(), 10);
+        assert!(statuses
+            .iter()
+            .all(HostBridgeServiceStatus::no_claim_flags_false));
+        assert!(statuses.iter().any(|status| status.category
+            == HostBridgeServiceCategory::Compile
+            && status.state == HostBridgeCapabilityState::PendingOxVbaHardening));
+        assert!(statuses.iter().any(|status| status.category
+            == HostBridgeServiceCategory::Reference
+            && status.state == HostBridgeCapabilityState::OxVbaAvailableSubset));
     }
 }
