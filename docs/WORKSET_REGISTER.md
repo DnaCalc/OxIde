@@ -83,8 +83,9 @@ sequence for the GUI pivot.
 10. `W290` — host-mounted GUI shell
 11. `W300` — mounted web shell adapter
 12. `W310` — DnaOneCalc web shell hosting
+13. `W320` — native filesystem and session persistence
 
-`W310` is the active follow-on to the accepted W300 mounted web shell adapter. It is scoped to an OxIde-side DnaOneCalc host contract unless sibling repo writes are explicitly authorized.
+`W320` is the active follow-on to the accepted W310 DnaOneCalc web shell hosting contract. It is scoped to OxIde-owned native filesystem/session persistence using test-owned temporary project copies; paired DnaOneCalc implementation still requires explicit sibling-repo write authorization.
 
 ## Workset Specs
 
@@ -117,6 +118,7 @@ sequence for the GUI pivot.
 - [W290_host_mounted_gui_shell.md](worksets/W290_host_mounted_gui_shell.md)
 - [W300_mounted_web_shell_adapter.md](worksets/W300_mounted_web_shell_adapter.md)
 - [W310_dnaonecalc_web_shell_hosting.md](worksets/W310_dnaonecalc_web_shell_hosting.md)
+- [W320_native_filesystem_session_persistence.md](worksets/W320_native_filesystem_session_persistence.md)
 
 ## Use Rule
 
