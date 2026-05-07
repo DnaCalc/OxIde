@@ -607,6 +607,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "oxide-host-bridge"
+version = "0.1.0"
+dependencies = [
+ "oxide-bridge",
+ "oxide-core",
+]
+
+[[package]]
 name = "oxide-oxvba"
 version = "0.1.0"
 dependencies = [

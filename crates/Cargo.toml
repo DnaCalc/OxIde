@@ -5,6 +5,7 @@ members = [
     "oxide-domain",
     "oxide-editor-core",
     "oxide-guilab",
+    "oxide-host-bridge",
     "oxide-oxvba",
     "oxide-ui-leptos",
     "oxide-webshell",

@@ -13,6 +13,7 @@ Initial W210 crates:
 - `oxide-editor-core` — rendering-independent source snapshot and edit behavior.
 - `oxide-oxvba` — adapter boundary over authoritative OxVba APIs.
 - `oxide-ui-leptos` — shared IDE UI component boundary for DnaOxIde, DnaOneCalc, and GUI-lab review surfaces.
+- `oxide-host-bridge` — host-neutral service facade for DnaOxIde, DnaOneCalc, browser review fixtures, and GUI-lab consumers.
 - `oxide-guilab` — deterministic GUI scenario lab boundary.
 
 Do not import parked TUI `src/shell/*` code into these crates as implementation substrate. Rewrite behavior deliberately when it is needed.

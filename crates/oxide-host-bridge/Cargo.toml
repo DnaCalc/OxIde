@@ -1,0 +1,8 @@
+[package]
+name = "oxide-host-bridge"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+oxide-bridge = { path = "../oxide-bridge" }
+oxide-core = { path = "../oxide-core" }
