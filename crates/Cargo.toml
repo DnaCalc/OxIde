@@ -2,6 +2,7 @@
 members = [
     "oxide-core",
     "oxide-domain",
+    "oxide-editor-core",
     "oxide-guilab",
     "oxide-oxvba",
 ]

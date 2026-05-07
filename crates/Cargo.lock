@@ -454,6 +454,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "oxide-editor-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "oxide-guilab"
 version = "0.1.0"
 dependencies = [

@@ -10,6 +10,7 @@ Initial W210 crates:
 
 - `oxide-domain` — host-independent OxIde vocabulary.
 - `oxide-core` — GUI-neutral state and orchestration.
+- `oxide-editor-core` — rendering-independent source snapshot and edit behavior.
 - `oxide-oxvba` — adapter boundary over authoritative OxVba APIs.
 - `oxide-guilab` — deterministic GUI scenario lab boundary.
 
