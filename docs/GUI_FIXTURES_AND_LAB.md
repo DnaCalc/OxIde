@@ -730,6 +730,122 @@ Known W290 limitations:
 5. no native COM discovery or invocation,
 6. no DnaOneCalc host integration changes.
 
-## 15. Cross-Repo Fixture Policy
+## 15. W300 Accepted Mounted Web Shell Adapter
+
+W300 accepted against the twenty-four current regression lab commands. W300 added:
+
+```powershell
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-web-shell-adapter-boundary
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-web-shell-dom-smoke
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-web-command-palette-dom-smoke
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-web-no-mouse-accessibility-dom-smoke
+```
+
+Observed web-shell adapter boundary output contains:
+
+- `data-scenario="gui-web-shell-adapter-boundary"`,
+- `role="web-shell-boundary-snapshot"`,
+- `role="web-shell-adapter" data-source="GuiShellPacket"`,
+- `data-web-framework="unselected"`,
+- `data-dom-smoke-tested="false"`,
+- `data-dom-audited="false"`,
+- `data-filesystem-persistence="false"`,
+- `data-native-runtime="false"`,
+- `data-com-runtime="false"`,
+- `data-parked-tui-imported="false"`,
+- `role="web-project-tree"`,
+- `role="web-source-editor"`,
+- `role="web-run-output"`,
+- `role="web-com-capability"`,
+- `role="web-command-summary"`,
+- `role="web-focus-accessibility-summary"`,
+- `Web shell adapter consumes GuiShellPacket`.
+
+Observed web-shell DOM smoke output contains:
+
+- `data-scenario="gui-web-shell-dom-smoke"`,
+- `role="web-shell-dom-smoke"`,
+- `data-source="GuiShellPacket"`,
+- `data-smoke-kind="parsed-html-tree"`,
+- `data-dom-smoke-tested="true"`,
+- `data-browser-runtime="false"`,
+- `data-dom-audited="false"`,
+- `data-all-passed="true"`,
+- `data-check="root consumes GuiShellPacket" data-passed="true"`,
+- `data-check="project tree carries project name" data-passed="true"`,
+- `ThinSliceHello`,
+- `Module1.bas`,
+- `data-check="source editor shows module source" data-passed="true"`,
+- `Public Sub Main()`,
+- `Parsed HTML DOM smoke only; no browser runtime or DOM accessibility audit is claimed`.
+
+Observed web command-palette DOM smoke output contains:
+
+- `data-scenario="gui-web-command-palette-dom-smoke"`,
+- `role="web-command-palette-dom-smoke"`,
+- `data-smoke-kind="parsed-html-command-palette"`,
+- `data-dom-smoke-tested="true"`,
+- `data-browser-runtime="false"`,
+- `data-dom-audited="false"`,
+- `data-all-passed="true"`,
+- `project.open gesture survives DOM mounting`,
+- `document.save gesture survives DOM mounting`,
+- `data-gesture=Ctrl+S`,
+- `runtime.run gesture survives DOM mounting`,
+- `data-gesture=F5`,
+- `runtime.run disabled reason remains visible`,
+- `native execution provider unavailable`,
+- `runtime.immediate gesture survives DOM mounting`,
+- `data-gesture=Enter`,
+- `runtime.debug gesture survives DOM mounting`,
+- `data-gesture=F10`,
+- `shell.command_palette gesture survives DOM mounting`,
+- `data-gesture=Ctrl+Shift+P`,
+- `parked TUI command model remains isolated`.
+
+Observed web no-mouse/accessibility DOM smoke output contains:
+
+- `data-scenario="gui-web-no-mouse-accessibility-dom-smoke"`,
+- `role="web-no-mouse-accessibility-dom-smoke"`,
+- `data-smoke-kind="parsed-html-no-mouse-accessibility"`,
+- `data-dom-smoke-tested="true"`,
+- `data-browser-runtime="false"`,
+- `data-dom-audited="false"`,
+- `data-all-passed="true"`,
+- `focus route starts at project tree`,
+- `focus route reaches source editor`,
+- `focus route reaches diagnostics`,
+- `focus route reaches run output`,
+- `focus route reaches Immediate`,
+- `focus route reaches debug`,
+- `focus route reaches COM capability`,
+- `focus route reaches command palette`,
+- `command palette restores editor focus`,
+- `returns to source-editor`,
+- `source editor accessible description survives DOM mounting`,
+- `native execution provider unavailable`,
+- `no native OxVba runtime session`,
+- `no OxVba debug session`,
+- `COM discovery unavailable in browser-safe profile`,
+- `not a full accessibility audit`.
+
+Implementation notes:
+
+1. `oxide-webshell` is a thin adapter over `oxide-core::GuiShellPacket`.
+2. DOM smoke uses parsed HTML via the adapter snapshot; it does not claim a browser runtime.
+3. W300 keeps GUI-lab deterministic and keeps W210-W290 scenarios intact.
+4. No real filesystem persistence, native runtime/debug/Immediate, or COM runtime is claimed.
+5. No DnaOneCalc or OxVba sibling repo files were modified.
+
+Known W300 limitations:
+
+1. no real DnaOneCalc host mount yet,
+2. no browser runtime smoke beyond parsed HTML DOM checks,
+3. no full accessibility audit/compliance claim,
+4. no real filesystem persistence,
+5. no native runtime/debug/Immediate execution,
+6. no native COM discovery or invocation.
+
+## 16. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.

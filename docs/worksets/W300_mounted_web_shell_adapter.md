@@ -177,6 +177,8 @@ Closure:
 
 ### W300-B05 — W300 acceptance and next integration decision
 
+Status: Accepted 2026-05-07.
+
 Goal:
   Accept W300 with regression evidence and decide whether the next workset should deepen DnaOneCalc host embedding, native filesystem/session persistence, or OxVba runtime/native service integration.
 
@@ -192,15 +194,16 @@ Tests:
   - Grep shell packet, DOM mount, command palette, focus, accessibility, and no-claim tokens.
 
 Evidence:
-  - Full nested workspace tests.
-  - Rendered GUI-lab outputs.
-  - DOM smoke outputs.
-  - Handoff note.
+  - `cargo test --manifest-path crates/Cargo.toml --workspace` passed.
+  - W210-W300 GUI-lab renders collected in `target/w300-acceptance-renders.txt`.
+  - Adapter, parsed DOM smoke, command-palette DOM smoke, no-mouse/accessibility DOM smoke, and no-claim token checks collected in `target/w300-acceptance-grep.txt`.
+  - Next integration handoff: [`docs/HANDOFF_W310_DNAONECALC_WEB_SHELL_HOSTING.md`](../HANDOFF_W310_DNAONECALC_WEB_SHELL_HOSTING.md).
+  - Frozen OxVba `cfg(kani)` warnings remain non-blocking.
 
 Closure:
-  - [ ] W300 accepted or explicitly blocked with evidence.
-  - [ ] W210-W300 regression scenarios pass.
-  - [ ] Next integration prerequisites are documented.
+  - [x] W300 accepted or explicitly blocked with evidence.
+  - [x] W210-W300 regression scenarios pass.
+  - [x] Next integration prerequisites are documented.
 
 ## Out-of-scope
 
