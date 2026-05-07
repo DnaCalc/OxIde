@@ -458,6 +458,7 @@ name = "oxide-guilab"
 version = "0.1.0"
 dependencies = [
  "oxide-domain",
+ "oxide-oxvba",
 ]
 
 [[package]]
