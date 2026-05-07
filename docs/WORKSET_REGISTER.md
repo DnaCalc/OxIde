@@ -81,10 +81,9 @@ sequence for the GUI pivot.
 8. `W270` — run, debug, and Immediate GUI surfaces
 9. `W280` — command, keyboard, accessibility, and polish
 10. `W290` — host-mounted GUI shell
+11. `W300` — mounted web shell adapter
 
-`W210` through `W290` are scaffolded future GUI worksets. Before any
-of them is executed, its Beads section must be expanded into concrete
-Goal / Design / Tests / Evidence / Closure packets.
+`W300` is the active follow-on to the accepted W290 host-mounted/static shell proof. It must keep `GuiShellPacket` as the state contract and add only DOM/browser claims backed by W300 tests.
 
 ## Workset Specs
 
@@ -115,6 +114,7 @@ Goal / Design / Tests / Evidence / Closure packets.
 - [W270_run_debug_immediate_gui_surfaces.md](worksets/W270_run_debug_immediate_gui_surfaces.md)
 - [W280_command_keyboard_accessibility_polish.md](worksets/W280_command_keyboard_accessibility_polish.md)
 - [W290_host_mounted_gui_shell.md](worksets/W290_host_mounted_gui_shell.md)
+- [W300_mounted_web_shell_adapter.md](worksets/W300_mounted_web_shell_adapter.md)
 
 ## Use Rule
 

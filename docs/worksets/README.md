@@ -37,10 +37,9 @@ Specs executors will touch next for the Rust/WASM-capable GUI pivot:
 - `W270_run_debug_immediate_gui_surfaces.md`
 - `W280_command_keyboard_accessibility_polish.md`
 - `W290_host_mounted_gui_shell.md`
+- `W300_mounted_web_shell_adapter.md`
 
-`W210` through `W290` are scaffolded future worksets. Expand each
-Beads section into concrete executable packets before starting code
-against that workset.
+`W300` is the active follow-on to the accepted W290 host-mounted/static shell proof. It keeps `GuiShellPacket` as the state contract and adds only DOM/browser claims backed by W300 tests.
 
 ## Parked TUI Lineage
 
