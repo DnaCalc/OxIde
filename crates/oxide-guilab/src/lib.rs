@@ -42,6 +42,7 @@ pub const GUI_FOCUS_GRAPH_NO_MOUSE: &str = "gui-focus-graph-no-mouse";
 pub const GUI_ACCESSIBILITY_DISABLED_REASONS: &str = "gui-accessibility-disabled-reasons";
 pub const GUI_SHELL_PACKET_BASELINE: &str = "gui-shell-packet-baseline";
 pub const GUI_MOUNTED_SHELL_STATIC: &str = "gui-mounted-shell-static";
+pub const GUI_MOUNTED_COMMAND_PALETTE: &str = "gui-mounted-command-palette";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -86,6 +87,7 @@ pub enum GuiScenarioKind {
     AccessibilityDisabledReasons,
     ShellPacketBaseline,
     MountedShellStatic,
+    MountedCommandPalette,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -218,8 +220,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_MOUNTED_SHELL_STATIC,
                 title: "Mounted shell static",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::MountedShellStatic,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_MOUNTED_COMMAND_PALETTE,
+                title: "Mounted command palette",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::MountedCommandPalette,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -303,7 +311,8 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::FocusGraphNoMouse
         | GuiScenarioKind::AccessibilityDisabledReasons
         | GuiScenarioKind::ShellPacketBaseline
-        | GuiScenarioKind::MountedShellStatic => view.active_source.source_text.clone(),
+        | GuiScenarioKind::MountedShellStatic
+        | GuiScenarioKind::MountedCommandPalette => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -408,6 +417,18 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
             &view.active_source.source_text,
         ),
         GuiScenarioKind::MountedShellStatic => render_mounted_shell_static_section(
+            &mut output,
+            &scenario.fixture_path,
+            &view.project_name,
+            &view
+                .modules
+                .iter()
+                .map(|module| GuiShellModuleSummary::new(&module.display_name, module.is_active))
+                .collect::<Vec<_>>(),
+            &view.active_source.module_display_name,
+            &view.active_source.source_text,
+        ),
+        GuiScenarioKind::MountedCommandPalette => render_mounted_command_palette_section(
             &mut output,
             &scenario.fixture_path,
             &view.project_name,
@@ -1095,6 +1116,68 @@ fn render_mounted_shell_static_section(
     output.push_str("  </section>\n");
 }
 
+fn render_mounted_command_palette_section(
+    output: &mut String,
+    workspace_path: &Path,
+    project_name: &str,
+    modules: &[GuiShellModuleSummary],
+    active_module: &str,
+    source_text: &str,
+) {
+    let packet = build_shell_packet_baseline(
+        workspace_path,
+        project_name,
+        modules,
+        active_module,
+        source_text,
+    );
+
+    output.push_str("  <section role=\"mounted-command-palette-detail\" data-source=\"GuiShellPacket.command_palette\" data-parked-tui-imported=\"");
+    output.push_str(if packet.parked_tui_imported {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-command-count=\"");
+    output.push_str(&packet.command_palette.commands.len().to_string());
+    output.push_str("\">\n");
+    for command in &packet.command_palette.commands {
+        let gesture = packet
+            .keyboard_map
+            .bindings
+            .iter()
+            .find(|binding| binding.command_id == command.id)
+            .map(|binding| binding.gesture.display.as_str())
+            .unwrap_or("unbound");
+        output.push_str("    <div role=\"mounted-command-row\" data-command-id=\"");
+        output.push_str(&html_escape(&command.stable_id));
+        output.push_str("\" data-category=\"");
+        output.push_str(command.category.label());
+        output.push_str("\" data-gesture=\"");
+        output.push_str(&html_escape(gesture));
+        output.push_str("\" data-enabled=\"");
+        output.push_str(if command.availability.is_enabled {
+            "true"
+        } else {
+            "false"
+        });
+        output.push_str("\" data-capability=\"");
+        output.push_str(&html_escape(&command.availability.capability_label));
+        output.push_str("\">\n");
+        output.push_str("      <span role=\"mounted-command-label\">");
+        output.push_str(&html_escape(&command.label));
+        output.push_str("</span>\n");
+        if let Some(reason) = &command.availability.disabled_reason {
+            output.push_str("      <span role=\"mounted-command-disabled-reason\">");
+            output.push_str(&html_escape(reason));
+            output.push_str("</span>\n");
+        }
+        output.push_str("    </div>\n");
+    }
+    output.push_str("    <div role=\"mounted-command-palette-policy\">Mounted command palette consumes packet state; parked TUI command model not imported.</div>\n");
+    output.push_str("  </section>\n");
+}
+
 fn render_com_capability_section(output: &mut String, profile: ComCapabilityProfile) {
     output.push_str("  <section role=\"com-capability\" data-profile=\"");
     output.push_str(profile.host_kind.label());
@@ -1523,6 +1606,8 @@ mod tests {
         assert!(output.contains("Shell packet baseline"));
         assert!(output.contains("gui-mounted-shell-static"));
         assert!(output.contains("Mounted shell static"));
+        assert!(output.contains("gui-mounted-command-palette"));
+        assert!(output.contains("Mounted command palette"));
     }
 
     #[test]
@@ -1711,6 +1796,9 @@ mod tests {
         let mounted_shell = registry
             .find(GUI_MOUNTED_SHELL_STATIC)
             .expect("mounted shell static scenario");
+        let mounted_command_palette = registry
+            .find(GUI_MOUNTED_COMMAND_PALETTE)
+            .expect("mounted command palette scenario");
 
         assert_eq!(command_palette.title, "Command palette baseline");
         assert_eq!(
@@ -1733,6 +1821,11 @@ mod tests {
         assert_eq!(shell_packet.kind, GuiScenarioKind::ShellPacketBaseline);
         assert_eq!(mounted_shell.title, "Mounted shell static");
         assert_eq!(mounted_shell.kind, GuiScenarioKind::MountedShellStatic);
+        assert_eq!(mounted_command_palette.title, "Mounted command palette");
+        assert_eq!(
+            mounted_command_palette.kind,
+            GuiScenarioKind::MountedCommandPalette
+        );
     }
 
     #[test]
@@ -2173,6 +2266,40 @@ mod tests {
         assert!(rendered.contains("data-accessibility-surface-count=\"10\""));
         assert!(rendered.contains("Static shell render consumes GuiShellPacket"));
         assert!(rendered.contains("no DOM accessibility audit, filesystem persistence, native runtime, or COM runtime is claimed"));
+    }
+
+    #[test]
+    fn mounted_command_palette_scenario_preserves_commands_gestures_and_disabled_reasons() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_MOUNTED_COMMAND_PALETTE)
+            .expect("render mounted command palette scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-mounted-command-palette\""));
+        assert!(rendered.contains("role=\"mounted-command-palette-detail\""));
+        assert!(rendered.contains("data-source=\"GuiShellPacket.command_palette\""));
+        assert!(rendered.contains("data-parked-tui-imported=\"false\""));
+        assert!(rendered.contains("data-command-count=\"10\""));
+        assert!(rendered.contains("data-command-id=\"project.open\""));
+        assert!(rendered.contains(
+            "data-command-id=\"document.save\" data-category=\"document\" data-gesture=\"Ctrl+S\""
+        ));
+        assert!(rendered.contains("browser-safe profile has no direct filesystem persistence"));
+        assert!(rendered.contains(
+            "data-command-id=\"runtime.run\" data-category=\"runtime\" data-gesture=\"F5\""
+        ));
+        assert!(rendered.contains("native execution provider unavailable"));
+        assert!(rendered.contains(
+            "data-command-id=\"runtime.immediate\" data-category=\"runtime\" data-gesture=\"Enter\""
+        ));
+        assert!(rendered.contains("no native OxVba runtime session"));
+        assert!(rendered.contains(
+            "data-command-id=\"runtime.debug\" data-category=\"runtime\" data-gesture=\"F10\""
+        ));
+        assert!(rendered.contains("no OxVba debug session"));
+        assert!(rendered.contains("Mounted command palette consumes packet state"));
+        assert!(rendered.contains("parked TUI command model not imported"));
     }
 
     #[test]
