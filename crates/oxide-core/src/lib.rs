@@ -843,6 +843,143 @@ impl ComCapabilityProfile {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RuntimeSurfaceProfileKind {
+    BrowserDisabled,
+    NativeRuntimeRequired,
+    FutureSupported,
+}
+
+impl RuntimeSurfaceProfileKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::BrowserDisabled => "browser-disabled",
+            Self::NativeRuntimeRequired => "native-runtime-required",
+            Self::FutureSupported => "future-supported",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeSurfaceCommandStatus {
+    pub is_enabled: bool,
+    pub reason: Option<String>,
+}
+
+impl RuntimeSurfaceCommandStatus {
+    pub fn enabled() -> Self {
+        Self {
+            is_enabled: true,
+            reason: None,
+        }
+    }
+
+    pub fn disabled(reason: impl Into<String>) -> Self {
+        Self {
+            is_enabled: false,
+            reason: Some(reason.into()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ImmediateCapabilityProfile {
+    pub profile_name: String,
+    pub kind: RuntimeSurfaceProfileKind,
+    pub command_status: RuntimeSurfaceCommandStatus,
+    pub native_runtime_required: bool,
+    pub com_runtime_required: bool,
+    pub fake_responses_available: bool,
+}
+
+impl ImmediateCapabilityProfile {
+    pub fn browser_disabled() -> Self {
+        Self {
+            profile_name: String::from("immediate-browser-disabled"),
+            kind: RuntimeSurfaceProfileKind::BrowserDisabled,
+            command_status: RuntimeSurfaceCommandStatus::disabled(
+                "Immediate disabled: browser-safe profile has no native OxVba runtime session.",
+            ),
+            native_runtime_required: true,
+            com_runtime_required: false,
+            fake_responses_available: false,
+        }
+    }
+
+    pub fn native_runtime_required() -> Self {
+        Self {
+            profile_name: String::from("immediate-native-runtime-required"),
+            kind: RuntimeSurfaceProfileKind::NativeRuntimeRequired,
+            command_status: RuntimeSurfaceCommandStatus::disabled(
+                "Immediate requires a native OxVba runtime session.",
+            ),
+            native_runtime_required: true,
+            com_runtime_required: false,
+            fake_responses_available: false,
+        }
+    }
+
+    pub fn future_supported() -> Self {
+        Self {
+            profile_name: String::from("immediate-future-supported"),
+            kind: RuntimeSurfaceProfileKind::FutureSupported,
+            command_status: RuntimeSurfaceCommandStatus::enabled(),
+            native_runtime_required: false,
+            com_runtime_required: false,
+            fake_responses_available: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DebugCapabilityProfile {
+    pub profile_name: String,
+    pub kind: RuntimeSurfaceProfileKind,
+    pub command_status: RuntimeSurfaceCommandStatus,
+    pub native_runtime_required: bool,
+    pub com_runtime_required: bool,
+    pub fake_debug_data_available: bool,
+}
+
+impl DebugCapabilityProfile {
+    pub fn browser_disabled() -> Self {
+        Self {
+            profile_name: String::from("debug-browser-disabled"),
+            kind: RuntimeSurfaceProfileKind::BrowserDisabled,
+            command_status: RuntimeSurfaceCommandStatus::disabled(
+                "Debug disabled: browser-safe profile has no OxVba debug session.",
+            ),
+            native_runtime_required: true,
+            com_runtime_required: false,
+            fake_debug_data_available: false,
+        }
+    }
+
+    pub fn native_runtime_required() -> Self {
+        Self {
+            profile_name: String::from("debug-native-runtime-required"),
+            kind: RuntimeSurfaceProfileKind::NativeRuntimeRequired,
+            command_status: RuntimeSurfaceCommandStatus::disabled(
+                "Debug requires a native OxVba runtime/debug session.",
+            ),
+            native_runtime_required: true,
+            com_runtime_required: false,
+            fake_debug_data_available: false,
+        }
+    }
+
+    pub fn future_supported() -> Self {
+        Self {
+            profile_name: String::from("debug-future-supported"),
+            kind: RuntimeSurfaceProfileKind::FutureSupported,
+            command_status: RuntimeSurfaceCommandStatus::enabled(),
+            native_runtime_required: false,
+            com_runtime_required: false,
+            fake_debug_data_available: false,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1355,5 +1492,90 @@ mod tests {
             ComCapabilityFeature::RuntimeInvocation.label(),
             "runtime-invocation"
         );
+    }
+
+    #[test]
+    fn immediate_browser_disabled_reports_native_runtime_session_unavailable() {
+        let profile = ImmediateCapabilityProfile::browser_disabled();
+
+        assert_eq!(profile.kind, RuntimeSurfaceProfileKind::BrowserDisabled);
+        assert_eq!(profile.kind.label(), "browser-disabled");
+        assert!(!profile.command_status.is_enabled);
+        assert!(profile.native_runtime_required);
+        assert!(!profile.com_runtime_required);
+        assert!(!profile.fake_responses_available);
+        assert!(
+            profile
+                .command_status
+                .reason
+                .as_deref()
+                .expect("Immediate disabled reason")
+                .contains("no native OxVba runtime session")
+        );
+    }
+
+    #[test]
+    fn debug_browser_disabled_reports_debug_session_unavailable_without_fake_data() {
+        let profile = DebugCapabilityProfile::browser_disabled();
+
+        assert_eq!(profile.kind, RuntimeSurfaceProfileKind::BrowserDisabled);
+        assert!(!profile.command_status.is_enabled);
+        assert!(profile.native_runtime_required);
+        assert!(!profile.com_runtime_required);
+        assert!(!profile.fake_debug_data_available);
+        assert!(
+            profile
+                .command_status
+                .reason
+                .as_deref()
+                .expect("debug disabled reason")
+                .contains("no OxVba debug session")
+        );
+    }
+
+    #[test]
+    fn native_runtime_required_profiles_are_distinct_from_future_supported() {
+        let immediate = ImmediateCapabilityProfile::native_runtime_required();
+        let debug = DebugCapabilityProfile::native_runtime_required();
+
+        assert_eq!(immediate.kind.label(), "native-runtime-required");
+        assert_eq!(debug.kind.label(), "native-runtime-required");
+        assert!(!immediate.command_status.is_enabled);
+        assert!(!debug.command_status.is_enabled);
+        assert!(immediate.native_runtime_required);
+        assert!(debug.native_runtime_required);
+        assert!(
+            immediate
+                .command_status
+                .reason
+                .as_deref()
+                .expect("Immediate native reason")
+                .contains("native OxVba runtime session")
+        );
+        assert!(
+            debug
+                .command_status
+                .reason
+                .as_deref()
+                .expect("debug native reason")
+                .contains("native OxVba runtime/debug session")
+        );
+    }
+
+    #[test]
+    fn future_supported_runtime_surface_profiles_do_not_imply_com_or_fake_data() {
+        let immediate = ImmediateCapabilityProfile::future_supported();
+        let debug = DebugCapabilityProfile::future_supported();
+
+        assert_eq!(immediate.kind.label(), "future-supported");
+        assert_eq!(debug.kind.label(), "future-supported");
+        assert!(immediate.command_status.is_enabled);
+        assert!(debug.command_status.is_enabled);
+        assert!(!immediate.native_runtime_required);
+        assert!(!debug.native_runtime_required);
+        assert!(!immediate.com_runtime_required);
+        assert!(!debug.com_runtime_required);
+        assert!(!immediate.fake_responses_available);
+        assert!(!debug.fake_debug_data_available);
     }
 }
