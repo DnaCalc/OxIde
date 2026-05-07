@@ -40,8 +40,9 @@ Specs executors will touch next for the Rust/WASM-capable GUI pivot:
 - `W300_mounted_web_shell_adapter.md`
 - `W310_dnaonecalc_web_shell_hosting.md`
 - `W320_native_filesystem_session_persistence.md`
+- `W330_oxvba_native_runtime_service_contract.md`
 
-`W320` is the active follow-on to the accepted W310 DnaOneCalc web shell hosting contract. It is scoped to OxIde-owned native filesystem/session persistence using test-owned temporary project copies; paired DnaOneCalc implementation still requires explicit sibling-repo write authorization.
+`W330` is the active follow-on to the accepted W320 native filesystem/session persistence workset. It is scoped to OxIde-owned runtime/debug/Immediate service contract packets and GUI-lab evidence; real OxVba native-service implementation and paired DnaOneCalc implementation still require explicit sibling-repo write authorization.
 
 ## Parked TUI Lineage
 
