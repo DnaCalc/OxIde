@@ -41,6 +41,7 @@ pub const GUI_KEYBOARD_CONTEXTS_BASELINE: &str = "gui-keyboard-contexts-baseline
 pub const GUI_FOCUS_GRAPH_NO_MOUSE: &str = "gui-focus-graph-no-mouse";
 pub const GUI_ACCESSIBILITY_DISABLED_REASONS: &str = "gui-accessibility-disabled-reasons";
 pub const GUI_SHELL_PACKET_BASELINE: &str = "gui-shell-packet-baseline";
+pub const GUI_MOUNTED_SHELL_STATIC: &str = "gui-mounted-shell-static";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -84,6 +85,7 @@ pub enum GuiScenarioKind {
     FocusGraphNoMouse,
     AccessibilityDisabledReasons,
     ShellPacketBaseline,
+    MountedShellStatic,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -210,8 +212,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_SHELL_PACKET_BASELINE,
                 title: "Shell packet baseline",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::ShellPacketBaseline,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_MOUNTED_SHELL_STATIC,
+                title: "Mounted shell static",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::MountedShellStatic,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -294,7 +302,8 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::KeyboardContextsBaseline
         | GuiScenarioKind::FocusGraphNoMouse
         | GuiScenarioKind::AccessibilityDisabledReasons
-        | GuiScenarioKind::ShellPacketBaseline => view.active_source.source_text.clone(),
+        | GuiScenarioKind::ShellPacketBaseline
+        | GuiScenarioKind::MountedShellStatic => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -387,6 +396,18 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
             )
         }
         GuiScenarioKind::ShellPacketBaseline => render_shell_packet_baseline_section(
+            &mut output,
+            &scenario.fixture_path,
+            &view.project_name,
+            &view
+                .modules
+                .iter()
+                .map(|module| GuiShellModuleSummary::new(&module.display_name, module.is_active))
+                .collect::<Vec<_>>(),
+            &view.active_source.module_display_name,
+            &view.active_source.source_text,
+        ),
+        GuiScenarioKind::MountedShellStatic => render_mounted_shell_static_section(
             &mut output,
             &scenario.fixture_path,
             &view.project_name,
@@ -852,15 +873,14 @@ fn render_accessibility_disabled_reasons_section(output: &mut String, source_tex
     output.push_str("  </section>\n");
 }
 
-fn render_shell_packet_baseline_section(
-    output: &mut String,
+fn build_shell_packet_baseline(
     workspace_path: &Path,
     project_name: &str,
     modules: &[GuiShellModuleSummary],
     active_module: &str,
     source_text: &str,
-) {
-    let packet = GuiShellPacket::browser_safe_baseline(
+) -> GuiShellPacket {
+    GuiShellPacket::browser_safe_baseline(
         workspace_path.display().to_string(),
         project_name,
         modules.to_vec(),
@@ -872,6 +892,23 @@ fn render_shell_packet_baseline_section(
             "shell packet baseline keeps diagnostics surface available",
             "OxIde GUI shell packet",
         )],
+    )
+}
+
+fn render_shell_packet_baseline_section(
+    output: &mut String,
+    workspace_path: &Path,
+    project_name: &str,
+    modules: &[GuiShellModuleSummary],
+    active_module: &str,
+    source_text: &str,
+) {
+    let packet = build_shell_packet_baseline(
+        workspace_path,
+        project_name,
+        modules,
+        active_module,
+        source_text,
     );
 
     output.push_str("  <section role=\"shell-packet\" data-source=\"oxide-core GuiShellPacket\" data-project=\"");
@@ -964,6 +1001,97 @@ fn render_shell_packet_baseline_section(
     output.push_str("    <div role=\"shell-packet-capability-footer\">");
     output.push_str(&html_escape(&packet.capability_footer));
     output.push_str("</div>\n");
+    output.push_str("  </section>\n");
+}
+
+fn render_mounted_shell_static_section(
+    output: &mut String,
+    workspace_path: &Path,
+    project_name: &str,
+    modules: &[GuiShellModuleSummary],
+    active_module: &str,
+    source_text: &str,
+) {
+    let packet = build_shell_packet_baseline(
+        workspace_path,
+        project_name,
+        modules,
+        active_module,
+        source_text,
+    );
+
+    output.push_str("  <section role=\"mounted-shell-static\" data-source=\"GuiShellPacket\" data-static-render=\"true\" data-dom-audited=\"false\" data-filesystem-persistence=\"false\" data-native-runtime=\"");
+    output.push_str(if packet.native_execution_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-com-runtime=\"");
+    output.push_str(if packet.com_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    output.push_str("    <header role=\"mounted-shell-title\">");
+    output.push_str(&html_escape(&packet.project_name));
+    output.push_str("</header>\n");
+    output.push_str("    <aside role=\"mounted-project-tree\" data-module-count=\"");
+    output.push_str(&packet.modules.len().to_string());
+    output.push_str("\">\n");
+    for module in &packet.modules {
+        output.push_str("      <div role=\"mounted-module-row\" data-active=\"");
+        output.push_str(if module.is_active { "true" } else { "false" });
+        output.push_str("\">");
+        output.push_str(&html_escape(&module.display_name));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    </aside>\n");
+    output.push_str("    <main role=\"mounted-editor\" data-active-module=\"");
+    output.push_str(&html_escape(&packet.active_module));
+    output.push_str("\"></main>\n");
+    output.push_str("    <section role=\"mounted-diagnostics\" data-count=\"");
+    output.push_str(&packet.diagnostics.len().to_string());
+    output.push_str("\"></section>\n");
+    output.push_str("    <section role=\"mounted-lifecycle\" data-profile=\"");
+    output.push_str(&html_escape(&packet.lifecycle_profile_label));
+    output.push_str("\" data-command-count=\"");
+    output.push_str(&packet.lifecycle_commands.len().to_string());
+    output.push_str("\"></section>\n");
+    output.push_str("    <section role=\"mounted-run-output\" data-provider=\"");
+    output.push_str(packet.run_capability.provider_kind.label());
+    output.push_str("\" data-status=\"");
+    output.push_str(packet.run_transcript.status.label());
+    output.push_str("\">");
+    if let Some(reason) = &packet.run_capability.disabled_reason {
+        output.push_str(&html_escape(reason));
+    }
+    output.push_str("</section>\n");
+    output.push_str("    <section role=\"mounted-com-capability\" data-profile=\"");
+    output.push_str(packet.com_capability.host_kind.label());
+    output.push_str("\" data-runtime-available=\"");
+    output.push_str(if packet.com_capability.runtime_invocation.is_available {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\"></section>\n");
+    output.push_str("    <section role=\"mounted-command-palette\" data-command-count=\"");
+    output.push_str(&packet.command_palette.commands.len().to_string());
+    output.push_str("\"></section>\n");
+    output.push_str(
+        "    <section role=\"mounted-keyboard-focus-accessibility\" data-keybinding-count=\"",
+    );
+    output.push_str(&packet.keyboard_map.bindings.len().to_string());
+    output.push_str("\" data-focus-node-count=\"");
+    output.push_str(&packet.focus_graph.nodes.len().to_string());
+    output.push_str("\" data-accessibility-surface-count=\"");
+    output.push_str(&packet.accessibility.nodes.len().to_string());
+    output.push_str("\"></section>\n");
+    output.push_str("    <footer role=\"mounted-capability-footer\">");
+    output.push_str(&html_escape(&packet.capability_footer));
+    output.push_str("</footer>\n");
+    output.push_str("    <div role=\"mounted-shell-policy\">Static shell render consumes GuiShellPacket; no DOM accessibility audit, filesystem persistence, native runtime, or COM runtime is claimed.</div>\n");
     output.push_str("  </section>\n");
 }
 
@@ -1393,6 +1521,8 @@ mod tests {
         assert!(output.contains("Accessibility disabled reasons"));
         assert!(output.contains("gui-shell-packet-baseline"));
         assert!(output.contains("Shell packet baseline"));
+        assert!(output.contains("gui-mounted-shell-static"));
+        assert!(output.contains("Mounted shell static"));
     }
 
     #[test]
@@ -1578,6 +1708,9 @@ mod tests {
         let shell_packet = registry
             .find(GUI_SHELL_PACKET_BASELINE)
             .expect("shell packet baseline scenario");
+        let mounted_shell = registry
+            .find(GUI_MOUNTED_SHELL_STATIC)
+            .expect("mounted shell static scenario");
 
         assert_eq!(command_palette.title, "Command palette baseline");
         assert_eq!(
@@ -1598,6 +1731,8 @@ mod tests {
         );
         assert_eq!(shell_packet.title, "Shell packet baseline");
         assert_eq!(shell_packet.kind, GuiScenarioKind::ShellPacketBaseline);
+        assert_eq!(mounted_shell.title, "Mounted shell static");
+        assert_eq!(mounted_shell.kind, GuiScenarioKind::MountedShellStatic);
     }
 
     #[test]
@@ -2006,6 +2141,38 @@ mod tests {
         assert!(rendered.contains("native execution provider unavailable"));
         assert!(rendered.contains("data-profile=\"browser-safe\""));
         assert!(rendered.contains("COM runtime unavailable in browser-safe profile"));
+    }
+
+    #[test]
+    fn mounted_shell_static_scenario_renders_major_surfaces_from_packet() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_MOUNTED_SHELL_STATIC)
+            .expect("render mounted shell static scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-mounted-shell-static\""));
+        assert!(rendered.contains("role=\"mounted-shell-static\""));
+        assert!(rendered.contains("data-source=\"GuiShellPacket\""));
+        assert!(rendered.contains("data-static-render=\"true\""));
+        assert!(rendered.contains("data-dom-audited=\"false\""));
+        assert!(rendered.contains("data-filesystem-persistence=\"false\""));
+        assert!(rendered.contains("data-native-runtime=\"false\""));
+        assert!(rendered.contains("data-com-runtime=\"false\""));
+        assert!(rendered.contains("role=\"mounted-shell-title\">ThinSliceHello"));
+        assert!(rendered.contains("role=\"mounted-project-tree\" data-module-count=\"1\""));
+        assert!(rendered.contains("role=\"mounted-editor\" data-active-module=\"Module1.bas\""));
+        assert!(rendered.contains("role=\"mounted-diagnostics\" data-count=\"1\""));
+        assert!(rendered.contains("role=\"mounted-lifecycle\" data-profile=\"browser-limited\""));
+        assert!(rendered.contains("role=\"mounted-run-output\" data-provider=\"browser-unsupported\" data-status=\"disabled\""));
+        assert!(rendered.contains("native execution provider unavailable"));
+        assert!(rendered.contains("role=\"mounted-com-capability\" data-profile=\"browser-safe\" data-runtime-available=\"false\""));
+        assert!(rendered.contains("role=\"mounted-command-palette\" data-command-count=\"10\""));
+        assert!(rendered.contains("data-keybinding-count=\"11\""));
+        assert!(rendered.contains("data-focus-node-count=\"9\""));
+        assert!(rendered.contains("data-accessibility-surface-count=\"10\""));
+        assert!(rendered.contains("Static shell render consumes GuiShellPacket"));
+        assert!(rendered.contains("no DOM accessibility audit, filesystem persistence, native runtime, or COM runtime is claimed"));
     }
 
     #[test]
