@@ -52,7 +52,7 @@ Specs executors will touch next for the Rust/WASM-capable GUI pivot:
 - `W348_dnaonecalc_shared_ui_reuse_path.md`
 - `W349_dnaoxide_while_oxvba_acceptance.md`
 
-`W341`-`W349` cover the OxIde-side continuation runway while OxVba executes its DNA OxIde full-scope host integration support workset. OxVba feedback now identifies several available-subset direct Rust surfaces, so the worksets should prefer subset-backed adapter evidence where possible while keeping stable IDs/taxonomy/watch/breakpoint/COM-runtime/full-debug claims gated on OxVba evidence and explicit sibling-repo authorization.
+`W341`-`W349` cover the OxIde-side continuation runway while OxVba executes its DNA OxIde full-scope host integration support workset. OxVba feedback now identifies available-subset direct Rust surfaces plus a ThinSliceHello fixture-evidenced ladder for build/run/Immediate/debug/watch/breakpoint/COM capability seams, so the worksets should prefer subset-backed or fixture-evidenced adapter evidence where possible while keeping taxonomy/source-span/native-boundary/COM-runtime/full-host-UX claims gated on OxIde adapter tests and explicit sibling-repo authorization.
 
 ## Parked TUI Lineage
 

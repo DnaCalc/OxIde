@@ -96,7 +96,7 @@ sequence for the GUI pivot.
 23. `W348` — DnaOneCalc shared UI reuse path
 24. `W349` — DnaOxIde while-OxVba acceptance
 
-`W341`-`W349` cover the OxIde-side continuation runway while OxVba executes its DNA OxIde full-scope host integration support workset. The runway proceeds with DnaOxIde scaffold, shared UI, host bridge, Tauri command boundaries, live host proof, interaction harness, compile/options/reference panels, and DnaOneCalc reuse path. OxVba feedback now identifies several available-subset direct Rust surfaces, so these worksets should prefer subset-backed adapter evidence where possible while keeping stable IDs/taxonomy/watch/breakpoint/COM-runtime/full-debug claims gated on OxVba evidence and explicit sibling-repo authorization.
+`W341`-`W349` cover the OxIde-side continuation runway while OxVba executes its DNA OxIde full-scope host integration support workset. The runway proceeds with DnaOxIde scaffold, shared UI, host bridge, Tauri command boundaries, live host proof, interaction harness, compile/options/reference panels, and DnaOneCalc reuse path. OxVba feedback identifies available-subset direct Rust surfaces and a ThinSliceHello fixture-evidenced ladder for build/run/Immediate/debug/watch/breakpoint/COM capability seams. These worksets should prefer subset-backed or fixture-evidenced adapter evidence where possible while keeping taxonomy/source-span/native-boundary/COM-runtime/full-host-UX claims gated on OxIde adapter tests and explicit sibling-repo authorization.
 
 ## Workset Specs
 
