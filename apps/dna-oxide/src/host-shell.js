@@ -66,9 +66,14 @@ export function createDnaOxIdeHostShellModel(
       disabledReason: "Static host proof does not execute diagnostics; W220/W344 cover adapter boundaries."
     }),
     lifecycle: Object.freeze({
-      dirty: false,
-      provider: "proven-oxide-only",
-      commands: Object.freeze([
+      dirty: overrides.lifecycle?.dirty ?? false,
+      provider: overrides.lifecycle?.provider ?? "proven-oxide-only",
+      proofPath: overrides.lifecycle?.proofPath ?? "static-host-fixture",
+      events: Object.freeze(overrides.lifecycle?.events ?? [
+        "opened-static-host-fixture",
+        "commands-visible"
+      ]),
+      commands: Object.freeze(overrides.lifecycle?.commands ?? [
         DNA_OXIDE_COMMANDS.openProjectPath,
         DNA_OXIDE_COMMANDS.loadActiveModule,
         DNA_OXIDE_COMMANDS.saveActiveModule,
@@ -90,6 +95,9 @@ export function renderDnaOxIdeHostShell(model = createDnaOxIdeHostShellModel()) 
     const bucket = bucketForRenderedCommand(model, commandName);
     return `<li role="host-lifecycle-command" data-command="${escapeHtml(commandName)}" data-state="${escapeHtml(bucket)}">${escapeHtml(commandName)}</li>`;
   }).join("\n");
+  const lifecycleEventMarkup = model.lifecycle.events.map((event) => (
+    `<li role="host-lifecycle-event" data-event="${escapeHtml(event)}">${escapeHtml(event)}</li>`
+  )).join("\n");
 
   return `<section role="dnaoxide-host-ui-proof" class="host-proof" data-proof-mode="${escapeHtml(model.proof.proofMode)}" data-product="${escapeHtml(model.proof.productName)}" data-app="${escapeHtml(model.proof.appName)}" data-shared-ui-boundary="${escapeHtml(model.proof.sharedUiBoundary)}" data-shared-ui-crate="${escapeHtml(model.proof.sharedUiCrate)}" data-host-bridge-crate="${escapeHtml(model.proof.hostBridgeCrate)}" data-live-tauri-webview-ipc="false" data-browser-click-key-automation="false" data-full-dom-accessibility-audit="false" data-real-execution="${String(model.claims.realExecutionClaimed)}" data-native-runtime="${String(model.claims.nativeRuntimeClaimed)}" data-com-runtime="${String(model.claims.comRuntimeClaimed)}" data-fake-responses="${String(model.claims.fakeResponses)}" data-fake-debug-data="${String(model.claims.fakeDebugData)}">
   <header role="host-branding" class="hero" data-surface="host-shell-mounted">
@@ -114,9 +122,10 @@ export function renderDnaOxIdeHostShell(model = createDnaOxIdeHostShellModel()) 
     <p role="host-diagnostics-disabled-reason">${escapeHtml(model.diagnostics.disabledReason)}</p>
   </section>
 
-  <section role="host-lifecycle-panel" class="panel" data-provider="${escapeHtml(model.lifecycle.provider)}" data-dirty="${String(model.lifecycle.dirty)}">
+  <section role="host-lifecycle-panel" class="panel" data-provider="${escapeHtml(model.lifecycle.provider)}" data-dirty="${String(model.lifecycle.dirty)}" data-proof-path="${escapeHtml(model.lifecycle.proofPath)}">
     <h2>Lifecycle</h2>
     <ul>${lifecycleMarkup}</ul>
+    <ol>${lifecycleEventMarkup}</ol>
   </section>
 
   <section role="host-command-palette" class="panel command-grid" data-command-count="${model.commandRows.length}">
