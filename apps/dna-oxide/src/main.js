@@ -1,8 +1,15 @@
+import {
+  createDnaOxIdeHostShellModel,
+  renderDnaOxIdeHostShell
+} from "./host-shell.js";
+
+import { createBrowserFixtureCommandClient } from "./command-client.js";
+
 export const DNA_OXIDE_FRONTEND_SCAFFOLD = Object.freeze({
   productName: "DNA OxIde",
   appName: "DnaOxIde",
   scaffoldKind: "frontend-entry",
-  sharedUiOwner: "oxide-ui-leptos (planned W342)",
+  sharedUiOwner: "oxide-ui-leptos shared contract via W345 static host fixture",
   claims: Object.freeze({
     realExecution: false,
     nativeRuntime: false,
@@ -22,6 +29,10 @@ function renderScaffoldBanner(root) {
   root.dataset.realExecution = String(DNA_OXIDE_FRONTEND_SCAFFOLD.claims.realExecution);
   root.dataset.nativeRuntime = String(DNA_OXIDE_FRONTEND_SCAFFOLD.claims.nativeRuntime);
   root.dataset.comRuntime = String(DNA_OXIDE_FRONTEND_SCAFFOLD.claims.comRuntime);
+  root.dataset.hostUiProofMode = "static-frontend-host-fixture";
+
+  const model = createDnaOxIdeHostShellModel(createBrowserFixtureCommandClient());
+  root.innerHTML = renderDnaOxIdeHostShell(model);
 }
 
 export function verifyFrontendScaffold() {

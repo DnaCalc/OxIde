@@ -22,6 +22,7 @@ body {
 
 .hero,
 .next,
+.panel,
 .claim-grid article {
   border: 1px solid rgba(165, 190, 255, 0.22);
   border-radius: 18px;
@@ -30,8 +31,43 @@ body {
 }
 
 .hero,
-.next {
+.next,
+.panel {
   padding: 1.5rem;
+}
+
+.host-proof {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.panel {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.editor-panel pre {
+  margin: 0;
+  max-height: 24rem;
+  overflow: auto;
+  border-radius: 12px;
+  padding: 1rem;
+  background: rgba(3, 8, 19, 0.7);
+  color: #d8f3ff;
+}
+
+.command-grid [role="host-command"] {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid rgba(165, 190, 255, 0.16);
+  border-radius: 12px;
+  padding: 0.75rem;
+}
+
+[role="host-command-disabled-reason"],
+[role="host-service-disabled-reason"],
+[role="host-diagnostics-disabled-reason"] {
+  color: #f4c27a;
 }
 
 .eyebrow {

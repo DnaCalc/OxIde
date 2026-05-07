@@ -7,7 +7,8 @@
   "scripts": {
     "scaffold:frontend": "node ./src/main.js --verify-scaffold",
     "scaffold:check": "node ./scripts/verify-scaffold.mjs",
-    "command-client:check": "node ./scripts/verify-command-client.mjs"
+    "command-client:check": "node ./scripts/verify-command-client.mjs",
+    "host-ui:check": "node ./scripts/verify-host-ui.mjs"
   },
   "dependencies": {},
   "devDependencies": {}
