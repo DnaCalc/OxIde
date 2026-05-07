@@ -981,6 +981,90 @@ Known W320 limitations:
 4. no full browser runtime or DOM accessibility audit,
 5. no conflict resolution or external-file-change handling.
 
-## 18. Cross-Repo Fixture Policy
+## 18. W330 Accepted OxVba Native Runtime Service Contract
+
+W330 accepted against the thirty-three current regression lab commands. W330 added:
+
+```powershell
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-runtime-service-contract-browser-disabled
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-runtime-service-contract-native-missing
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-immediate-service-contract-native-missing
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-debug-service-contract-native-missing
+```
+
+Observed runtime service browser-disabled output contains:
+
+- `data-scenario="gui-runtime-service-contract-browser-disabled"`,
+- `role="runtime-service-contract"`,
+- `data-provider="browser-unsupported"`,
+- `data-command-enabled="false"`,
+- `data-real-execution="false"`,
+- `data-native-runtime="false"`,
+- `data-com-runtime="false"`,
+- `ThinSliceHello::Module1.Main`,
+- `native execution provider unavailable`,
+- `real OxVba execution, native runtime, and COM runtime are not claimed`.
+
+Observed runtime service native-missing output contains:
+
+- `data-scenario="gui-runtime-service-contract-native-missing"`,
+- `role="runtime-service-contract"`,
+- `data-provider="native-service-missing"`,
+- `data-command-enabled="false"`,
+- `data-real-execution="false"`,
+- `data-native-runtime="false"`,
+- `data-com-runtime="false"`,
+- `native OxVba runtime service not configured`,
+- `real execution unavailable`.
+
+Observed Immediate service native-missing output contains:
+
+- `data-scenario="gui-immediate-service-contract-native-missing"`,
+- `role="immediate-service-contract"`,
+- `data-provider="native-service-missing"`,
+- `data-command-enabled="false"`,
+- `data-response-count="0"`,
+- `data-fake-responses="false"`,
+- `data-native-runtime="false"`,
+- `data-com-runtime="false"`,
+- `role="immediate-service-request">?answer`,
+- `native OxVba runtime service not configured`,
+- `fake responses are not allowed`.
+
+Observed debug service native-missing output contains:
+
+- `data-scenario="gui-debug-service-contract-native-missing"`,
+- `role="debug-service-contract"`,
+- `data-provider="native-service-missing"`,
+- `data-state="unavailable"`,
+- `data-command-enabled="false"`,
+- `data-command-count="6"`,
+- `data-callstack-count="0"`,
+- `data-locals-count="0"`,
+- `data-watches-count="0"`,
+- `data-breakpoints-count="0"`,
+- `data-fake-debug-data="false"`,
+- `data-native-runtime="false"`,
+- `data-com-runtime="false"`,
+- `native OxVba runtime/debug service not configured`,
+- `fake debug data is not allowed`.
+
+Implementation notes:
+
+1. `oxide-core` owns `RuntimeServicePacket`, `ImmediateServicePacket`, and `DebugServicePacket` as OxIde-side contract packets for future OxVba native service data.
+2. Browser-unsupported and native-service-missing states are distinct.
+3. Immediate/debug unavailable states render empty response/callstack/locals/watch/breakpoint rows rather than fake data.
+4. W330 preserves W270 simulated and disabled scenarios while adding contract-ready service packets.
+5. W330 does not write to OxVba or DnaOneCalc and does not claim real runtime/debug/Immediate/COM execution.
+
+Known W330 limitations:
+
+1. no real OxVba native runtime service implementation,
+2. no real Immediate execution,
+3. no real debug session, callstack, locals, watches, or breakpoints,
+4. no native COM discovery or invocation,
+5. no DnaOneCalc host implementation.
+
+## 19. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.
