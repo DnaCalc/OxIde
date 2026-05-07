@@ -78,6 +78,31 @@ impl GuiScenarioRegistry {
             .ok_or_else(|| GuiLabError::UnknownScenario { id: id.to_string() })?;
         render_project_open_spine(scenario)
     }
+
+    pub fn list_text(&self) -> String {
+        let mut output = String::new();
+        for scenario in &self.scenarios {
+            output.push_str(scenario.id);
+            output.push_str("\t");
+            output.push_str(scenario.title);
+            output.push('\n');
+        }
+        output
+    }
+}
+
+pub fn run_cli(args: Vec<String>, repo_root: impl AsRef<Path>) -> Result<String, GuiLabError> {
+    let registry = GuiScenarioRegistry::built_in(repo_root);
+    match args.as_slice() {
+        [] => Err(GuiLabError::Usage {
+            message: String::from("usage: oxide-guilab list | render <scenario-id>"),
+        }),
+        [command] if command == "list" => Ok(registry.list_text()),
+        [command, scenario_id] if command == "render" => registry.render_text(scenario_id),
+        _ => Err(GuiLabError::Usage {
+            message: String::from("usage: oxide-guilab list | render <scenario-id>"),
+        }),
+    }
 }
 
 fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String, GuiLabError> {
@@ -123,6 +148,7 @@ fn html_escape(text: &str) -> String {
 pub enum GuiLabError {
     DuplicateScenarioId { id: String },
     UnknownScenario { id: String },
+    Usage { message: String },
     ProjectOpen(ProjectOpenSpineError),
 }
 
@@ -131,6 +157,7 @@ impl std::fmt::Display for GuiLabError {
         match self {
             Self::DuplicateScenarioId { id } => write!(f, "duplicate GUI scenario id {id}"),
             Self::UnknownScenario { id } => write!(f, "unknown GUI scenario id {id}"),
+            Self::Usage { message } => write!(f, "{message}"),
             Self::ProjectOpen(source) => write!(f, "project-open scenario failed: {source}"),
         }
     }
@@ -181,6 +208,30 @@ mod tests {
             error,
             GuiLabError::DuplicateScenarioId {
                 id: GUI_THIN_SLICE_LOADED.to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn cli_list_names_thin_slice_scenario() {
+        let output = run_cli(vec![String::from("list")], repo_root()).expect("list scenarios");
+
+        assert!(output.contains("gui-thin-slice-loaded"));
+        assert!(output.contains("Thin-slice project loaded"));
+    }
+
+    #[test]
+    fn cli_unknown_scenario_reports_named_error() {
+        let error = run_cli(
+            vec![String::from("render"), String::from("missing-scenario")],
+            repo_root(),
+        )
+        .expect_err("unknown scenario should fail");
+
+        assert_eq!(
+            error,
+            GuiLabError::UnknownScenario {
+                id: String::from("missing-scenario")
             }
         );
     }
