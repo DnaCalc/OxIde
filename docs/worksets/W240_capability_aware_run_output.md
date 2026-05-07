@@ -76,8 +76,34 @@ W240 does not need to introduce real native execution or COM. Browser-safe mode 
 - **Evidence.** Test output, lab render output, and W250 handoff note.
 - **Closure.** W240 acceptance target is satisfied; W250 has explicit prerequisites and no hidden run/output gaps.
 
+## Acceptance Evidence
+
+W240 was accepted with:
+
+```powershell
+cargo test --manifest-path crates/Cargo.toml --workspace
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-loaded
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-edited-diagnostics
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-lifecycle
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-browser-disabled
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-simulated-supported
+```
+
+The accepted browser-disabled lab output contains `gui-run-output-browser-disabled`,
+`browser-unsupported`, disabled run command state, structured lifecycle and
+diagnostic output events, `native execution provider unavailable`, and browser-safe
+`COM unavailable` capability text.
+
+The accepted simulated-supported lab output contains
+`gui-run-output-simulated-supported`, `data-provider="simulated"`,
+`data-status="completed"`, `data-native-execution="false"`,
+`data-com-runtime="false"`, ordered structured run events, and deterministic
+`simulated output: Main completed with answer 42`.
+
 ## Out-of-scope
 
+- Real native execution.
+- Real OxVba build/run wiring.
 - Debugger surfaces.
 - Immediate Window.
 - Windows COM invocation.

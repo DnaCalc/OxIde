@@ -228,24 +228,100 @@ Known W230 limitations:
 3. no conflict resolution or multi-project restore,
 4. no run/output surface yet; W240 owns that next step.
 
-## 9. W240 Handoff
+## 9. W240 Acceptance Target
 
-W240 should start from the three current regression lab commands:
+W240 closes against capability-aware run/output lab scenarios:
+
+```text
+Browser-safe run/output
+  -> project spine shows ThinSliceHello and Module1.bas
+  -> run command is disabled
+  -> output/activity region records the unsupported run request
+  -> disabled reason states native execution provider is unavailable
+  -> capability/status surface still states browser-safe COM-unavailable profile
+
+Simulated supported run/output
+  -> project spine shows ThinSliceHello and Module1.bas
+  -> run command is enabled only by a simulated provider
+  -> output/activity region shows structured lifecycle/activity/output events
+  -> deterministic output says Main completed with answer 42
+  -> scenario explicitly says native execution and COM runtime are false
+```
+
+Current W240 evidence commands:
+
+```powershell
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-browser-disabled
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-simulated-supported
+```
+
+Observed browser-disabled output contains:
+
+- `data-scenario="gui-run-output-browser-disabled"`,
+- `ThinSliceHello`,
+- `Module1.bas`,
+- `role="run-output"`,
+- `data-provider="browser-unsupported"`,
+- `data-status="disabled"`,
+- `ThinSliceHello::Module1.Main`,
+- `role="run-command" data-enabled="false"`,
+- `native execution provider unavailable`,
+- `role="output-activity"`,
+- `data-event-kind="lifecycle"`,
+- `run requested`,
+- `data-event-kind="diagnostic"`,
+- `Run disabled`,
+- browser-safe host capability text including `COM unavailable`.
+
+Observed simulated-supported output contains:
+
+- `data-scenario="gui-run-output-simulated-supported"`,
+- `data-provider="simulated"`,
+- `data-status="completed"`,
+- `data-native-execution="false"`,
+- `data-com-runtime="false"`,
+- `role="run-command" data-enabled="true"`,
+- `Run enabled by simulated provider`,
+- `run started`,
+- `simulated provider invoked ThinSliceHello::Module1.Main`,
+- `simulated output: Main completed with answer 42`,
+- `run completed`,
+- browser-safe host capability text including `COM unavailable`.
+
+Implementation notes:
+
+1. `oxide-core` owns pure run capability, request, transcript, and output event state.
+2. Browser-safe mode remains unsupported for execution.
+3. The supported proof is explicitly simulated and does not claim native execution or COM.
+4. No OxVba execution path or parked TUI run code is used.
+
+Known W240 limitations:
+
+1. no real native execution provider yet,
+2. no real OxVba build/run wiring yet,
+3. no dedicated `run-output-demo` fixture yet,
+4. no debugger or Immediate Window surface yet.
+
+## 10. W250 Handoff
+
+W250 should start from the five current regression lab commands:
 
 ```powershell
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-loaded
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-edited-diagnostics
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-lifecycle
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-browser-disabled
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-simulated-supported
 ```
 
-W240 prerequisites:
+W250 prerequisites:
 
-1. preserve lifecycle dirty/session evidence while adding run/output state,
-2. introduce an OxIde-owned run request/event/output model rather than raw log strings,
-3. make browser-safe run unsupported reasons explicit,
-4. avoid claiming native execution until a supported/simulated run provider is tested,
-5. decide whether the first supported run-output proof uses the existing thin-slice source or a dedicated `run-output-demo` fixture.
+1. preserve OxIde ownership of IDE state and DnaOneCalc ownership of its app shell,
+2. document dependency direction before any embedding proof,
+3. consume OxIde artifacts/contracts rather than duplicating GUI/run/lifecycle types in DnaOneCalc,
+4. coordinate sibling-repo changes by handoff rather than editing DnaOneCalc from this OxIde-scoped run,
+5. keep OxVba as semantic/runtime owner.
 
-## 10. Cross-Repo Fixture Policy
+## 11. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.
