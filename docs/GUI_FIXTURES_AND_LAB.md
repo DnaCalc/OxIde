@@ -365,9 +365,100 @@ Known W250 limitations:
 4. no Windows COM capability yet,
 5. no package/versioning decision for `oxide-bridge` yet.
 
-## 11. W260 Handoff
+## 11. W260 Acceptance Target
 
-W260 should start from the six current regression lab commands:
+W260 closes against deterministic COM capability lab scenarios:
+
+```text
+Browser COM unavailable
+  -> COM reference fact is visible
+  -> browser-safe profile shows no native execution
+  -> COM discovery and runtime invocation are unavailable
+  -> Windows native host is required
+  -> no COM runtime support is claimed
+
+Non-Windows COM unavailable
+  -> native execution capability is distinct from COM capability
+  -> COM discovery and runtime invocation remain unavailable
+  -> Windows native host is required
+
+Windows native service missing
+  -> Windows native host profile is admitted
+  -> native COM service is not configured
+  -> COM discovery and runtime invocation are blocked with service-specific reasons
+  -> no COM invocation is claimed
+```
+
+Current W260 evidence commands:
+
+```powershell
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-browser-unavailable
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-nonwindows-unavailable
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-native-service-missing
+```
+
+Observed browser-unavailable output contains:
+
+- `data-scenario="gui-com-reference-browser-unavailable"`,
+- `role="com-capability" data-profile="browser-safe"`,
+- `data-native-execution="false"`,
+- `data-com-service-configured="false"`,
+- `data-windows-native-host-required="true"`,
+- `COM reference present: Scripting.Dictionary`,
+- `data-feature="reference-discovery" data-available="false"`,
+- `COM discovery unavailable in browser-safe profile`,
+- `data-feature="runtime-invocation" data-available="false"`,
+- `pure browser/WASM cannot directly call Windows COM`,
+- `Windows native host required`,
+- `No COM runtime support is claimed`,
+- browser-safe host capability text including `COM unavailable`.
+
+Observed non-Windows output contains:
+
+- `data-scenario="gui-com-reference-nonwindows-unavailable"`,
+- `data-profile="non-windows-native"`,
+- `data-native-execution="true"`,
+- `data-com-service-configured="false"`,
+- `COM discovery unavailable on non-Windows native host`,
+- `COM runtime unavailable on non-Windows native host`,
+- `Windows native host required`,
+- `No COM runtime support is claimed`,
+- `Non-Windows native profile`,
+- `COM unavailable`.
+
+Observed native-service-missing output contains:
+
+- `data-scenario="gui-com-reference-native-service-missing"`,
+- `data-profile="windows-native-service-missing"`,
+- `data-native-execution="true"`,
+- `data-com-service-configured="false"`,
+- `data-windows-native-host-required="false"`,
+- `COM reference present: Scripting.Dictionary`,
+- `native COM service not configured`,
+- `COM discovery blocked until service handoff is implemented`,
+- `COM runtime invocation disabled`,
+- `No COM runtime support is claimed`,
+- `Windows native profile`,
+- `COM runtime disabled`.
+
+Implementation notes:
+
+1. `oxide-core` owns pure COM capability projection state.
+2. `oxide-guilab` renders capability evidence without calling COM.
+3. Current COM reference fact is a demo projection, not an authoritative OxVba project parse.
+4. `docs/HANDOFF_OXVBA_NATIVE_COM_CAPABILITY.md` captures required OxVba/native interfaces.
+
+Known W260 limitations:
+
+1. no real COM type-library discovery,
+2. no real COM runtime invocation,
+3. no native Windows service implementation,
+4. no authoritative OxVba COM-reference packet consumed yet,
+5. no run/debug/Immediate COM-capable session proof yet.
+
+## 12. W270 Handoff
+
+W270 should start from the nine current regression lab commands:
 
 ```powershell
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-loaded
@@ -376,16 +467,19 @@ cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-s
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-browser-disabled
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-simulated-supported
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-dnaonecalc-embedding-contract
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-browser-unavailable
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-nonwindows-unavailable
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-native-service-missing
 ```
 
-W260 prerequisites:
+W270 prerequisites:
 
-1. keep browser/WASM COM unavailable states as regressions,
-2. distinguish COM reference presence/discovery from COM runtime invocation,
-3. introduce any native Windows proof behind an explicit capability profile,
-4. avoid claiming COM support from simulated run evidence,
-5. coordinate OxVba-owned COM/runtime interface needs by handoff rather than duplication.
+1. keep run/debug/Immediate surfaces capability-gated,
+2. do not claim COM-capable run/debug/Immediate until a tested native service exists,
+3. preserve W240 simulated run as simulated-only evidence,
+4. preserve W260 native-service-missing disabled reasons,
+5. route OxVba runtime/debug/Immediate interface gaps through handoffs rather than local duplicates.
 
-## 12. Cross-Repo Fixture Policy
+## 13. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.

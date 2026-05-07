@@ -208,6 +208,31 @@ Closure:
   - [ ] W270 prerequisites documented.
   - [ ] Browser/native/COM limitations remain explicit.
 
+## Acceptance Evidence
+
+W260 was accepted with:
+
+```powershell
+cargo test --manifest-path crates/Cargo.toml --workspace
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-loaded
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-edited-diagnostics
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-lifecycle
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-browser-disabled
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-run-output-simulated-supported
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-dnaonecalc-embedding-contract
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-browser-unavailable
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-nonwindows-unavailable
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-com-reference-native-service-missing
+```
+
+The accepted W260 lab output contains browser-safe COM unavailable,
+non-Windows COM unavailable, and Windows-native-service-missing scenarios.
+Together they show `COM reference present: Scripting.Dictionary`,
+reference discovery and runtime invocation as separate capability features,
+`Windows native host required` where appropriate, `native COM service not
+configured` for the Windows-native service seam, and `No COM runtime support
+is claimed` for unavailable profiles.
+
 ## Out-of-scope
 
 - Full COM runtime parity.
