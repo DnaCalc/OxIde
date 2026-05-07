@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use oxide_bridge::EmbeddedIdePacket;
 use oxide_core::{
     ComCapabilityProfile, ComCapabilityStatus, ComReferenceFact, DebugCapabilityProfile,
-    DocumentLifecycleState, GuiCommandPalette, GuiKeyboardMap, GuiSessionSnapshot,
+    DocumentLifecycleState, GuiCommandPalette, GuiFocusGraph, GuiKeyboardMap, GuiSessionSnapshot,
     ImmediateCapabilityProfile, InMemoryDocumentPersistence, LifecycleCapabilities,
     LifecycleCommand, LifecycleCommandStatus, RunCapabilityProfile, RunRequest, RunTimeline,
     RunTranscript, SessionCapabilityProfile, save_lifecycle_to_persistence,
@@ -37,6 +37,7 @@ pub const GUI_IMMEDIATE_BROWSER_DISABLED: &str = "gui-immediate-browser-disabled
 pub const GUI_DEBUG_BROWSER_DISABLED: &str = "gui-debug-browser-disabled";
 pub const GUI_COMMAND_PALETTE_BASELINE: &str = "gui-command-palette-baseline";
 pub const GUI_KEYBOARD_CONTEXTS_BASELINE: &str = "gui-keyboard-contexts-baseline";
+pub const GUI_FOCUS_GRAPH_NO_MOUSE: &str = "gui-focus-graph-no-mouse";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,6 +78,7 @@ pub enum GuiScenarioKind {
     DebugBrowserDisabled,
     CommandPaletteBaseline,
     KeyboardContextsBaseline,
+    FocusGraphNoMouse,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -185,8 +187,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_KEYBOARD_CONTEXTS_BASELINE,
                 title: "Keyboard contexts baseline",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::KeyboardContextsBaseline,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_FOCUS_GRAPH_NO_MOUSE,
+                title: "Focus graph no-mouse",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::FocusGraphNoMouse,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -266,7 +274,8 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::ImmediateBrowserDisabled
         | GuiScenarioKind::DebugBrowserDisabled
         | GuiScenarioKind::CommandPaletteBaseline
-        | GuiScenarioKind::KeyboardContextsBaseline => view.active_source.source_text.clone(),
+        | GuiScenarioKind::KeyboardContextsBaseline
+        | GuiScenarioKind::FocusGraphNoMouse => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -348,6 +357,9 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         }
         GuiScenarioKind::KeyboardContextsBaseline => {
             render_keyboard_contexts_baseline_section(&mut output, &view.active_source.source_text)
+        }
+        GuiScenarioKind::FocusGraphNoMouse => {
+            render_focus_graph_no_mouse_section(&mut output, &view.active_source.source_text)
         }
     }
     output.push_str("  <footer role=\"host-capability\">");
@@ -696,6 +708,64 @@ fn render_keyboard_contexts_baseline_section(output: &mut String, source_text: &
     }
     output.push_str("    </section>\n");
     output.push_str("    <div role=\"keyboard-policy-note\">Host-independent GUI keyboard map; no browser-specific key trap is product truth.</div>\n");
+    output.push_str("  </section>\n");
+}
+
+fn render_focus_graph_no_mouse_section(output: &mut String, source_text: &str) {
+    let document =
+        DocumentLifecycleState::open_clean(source_text, LifecycleCapabilities::browser_limited());
+    let palette = GuiCommandPalette::browser_safe_baseline(&document);
+    let focus = GuiFocusGraph::baseline(&palette);
+
+    output.push_str("  <section role=\"focus-graph\" data-source=\"");
+    output.push_str(&html_escape(&focus.source_label));
+    output.push_str("\" data-node-count=\"");
+    output.push_str(&focus.nodes.len().to_string());
+    output.push_str("\" data-route-length=\"");
+    output.push_str(&focus.no_mouse_route.len().to_string());
+    output.push_str("\">\n");
+    output.push_str("    <section role=\"focus-node-list\">\n");
+    for node in &focus.nodes {
+        output.push_str("      <div role=\"focus-node\" data-node-id=\"");
+        output.push_str(&html_escape(&node.node_id));
+        output.push_str("\" data-kind=\"");
+        output.push_str(node.kind.label());
+        output.push_str("\" data-focusable=\"");
+        output.push_str(if node.focusable { "true" } else { "false" });
+        output.push_str("\" data-disabled-reason-visible=\"");
+        output.push_str(if node.disabled_reason_visible {
+            "true"
+        } else {
+            "false"
+        });
+        output.push_str("\">\n");
+        output.push_str("        <span role=\"focus-label\">");
+        output.push_str(&html_escape(&node.label));
+        output.push_str("</span>\n");
+        if let Some(restore_target) = &node.restore_target {
+            output.push_str("        <span role=\"focus-restore-target\">");
+            output.push_str(&html_escape(restore_target));
+            output.push_str("</span>\n");
+        }
+        output.push_str("      </div>\n");
+    }
+    output.push_str("    </section>\n");
+    output.push_str("    <section role=\"no-mouse-route\">\n");
+    for step in &focus.no_mouse_route {
+        output.push_str("      <div role=\"focus-route-step\" data-index=\"");
+        output.push_str(&step.index.to_string());
+        output.push_str("\" data-node-id=\"");
+        output.push_str(&html_escape(&step.node_id));
+        output.push_str("\">\n");
+        if let Some(restoration_hint) = &step.restoration_hint {
+            output.push_str("        <span role=\"focus-restoration-hint\">");
+            output.push_str(&html_escape(restoration_hint));
+            output.push_str("</span>\n");
+        }
+        output.push_str("      </div>\n");
+    }
+    output.push_str("    </section>\n");
+    output.push_str("    <div role=\"focus-policy-note\">Disabled reason panels remain reachable in the no-mouse route.</div>\n");
     output.push_str("  </section>\n");
 }
 
@@ -1119,6 +1189,8 @@ mod tests {
         assert!(output.contains("Command palette baseline"));
         assert!(output.contains("gui-keyboard-contexts-baseline"));
         assert!(output.contains("Keyboard contexts baseline"));
+        assert!(output.contains("gui-focus-graph-no-mouse"));
+        assert!(output.contains("Focus graph no-mouse"));
     }
 
     #[test]
@@ -1295,6 +1367,9 @@ mod tests {
         let keyboard_contexts = registry
             .find(GUI_KEYBOARD_CONTEXTS_BASELINE)
             .expect("keyboard contexts baseline scenario");
+        let focus_graph = registry
+            .find(GUI_FOCUS_GRAPH_NO_MOUSE)
+            .expect("focus graph no-mouse scenario");
 
         assert_eq!(command_palette.title, "Command palette baseline");
         assert_eq!(
@@ -1306,6 +1381,8 @@ mod tests {
             keyboard_contexts.kind,
             GuiScenarioKind::KeyboardContextsBaseline
         );
+        assert_eq!(focus_graph.title, "Focus graph no-mouse");
+        assert_eq!(focus_graph.kind, GuiScenarioKind::FocusGraphNoMouse);
     }
 
     #[test]
@@ -1610,6 +1687,38 @@ mod tests {
         assert!(rendered.contains("data-allow-cross-context=\"true\""));
         assert!(rendered.contains("no native OxVba runtime session"));
         assert!(rendered.contains("no browser-specific key trap is product truth"));
+    }
+
+    #[test]
+    fn focus_graph_no_mouse_scenario_renders_ordered_focus_route() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_FOCUS_GRAPH_NO_MOUSE)
+            .expect("render focus graph no-mouse scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-focus-graph-no-mouse\""));
+        assert!(rendered.contains("role=\"focus-graph\""));
+        assert!(rendered.contains("data-source=\"gui-core focus graph\""));
+        assert!(rendered.contains("data-node-count=\"9\""));
+        assert!(rendered.contains("data-route-length=\"10\""));
+        assert!(rendered.contains("data-node-id=\"project-tree\" data-kind=\"project-tree\""));
+        assert!(rendered.contains("data-node-id=\"source-editor\" data-kind=\"editor\""));
+        assert!(rendered.contains("data-node-id=\"diagnostics-panel\" data-kind=\"diagnostics\""));
+        assert!(rendered.contains("data-node-id=\"run-output\" data-kind=\"run-output\" data-focusable=\"true\" data-disabled-reason-visible=\"true\""));
+        assert!(rendered.contains("data-node-id=\"immediate-panel\" data-kind=\"immediate\""));
+        assert!(rendered.contains("data-node-id=\"debug-panel\" data-kind=\"debug\""));
+        assert!(
+            rendered.contains("data-node-id=\"command-palette\" data-kind=\"command-palette\"")
+        );
+        assert!(rendered.contains("role=\"focus-restore-target\">source-editor"));
+        assert!(rendered.contains("data-index=\"1\" data-node-id=\"project-tree\""));
+        assert!(rendered.contains("data-index=\"5\" data-node-id=\"run-output\""));
+        assert!(rendered.contains("data-index=\"6\" data-node-id=\"immediate-panel\""));
+        assert!(rendered.contains("data-index=\"7\" data-node-id=\"debug-panel\""));
+        assert!(rendered.contains("data-index=\"9\" data-node-id=\"command-palette\""));
+        assert!(rendered.contains("returns to source-editor"));
+        assert!(rendered.contains("Disabled reason panels remain reachable"));
     }
 
     #[test]

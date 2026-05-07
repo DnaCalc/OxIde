@@ -1575,6 +1575,211 @@ impl GuiKeyboardMap {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GuiFocusNodeKind {
+    ProjectTree,
+    Editor,
+    Diagnostics,
+    LifecycleControls,
+    RunOutput,
+    Immediate,
+    Debug,
+    ComCapability,
+    CommandPalette,
+}
+
+impl GuiFocusNodeKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::ProjectTree => "project-tree",
+            Self::Editor => "editor",
+            Self::Diagnostics => "diagnostics",
+            Self::LifecycleControls => "lifecycle-controls",
+            Self::RunOutput => "run-output",
+            Self::Immediate => "immediate",
+            Self::Debug => "debug",
+            Self::ComCapability => "com-capability",
+            Self::CommandPalette => "command-palette",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiFocusNode {
+    pub node_id: String,
+    pub kind: GuiFocusNodeKind,
+    pub label: String,
+    pub focusable: bool,
+    pub disabled_reason_visible: bool,
+    pub restore_target: Option<String>,
+}
+
+impl GuiFocusNode {
+    pub fn new(
+        node_id: impl Into<String>,
+        kind: GuiFocusNodeKind,
+        label: impl Into<String>,
+        disabled_reason_visible: bool,
+        restore_target: Option<String>,
+    ) -> Self {
+        Self {
+            node_id: node_id.into(),
+            kind,
+            label: label.into(),
+            focusable: true,
+            disabled_reason_visible,
+            restore_target,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiFocusRouteStep {
+    pub index: usize,
+    pub node_id: String,
+    pub restoration_hint: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiFocusGraph {
+    pub nodes: Vec<GuiFocusNode>,
+    pub no_mouse_route: Vec<GuiFocusRouteStep>,
+    pub source_label: String,
+}
+
+impl GuiFocusGraph {
+    pub fn baseline(palette: &GuiCommandPalette) -> Self {
+        let command_disabled = |id| {
+            palette
+                .command(id)
+                .map(|command| command.availability.disabled_reason.is_some())
+                .unwrap_or(false)
+        };
+        let lifecycle_disabled = [
+            GuiCommandId::DocumentSave,
+            GuiCommandId::DocumentReload,
+            GuiCommandId::DocumentRevert,
+        ]
+        .into_iter()
+        .any(command_disabled);
+        let nodes = vec![
+            GuiFocusNode::new(
+                "project-tree",
+                GuiFocusNodeKind::ProjectTree,
+                "Project tree",
+                false,
+                None,
+            ),
+            GuiFocusNode::new(
+                "source-editor",
+                GuiFocusNodeKind::Editor,
+                "Source editor",
+                false,
+                None,
+            ),
+            GuiFocusNode::new(
+                "diagnostics-panel",
+                GuiFocusNodeKind::Diagnostics,
+                "Diagnostics",
+                false,
+                None,
+            ),
+            GuiFocusNode::new(
+                "lifecycle-controls",
+                GuiFocusNodeKind::LifecycleControls,
+                "Lifecycle controls",
+                lifecycle_disabled,
+                None,
+            ),
+            GuiFocusNode::new(
+                "run-output",
+                GuiFocusNodeKind::RunOutput,
+                "Run output",
+                command_disabled(GuiCommandId::RuntimeRun),
+                None,
+            ),
+            GuiFocusNode::new(
+                "immediate-panel",
+                GuiFocusNodeKind::Immediate,
+                "Immediate",
+                command_disabled(GuiCommandId::RuntimeImmediate),
+                None,
+            ),
+            GuiFocusNode::new(
+                "debug-panel",
+                GuiFocusNodeKind::Debug,
+                "Debug",
+                command_disabled(GuiCommandId::RuntimeDebug),
+                None,
+            ),
+            GuiFocusNode::new(
+                "com-capability",
+                GuiFocusNodeKind::ComCapability,
+                "COM capability",
+                true,
+                None,
+            ),
+            GuiFocusNode::new(
+                "command-palette",
+                GuiFocusNodeKind::CommandPalette,
+                "Command palette",
+                false,
+                Some(String::from("source-editor")),
+            ),
+        ];
+        let route_ids = [
+            "project-tree",
+            "source-editor",
+            "diagnostics-panel",
+            "lifecycle-controls",
+            "run-output",
+            "immediate-panel",
+            "debug-panel",
+            "com-capability",
+            "command-palette",
+            "source-editor",
+        ];
+        let no_mouse_route = route_ids
+            .iter()
+            .enumerate()
+            .map(|(index, node_id)| GuiFocusRouteStep {
+                index: index + 1,
+                node_id: (*node_id).to_string(),
+                restoration_hint: if *node_id == "command-palette" {
+                    Some(String::from("returns to source-editor"))
+                } else {
+                    None
+                },
+            })
+            .collect();
+
+        Self {
+            nodes,
+            no_mouse_route,
+            source_label: String::from("gui-core focus graph"),
+        }
+    }
+
+    pub fn node(&self, node_id: &str) -> Option<&GuiFocusNode> {
+        self.nodes.iter().find(|node| node.node_id == node_id)
+    }
+
+    pub fn route_node_ids(&self) -> Vec<&str> {
+        self.no_mouse_route
+            .iter()
+            .map(|step| step.node_id.as_str())
+            .collect()
+    }
+
+    pub fn disabled_focusable_node_ids(&self) -> Vec<&str> {
+        self.nodes
+            .iter()
+            .filter(|node| node.focusable && node.disabled_reason_visible)
+            .map(|node| node.node_id.as_str())
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2424,5 +2629,93 @@ mod tests {
                 .expect("save disabled reason")
                 .contains("filesystem persistence")
         );
+    }
+
+    #[test]
+    fn focus_graph_contains_required_gui_surface_nodes() {
+        let document = DocumentLifecycleState::open_clean(
+            "Option Explicit",
+            LifecycleCapabilities::browser_limited(),
+        );
+        let palette = GuiCommandPalette::browser_safe_baseline(&document);
+        let focus = GuiFocusGraph::baseline(&palette);
+
+        assert_eq!(focus.source_label, "gui-core focus graph");
+        assert_eq!(
+            focus
+                .nodes
+                .iter()
+                .map(|node| node.kind.label())
+                .collect::<Vec<_>>(),
+            vec![
+                "project-tree",
+                "editor",
+                "diagnostics",
+                "lifecycle-controls",
+                "run-output",
+                "immediate",
+                "debug",
+                "com-capability",
+                "command-palette",
+            ]
+        );
+        assert!(focus.nodes.iter().all(|node| node.focusable));
+        assert_eq!(
+            focus
+                .node("command-palette")
+                .expect("command palette focus node")
+                .restore_target
+                .as_deref(),
+            Some("source-editor")
+        );
+    }
+
+    #[test]
+    fn focus_graph_no_mouse_route_reaches_core_surfaces_in_order() {
+        let document = DocumentLifecycleState::open_clean(
+            "Option Explicit",
+            LifecycleCapabilities::browser_limited(),
+        );
+        let palette = GuiCommandPalette::browser_safe_baseline(&document);
+        let focus = GuiFocusGraph::baseline(&palette);
+
+        assert_eq!(
+            focus.route_node_ids(),
+            vec![
+                "project-tree",
+                "source-editor",
+                "diagnostics-panel",
+                "lifecycle-controls",
+                "run-output",
+                "immediate-panel",
+                "debug-panel",
+                "com-capability",
+                "command-palette",
+                "source-editor",
+            ]
+        );
+        assert_eq!(focus.no_mouse_route[0].index, 1);
+        assert_eq!(focus.no_mouse_route[0].node_id, "project-tree");
+        assert_eq!(
+            focus.no_mouse_route[8].restoration_hint.as_deref(),
+            Some("returns to source-editor")
+        );
+    }
+
+    #[test]
+    fn disabled_reason_panels_remain_focusable() {
+        let document = DocumentLifecycleState::open_clean(
+            "Option Explicit",
+            LifecycleCapabilities::browser_limited(),
+        );
+        let palette = GuiCommandPalette::browser_safe_baseline(&document);
+        let focus = GuiFocusGraph::baseline(&palette);
+
+        let disabled_focusable = focus.disabled_focusable_node_ids();
+        assert!(disabled_focusable.contains(&"lifecycle-controls"));
+        assert!(disabled_focusable.contains(&"run-output"));
+        assert!(disabled_focusable.contains(&"immediate-panel"));
+        assert!(disabled_focusable.contains(&"debug-panel"));
+        assert!(disabled_focusable.contains(&"com-capability"));
     }
 }
