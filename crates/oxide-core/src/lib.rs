@@ -407,6 +407,94 @@ pub struct RestoredGuiSession {
     pub capability_profile: SessionCapabilityProfile,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RunCapabilityProfile {
+    pub profile_name: String,
+    pub provider_kind: RunProviderKind,
+    pub can_run: bool,
+    pub native_execution_available: bool,
+    pub com_runtime_available: bool,
+    pub disabled_reason: Option<String>,
+}
+
+impl RunCapabilityProfile {
+    pub fn browser_safe_unsupported() -> Self {
+        Self {
+            profile_name: String::from("browser-safe"),
+            provider_kind: RunProviderKind::BrowserUnsupported,
+            can_run: false,
+            native_execution_available: false,
+            com_runtime_available: false,
+            disabled_reason: Some(String::from(
+                "Browser-safe profile cannot execute VBA; native execution provider unavailable.",
+            )),
+        }
+    }
+
+    pub fn simulated_supported() -> Self {
+        Self {
+            profile_name: String::from("simulated-supported"),
+            provider_kind: RunProviderKind::Simulated,
+            can_run: true,
+            native_execution_available: false,
+            com_runtime_available: false,
+            disabled_reason: None,
+        }
+    }
+
+    pub fn future_native_supported() -> Self {
+        Self {
+            profile_name: String::from("native-supported"),
+            provider_kind: RunProviderKind::Native,
+            can_run: true,
+            native_execution_available: true,
+            com_runtime_available: false,
+            disabled_reason: None,
+        }
+    }
+
+    pub fn command_status(&self) -> RunCommandStatus {
+        if self.can_run {
+            RunCommandStatus {
+                is_enabled: true,
+                reason: None,
+            }
+        } else {
+            RunCommandStatus {
+                is_enabled: false,
+                reason: Some(
+                    self.disabled_reason
+                        .clone()
+                        .unwrap_or_else(|| String::from("run is unavailable in this host profile")),
+                ),
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RunProviderKind {
+    BrowserUnsupported,
+    Simulated,
+    Native,
+}
+
+impl RunProviderKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::BrowserUnsupported => "browser-unsupported",
+            Self::Simulated => "simulated",
+            Self::Native => "native",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RunCommandStatus {
+    pub is_enabled: bool,
+    pub reason: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -627,5 +715,48 @@ mod tests {
         assert_eq!(restored.document.persisted_source(), "same");
         assert_eq!(restored.document.working_source(), "same");
         assert!(!restored.document.is_dirty());
+    }
+
+    #[test]
+    fn browser_safe_run_profile_reports_disabled_reason_without_native_claims() {
+        let profile = RunCapabilityProfile::browser_safe_unsupported();
+        let status = profile.command_status();
+
+        assert_eq!(profile.profile_name, "browser-safe");
+        assert_eq!(profile.provider_kind, RunProviderKind::BrowserUnsupported);
+        assert!(!profile.can_run);
+        assert!(!profile.native_execution_available);
+        assert!(!profile.com_runtime_available);
+        assert!(!status.is_enabled);
+        assert!(
+            status
+                .reason
+                .expect("disabled reason")
+                .contains("native execution provider unavailable")
+        );
+    }
+
+    #[test]
+    fn simulated_run_profile_is_available_but_not_native_or_com() {
+        let profile = RunCapabilityProfile::simulated_supported();
+        let status = profile.command_status();
+
+        assert_eq!(profile.provider_kind.label(), "simulated");
+        assert!(profile.can_run);
+        assert!(status.is_enabled);
+        assert!(status.reason.is_none());
+        assert!(!profile.native_execution_available);
+        assert!(!profile.com_runtime_available);
+    }
+
+    #[test]
+    fn future_native_run_profile_is_labeled_separately_from_simulated() {
+        let profile = RunCapabilityProfile::future_native_supported();
+
+        assert_eq!(profile.provider_kind.label(), "native");
+        assert_eq!(profile.profile_name, "native-supported");
+        assert!(profile.can_run);
+        assert!(profile.native_execution_available);
+        assert!(!profile.com_runtime_available);
     }
 }
