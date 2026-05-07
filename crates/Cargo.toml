@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "oxide-bridge",
     "oxide-core",
     "oxide-domain",
     "oxide-editor-core",
