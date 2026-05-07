@@ -4,16 +4,21 @@
 //! spine can be reviewed before a full browser mount exists.
 
 use std::collections::HashSet;
+use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use oxide_bridge::{DnaOneCalcWebShellHostPacket, EmbeddedIdePacket, WebShellDomReadinessSummary};
 use oxide_core::{
     ComCapabilityProfile, ComCapabilityStatus, ComReferenceFact, DebugCapabilityProfile,
-    DocumentLifecycleState, GuiAccessibilityProjection, GuiCommandPalette, GuiFocusGraph,
-    GuiKeyboardMap, GuiSessionSnapshot, GuiShellDiagnosticSummary, GuiShellModuleSummary,
-    GuiShellPacket, ImmediateCapabilityProfile, InMemoryDocumentPersistence, LifecycleCapabilities,
-    LifecycleCommand, LifecycleCommandStatus, RunCapabilityProfile, RunRequest, RunTimeline,
-    RunTranscript, SessionCapabilityProfile, save_lifecycle_to_persistence,
+    DocumentLifecycleState, DocumentPersistence, GuiAccessibilityProjection,
+    GuiBrowserFilesystemDisabledProjection, GuiCommandPalette, GuiFocusGraph, GuiKeyboardMap,
+    GuiNativeSaveReloadProjection, GuiSessionSnapshot, GuiShellDiagnosticSummary,
+    GuiShellModuleSummary, GuiShellPacket, ImmediateCapabilityProfile, InMemoryDocumentPersistence,
+    LifecycleCapabilities, LifecycleCommand, LifecycleCommandStatus,
+    NativeFilesystemDocumentPersistence, NativeFilesystemSessionPersistence, RunCapabilityProfile,
+    RunRequest, RunTimeline, RunTranscript, SessionCapabilityProfile,
+    open_lifecycle_from_persistence, save_lifecycle_to_persistence,
 };
 use oxide_domain::{DiagnosticRow, OxideDomainRole};
 use oxide_editor_core::{EditOperation, SourceSnapshot};
@@ -55,6 +60,9 @@ pub const GUI_WEB_NO_MOUSE_ACCESSIBILITY_DOM_SMOKE: &str =
     "gui-web-no-mouse-accessibility-dom-smoke";
 pub const GUI_DNAONECALC_WEB_SHELL_HOST_CONTRACT: &str = "gui-dnaonecalc-web-shell-host-contract";
 pub const GUI_DNAONECALC_WEB_SHELL_DOM_READINESS: &str = "gui-dnaonecalc-web-shell-dom-readiness";
+pub const GUI_NATIVE_SAVE_RELOAD_DISK: &str = "gui-native-save-reload-disk";
+pub const GUI_NATIVE_SESSION_RESTORE_DISK: &str = "gui-native-session-restore-disk";
+pub const GUI_BROWSER_FILESYSTEM_STILL_DISABLED: &str = "gui-browser-filesystem-still-disabled";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -107,6 +115,9 @@ pub enum GuiScenarioKind {
     WebNoMouseAccessibilityDomSmoke,
     DnaOneCalcWebShellHostContract,
     DnaOneCalcWebShellDomReadiness,
+    NativeSaveReloadDisk,
+    NativeSessionRestoreDisk,
+    BrowserFilesystemStillDisabled,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -287,8 +298,26 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_DNAONECALC_WEB_SHELL_DOM_READINESS,
                 title: "DnaOneCalc web shell DOM readiness",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::DnaOneCalcWebShellDomReadiness,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_NATIVE_SAVE_RELOAD_DISK,
+                title: "Native save reload disk",
+                fixture_path: thin_slice.clone(),
+                kind: GuiScenarioKind::NativeSaveReloadDisk,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_NATIVE_SESSION_RESTORE_DISK,
+                title: "Native session restore disk",
+                fixture_path: thin_slice.clone(),
+                kind: GuiScenarioKind::NativeSessionRestoreDisk,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_BROWSER_FILESYSTEM_STILL_DISABLED,
+                title: "Browser filesystem still disabled",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::BrowserFilesystemStillDisabled,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -380,7 +409,10 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::WebCommandPaletteDomSmoke
         | GuiScenarioKind::WebNoMouseAccessibilityDomSmoke
         | GuiScenarioKind::DnaOneCalcWebShellHostContract
-        | GuiScenarioKind::DnaOneCalcWebShellDomReadiness => view.active_source.source_text.clone(),
+        | GuiScenarioKind::DnaOneCalcWebShellDomReadiness
+        | GuiScenarioKind::NativeSaveReloadDisk
+        | GuiScenarioKind::NativeSessionRestoreDisk
+        | GuiScenarioKind::BrowserFilesystemStillDisabled => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -608,6 +640,24 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
                 &view.active_source.source_text,
             )
         }
+        GuiScenarioKind::NativeSaveReloadDisk => render_native_save_reload_disk_section(
+            &mut output,
+            &scenario.fixture_path,
+            &view.active_source.module_display_name,
+            &view.active_source.source_text,
+        ),
+        GuiScenarioKind::NativeSessionRestoreDisk => render_native_session_restore_disk_section(
+            &mut output,
+            &scenario.fixture_path,
+            &view.active_source.module_display_name,
+            &view.active_source.source_text,
+        ),
+        GuiScenarioKind::BrowserFilesystemStillDisabled => {
+            render_browser_filesystem_still_disabled_section(
+                &mut output,
+                &view.active_source.source_text,
+            )
+        }
     }
     output.push_str("  <footer role=\"host-capability\">");
     output.push_str(scenario_host_capability_text(
@@ -626,6 +676,12 @@ fn scenario_host_capability_text<'a>(kind: GuiScenarioKind, default_text: &'a st
         }
         GuiScenarioKind::NativeComServiceMissing => {
             "Windows native profile: native host admitted, but native COM service is not configured; COM runtime disabled."
+        }
+        GuiScenarioKind::NativeSaveReloadDisk | GuiScenarioKind::NativeSessionRestoreDisk => {
+            "Native filesystem profile: disk-backed persistence proven in a test-owned temp project; runtime and COM remain unavailable."
+        }
+        GuiScenarioKind::BrowserFilesystemStillDisabled => {
+            "Browser-safe profile: direct filesystem persistence remains unavailable; native runtime and COM unavailable."
         }
         _ => default_text,
     }
@@ -1919,6 +1975,285 @@ fn render_dnaonecalc_web_shell_dom_readiness_section(
     output.push_str("  </section>\n");
 }
 
+struct GuiLabTempProjectCopy {
+    temp_dir: PathBuf,
+    module_path: PathBuf,
+    fixture_module_path: PathBuf,
+    fixture_source_before: String,
+}
+
+impl GuiLabTempProjectCopy {
+    fn checked_in_fixture_mutated(&self) -> bool {
+        fs::read_to_string(&self.fixture_module_path)
+            .map(|current| current != self.fixture_source_before)
+            .unwrap_or(true)
+    }
+}
+
+fn create_test_owned_temp_project_copy(
+    workspace_path: &Path,
+    active_module: &str,
+    source_text: &str,
+    scenario_slug: &str,
+) -> GuiLabTempProjectCopy {
+    let fixture_module_path = workspace_path
+        .parent()
+        .expect("thin-slice fixture has parent")
+        .join(active_module);
+    let fixture_source_before =
+        fs::read_to_string(&fixture_module_path).expect("read checked-in fixture module");
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time after epoch")
+        .as_nanos();
+    let temp_dir = std::env::temp_dir().join(format!(
+        "oxide-guilab-w320-{scenario_slug}-{}-{unique}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&temp_dir).expect("create GUI-lab test-owned temp project dir");
+    let module_path = temp_dir.join(active_module);
+    fs::write(&module_path, source_text).expect("write temp module copy");
+    let temp_workspace_path = temp_dir.join(
+        workspace_path
+            .file_name()
+            .expect("thin-slice workspace file name"),
+    );
+    fs::write(
+        &temp_workspace_path,
+        fs::read_to_string(workspace_path).expect("read checked-in basproj fixture"),
+    )
+    .expect("write temp basproj copy");
+    GuiLabTempProjectCopy {
+        temp_dir,
+        module_path,
+        fixture_module_path,
+        fixture_source_before,
+    }
+}
+
+fn render_native_save_reload_disk_section(
+    output: &mut String,
+    workspace_path: &Path,
+    active_module: &str,
+    source_text: &str,
+) {
+    let temp_project = create_test_owned_temp_project_copy(
+        workspace_path,
+        active_module,
+        source_text,
+        "save-reload",
+    );
+    let mut persistence = NativeFilesystemDocumentPersistence::new(&temp_project.module_path);
+    let mut document = open_lifecycle_from_persistence(&persistence).expect("native load");
+    let edited_source = source_text.replace("answer = 40 + 2", "answer = 21 * 2");
+    document.edit_working_source(edited_source);
+    let dirty_before_save = document.is_dirty();
+    save_lifecycle_to_persistence(&mut document, &mut persistence).expect("native save");
+    let disk_source = persistence.load().expect("native reload disk source");
+    document
+        .reload_from_persisted(disk_source.clone())
+        .expect("native reload");
+    let checked_in_fixture_mutated = temp_project.checked_in_fixture_mutated();
+    let projection = GuiNativeSaveReloadProjection::from_disk_round_trip(
+        dirty_before_save,
+        &document,
+        &disk_source,
+        checked_in_fixture_mutated,
+    );
+
+    output.push_str("  <section role=\"native-save-reload-disk\" data-provider=\"");
+    output.push_str(&html_escape(&projection.provider_label));
+    output.push_str("\" data-filesystem-persistence=\"");
+    output.push_str(if projection.filesystem_persistence {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-test-owned-temp-project=\"");
+    output.push_str(if projection.test_owned_temp_project {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-checked-in-fixture-mutated=\"");
+    output.push_str(if projection.checked_in_fixture_mutated {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-dirty-before-save=\"");
+    output.push_str(if projection.dirty_before_save {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-dirty-after-save=\"");
+    output.push_str(if projection.dirty_after_save {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-save-acknowledged=\"");
+    output.push_str(if projection.save_acknowledged {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-reload-source-matches-disk=\"");
+    output.push_str(if projection.reload_source_matches_disk {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-native-runtime=\"");
+    output.push_str(if projection.native_runtime {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-com-runtime=\"");
+    output.push_str(if projection.com_runtime {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    output.push_str("    <div role=\"native-persistence-source\">");
+    output.push_str(&html_escape(&projection.saved_source_excerpt));
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"native-reload-source\">");
+    output.push_str(&html_escape(&projection.reloaded_source_excerpt));
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"native-persistence-policy\">Disk-backed save/reload is proven only against a GUI-lab test-owned temp project copy; native runtime and COM runtime are not claimed.</div>\n");
+    output.push_str("  </section>\n");
+}
+
+fn render_native_session_restore_disk_section(
+    output: &mut String,
+    workspace_path: &Path,
+    active_module: &str,
+    source_text: &str,
+) {
+    let temp_project = create_test_owned_temp_project_copy(
+        workspace_path,
+        active_module,
+        source_text,
+        "session-restore",
+    );
+    let session_path = temp_project.temp_dir.join("oxide.session.json");
+    let mut document =
+        DocumentLifecycleState::open_clean(source_text, LifecycleCapabilities::all_supported());
+    document.edit_working_source(source_text.replace("answer = 40 + 2", "answer = 84 / 2"));
+    document
+        .acknowledge_saved()
+        .expect("native session scenario save acknowledgement");
+    let snapshot = GuiSessionSnapshot::capture(
+        temp_project
+            .temp_dir
+            .join(workspace_path.file_name().expect("workspace file name"))
+            .display()
+            .to_string(),
+        active_module,
+        &document,
+        SessionCapabilityProfile::AllSupported,
+    );
+    let session_persistence = NativeFilesystemSessionPersistence::new(&session_path);
+    session_persistence
+        .save_snapshot(&snapshot)
+        .expect("save native session snapshot");
+    let loaded = session_persistence
+        .load_snapshot()
+        .expect("load native session snapshot");
+    let restored = loaded.restore();
+    let checked_in_fixture_mutated = temp_project.checked_in_fixture_mutated();
+
+    output.push_str("  <section role=\"native-session-restore-disk\" data-provider=\"native-filesystem\" data-session-provider=\"");
+    output.push_str(session_persistence.provider_label());
+    output.push_str("\" data-filesystem-persistence=\"true\" data-test-owned-temp-project=\"true\" data-session-file-written=\"");
+    output.push_str(if session_persistence.session_path().exists() {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-checked-in-fixture-mutated=\"");
+    output.push_str(if checked_in_fixture_mutated {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-restored-dirty=\"");
+    output.push_str(if restored.document.is_dirty() {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-native-runtime=\"false\" data-com-runtime=\"false\">\n");
+    output.push_str("    <div role=\"native-session-workspace\">");
+    output.push_str(&html_escape(&restored.workspace_path));
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"native-session-module\">");
+    output.push_str(&html_escape(&restored.active_module));
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"native-session-source\">");
+    output.push_str(&html_escape(
+        restored
+            .document
+            .working_source()
+            .lines()
+            .find(|line| line.contains("answer ="))
+            .unwrap_or(""),
+    ));
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"native-session-policy\">OxIde-owned session JSON persisted through a native filesystem provider; .basproj semantics remain OxVba-owned, and runtime/COM are not claimed.</div>\n");
+    output.push_str("  </section>\n");
+}
+
+fn render_browser_filesystem_still_disabled_section(output: &mut String, source_text: &str) {
+    let mut document =
+        DocumentLifecycleState::open_clean(source_text, LifecycleCapabilities::browser_limited());
+    document.edit_working_source(source_text.replace("answer = 40 + 2", "answer = 21 * 2"));
+    let projection = GuiBrowserFilesystemDisabledProjection::from_document(&document);
+
+    output.push_str("  <section role=\"browser-filesystem-still-disabled\" data-provider=\"");
+    output.push_str(&html_escape(&projection.provider_label));
+    output.push_str("\" data-filesystem-persistence=\"");
+    output.push_str(if projection.filesystem_persistence {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-save-enabled=\"");
+    output.push_str(if projection.save_command.is_enabled {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-reload-enabled=\"");
+    output.push_str(if projection.reload_command.is_enabled {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-native-runtime=\"");
+    output.push_str(if projection.native_runtime {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-com-runtime=\"");
+    output.push_str(if projection.com_runtime {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    output.push_str("    <div role=\"browser-filesystem-disabled-reason\">");
+    output.push_str(&html_escape(&projection.disabled_reason));
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"browser-filesystem-policy\">Browser/WASM direct filesystem persistence remains disabled; native disk persistence is a separate capability profile.</div>\n");
+    output.push_str("  </section>\n");
+}
+
 fn render_com_capability_section(output: &mut String, profile: ComCapabilityProfile) {
     output.push_str("  <section role=\"com-capability\" data-profile=\"");
     output.push_str(profile.host_kind.label());
@@ -2363,6 +2698,12 @@ mod tests {
         assert!(output.contains("DnaOneCalc web shell host contract"));
         assert!(output.contains("gui-dnaonecalc-web-shell-dom-readiness"));
         assert!(output.contains("DnaOneCalc web shell DOM readiness"));
+        assert!(output.contains("gui-native-save-reload-disk"));
+        assert!(output.contains("Native save reload disk"));
+        assert!(output.contains("gui-native-session-restore-disk"));
+        assert!(output.contains("Native session restore disk"));
+        assert!(output.contains("gui-browser-filesystem-still-disabled"));
+        assert!(output.contains("Browser filesystem still disabled"));
     }
 
     #[test]
@@ -2651,6 +2992,37 @@ mod tests {
         assert_eq!(
             dnaonecalc_web_shell_dom_readiness.kind,
             GuiScenarioKind::DnaOneCalcWebShellDomReadiness
+        );
+    }
+
+    #[test]
+    fn built_in_registry_finds_w320_persistence_scenarios_by_id() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let native_save_reload = registry
+            .find(GUI_NATIVE_SAVE_RELOAD_DISK)
+            .expect("native save/reload disk scenario");
+        let native_session_restore = registry
+            .find(GUI_NATIVE_SESSION_RESTORE_DISK)
+            .expect("native session restore disk scenario");
+        let browser_disabled = registry
+            .find(GUI_BROWSER_FILESYSTEM_STILL_DISABLED)
+            .expect("browser filesystem disabled scenario");
+
+        assert_eq!(native_save_reload.title, "Native save reload disk");
+        assert_eq!(
+            native_save_reload.kind,
+            GuiScenarioKind::NativeSaveReloadDisk
+        );
+        assert_eq!(native_session_restore.title, "Native session restore disk");
+        assert_eq!(
+            native_session_restore.kind,
+            GuiScenarioKind::NativeSessionRestoreDisk
+        );
+        assert_eq!(browser_disabled.title, "Browser filesystem still disabled");
+        assert_eq!(
+            browser_disabled.kind,
+            GuiScenarioKind::BrowserFilesystemStillDisabled
         );
     }
 
@@ -3442,6 +3814,76 @@ mod tests {
         assert!(rendered.contains("OxIde parsed HTML DOM readiness only"));
         assert!(rendered.contains("DnaOneCalc browser host smoke"));
         assert!(rendered.contains("full accessibility audit are not claimed"));
+    }
+
+    #[test]
+    fn native_save_reload_disk_scenario_renders_disk_backed_persistence_tokens() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_NATIVE_SAVE_RELOAD_DISK)
+            .expect("render native save/reload disk scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-native-save-reload-disk\""));
+        assert!(rendered.contains("role=\"native-save-reload-disk\""));
+        assert!(rendered.contains("data-provider=\"native-filesystem\""));
+        assert!(rendered.contains("data-filesystem-persistence=\"true\""));
+        assert!(rendered.contains("data-test-owned-temp-project=\"true\""));
+        assert!(rendered.contains("data-checked-in-fixture-mutated=\"false\""));
+        assert!(rendered.contains("data-dirty-before-save=\"true\""));
+        assert!(rendered.contains("data-dirty-after-save=\"false\""));
+        assert!(rendered.contains("data-save-acknowledged=\"true\""));
+        assert!(rendered.contains("data-reload-source-matches-disk=\"true\""));
+        assert!(rendered.contains("data-native-runtime=\"false\""));
+        assert!(rendered.contains("data-com-runtime=\"false\""));
+        assert!(rendered.contains("answer = 21 * 2"));
+        assert!(rendered.contains("test-owned temp project copy"));
+        assert!(rendered.contains("runtime and COM runtime are not claimed"));
+    }
+
+    #[test]
+    fn native_session_restore_disk_scenario_renders_disk_backed_session_tokens() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_NATIVE_SESSION_RESTORE_DISK)
+            .expect("render native session restore disk scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-native-session-restore-disk\""));
+        assert!(rendered.contains("role=\"native-session-restore-disk\""));
+        assert!(rendered.contains("data-provider=\"native-filesystem\""));
+        assert!(rendered.contains("data-session-provider=\"native-filesystem-session\""));
+        assert!(rendered.contains("data-filesystem-persistence=\"true\""));
+        assert!(rendered.contains("data-test-owned-temp-project=\"true\""));
+        assert!(rendered.contains("data-session-file-written=\"true\""));
+        assert!(rendered.contains("data-checked-in-fixture-mutated=\"false\""));
+        assert!(rendered.contains("data-restored-dirty=\"false\""));
+        assert!(rendered.contains("data-native-runtime=\"false\""));
+        assert!(rendered.contains("data-com-runtime=\"false\""));
+        assert!(rendered.contains("role=\"native-session-module\">Module1.bas"));
+        assert!(rendered.contains("answer = 84 / 2"));
+        assert!(rendered.contains("OxIde-owned session JSON"));
+        assert!(rendered.contains("runtime/COM are not claimed"));
+    }
+
+    #[test]
+    fn browser_filesystem_still_disabled_scenario_preserves_browser_limitations() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_BROWSER_FILESYSTEM_STILL_DISABLED)
+            .expect("render browser filesystem disabled scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-browser-filesystem-still-disabled\""));
+        assert!(rendered.contains("role=\"browser-filesystem-still-disabled\""));
+        assert!(rendered.contains("data-provider=\"browser-limited\""));
+        assert!(rendered.contains("data-filesystem-persistence=\"false\""));
+        assert!(rendered.contains("data-save-enabled=\"false\""));
+        assert!(rendered.contains("data-reload-enabled=\"false\""));
+        assert!(rendered.contains("data-native-runtime=\"false\""));
+        assert!(rendered.contains("data-com-runtime=\"false\""));
+        assert!(rendered.contains("browser-safe profile has no direct filesystem persistence"));
+        assert!(rendered.contains("Browser/WASM direct filesystem persistence remains disabled"));
     }
 
     #[test]
