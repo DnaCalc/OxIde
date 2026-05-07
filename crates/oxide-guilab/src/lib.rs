@@ -8,10 +8,11 @@ use std::path::{Path, PathBuf};
 
 use oxide_bridge::EmbeddedIdePacket;
 use oxide_core::{
-    ComCapabilityProfile, ComCapabilityStatus, ComReferenceFact, DocumentLifecycleState,
-    GuiSessionSnapshot, InMemoryDocumentPersistence, LifecycleCapabilities, LifecycleCommand,
-    LifecycleCommandStatus, RunCapabilityProfile, RunRequest, RunTranscript,
-    SessionCapabilityProfile, save_lifecycle_to_persistence,
+    ComCapabilityProfile, ComCapabilityStatus, ComReferenceFact, DebugCapabilityProfile,
+    DocumentLifecycleState, GuiSessionSnapshot, ImmediateCapabilityProfile,
+    InMemoryDocumentPersistence, LifecycleCapabilities, LifecycleCommand, LifecycleCommandStatus,
+    RunCapabilityProfile, RunRequest, RunTimeline, RunTranscript, SessionCapabilityProfile,
+    save_lifecycle_to_persistence,
 };
 use oxide_domain::{DiagnosticRow, OxideDomainRole};
 use oxide_editor_core::{EditOperation, SourceSnapshot};
@@ -31,6 +32,9 @@ pub const GUI_COM_REFERENCE_NONWINDOWS_UNAVAILABLE: &str =
     "gui-com-reference-nonwindows-unavailable";
 pub const GUI_COM_REFERENCE_NATIVE_SERVICE_MISSING: &str =
     "gui-com-reference-native-service-missing";
+pub const GUI_RUN_TIMELINE_SIMULATED: &str = "gui-run-timeline-simulated";
+pub const GUI_IMMEDIATE_BROWSER_DISABLED: &str = "gui-immediate-browser-disabled";
+pub const GUI_DEBUG_BROWSER_DISABLED: &str = "gui-debug-browser-disabled";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,6 +70,9 @@ pub enum GuiScenarioKind {
     BrowserComUnavailable,
     NonWindowsComUnavailable,
     NativeComServiceMissing,
+    RunTimelineSimulated,
+    ImmediateBrowserDisabled,
+    DebugBrowserDisabled,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -144,8 +151,26 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_COM_REFERENCE_NATIVE_SERVICE_MISSING,
                 title: "COM reference native service missing",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::NativeComServiceMissing,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_RUN_TIMELINE_SIMULATED,
+                title: "Run timeline simulated",
+                fixture_path: thin_slice.clone(),
+                kind: GuiScenarioKind::RunTimelineSimulated,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_IMMEDIATE_BROWSER_DISABLED,
+                title: "Immediate browser disabled",
+                fixture_path: thin_slice.clone(),
+                kind: GuiScenarioKind::ImmediateBrowserDisabled,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_DEBUG_BROWSER_DISABLED,
+                title: "Debug browser disabled",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::DebugBrowserDisabled,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -220,7 +245,10 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::DnaOneCalcEmbeddingContract
         | GuiScenarioKind::BrowserComUnavailable
         | GuiScenarioKind::NonWindowsComUnavailable
-        | GuiScenarioKind::NativeComServiceMissing => view.active_source.source_text.clone(),
+        | GuiScenarioKind::NativeComServiceMissing
+        | GuiScenarioKind::RunTimelineSimulated
+        | GuiScenarioKind::ImmediateBrowserDisabled
+        | GuiScenarioKind::DebugBrowserDisabled => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -288,6 +316,15 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
                 ComReferenceFact::scripting_dictionary_demo(),
             ),
         ),
+        GuiScenarioKind::RunTimelineSimulated => render_run_timeline_section(
+            &mut output,
+            &view.project_name,
+            &view.active_source.module_display_name,
+        ),
+        GuiScenarioKind::ImmediateBrowserDisabled => {
+            render_immediate_browser_disabled_section(&mut output)
+        }
+        GuiScenarioKind::DebugBrowserDisabled => render_debug_browser_disabled_section(&mut output),
     }
     output.push_str("  <footer role=\"host-capability\">");
     output.push_str(scenario_host_capability_text(
@@ -403,6 +440,125 @@ fn render_simulated_run_output_section(
         output.push_str("</div>\n");
     }
     output.push_str("    </section>\n");
+    output.push_str("  </section>\n");
+}
+
+fn render_run_timeline_section(output: &mut String, project_name: &str, module_display_name: &str) {
+    let request = RunRequest::new(project_name, module_stem(module_display_name), "Main");
+    let profile = RunCapabilityProfile::simulated_supported();
+    let transcript = RunTranscript::simulated_completed(request);
+    let timeline = RunTimeline::from_transcript(&transcript, &profile);
+
+    output.push_str("  <section role=\"run-timeline\" data-provider=\"");
+    output.push_str(&html_escape(&timeline.provider_label));
+    output.push_str("\" data-status=\"");
+    output.push_str(timeline.status_label());
+    output.push_str("\" data-native-execution=\"");
+    output.push_str(if timeline.native_execution_available {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-com-runtime=\"");
+    output.push_str(if timeline.com_runtime_available {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    output.push_str("    <div role=\"run-timeline-target\">");
+    output.push_str(&html_escape(&timeline.request.display_target()));
+    output.push_str("</div>\n");
+    for entry in &timeline.entries {
+        output.push_str("    <div role=\"run-timeline-entry\" data-index=\"");
+        output.push_str(&entry.index.to_string());
+        output.push_str("\" data-event-kind=\"");
+        output.push_str(entry.kind.label());
+        output.push_str("\" data-provenance=\"");
+        output.push_str(&html_escape(&entry.provenance_label));
+        output.push_str("\">");
+        output.push_str(&html_escape(&entry.message));
+        output.push_str("</div>\n");
+    }
+    output.push_str("  </section>\n");
+}
+
+fn render_immediate_browser_disabled_section(output: &mut String) {
+    let profile = ImmediateCapabilityProfile::browser_disabled();
+    output.push_str("  <section role=\"immediate-panel\" data-profile=\"");
+    output.push_str(profile.kind.label());
+    output.push_str("\" data-enabled=\"");
+    output.push_str(if profile.command_status.is_enabled {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-native-runtime-required=\"");
+    output.push_str(if profile.native_runtime_required {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-com-runtime-required=\"");
+    output.push_str(if profile.com_runtime_required {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-fake-responses=\"");
+    output.push_str(if profile.fake_responses_available {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    if let Some(reason) = &profile.command_status.reason {
+        output.push_str("    <div role=\"immediate-command\" data-enabled=\"false\">");
+        output.push_str(&html_escape(reason));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    <div role=\"immediate-empty-state\">No Immediate responses rendered without runtime session.</div>\n");
+    output.push_str("  </section>\n");
+}
+
+fn render_debug_browser_disabled_section(output: &mut String) {
+    let profile = DebugCapabilityProfile::browser_disabled();
+    output.push_str("  <section role=\"debug-panel\" data-profile=\"");
+    output.push_str(profile.kind.label());
+    output.push_str("\" data-enabled=\"");
+    output.push_str(if profile.command_status.is_enabled {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-native-runtime-required=\"");
+    output.push_str(if profile.native_runtime_required {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-com-runtime-required=\"");
+    output.push_str(if profile.com_runtime_required {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-fake-debug-data=\"");
+    output.push_str(if profile.fake_debug_data_available {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    if let Some(reason) = &profile.command_status.reason {
+        output.push_str("    <div role=\"debug-command\" data-enabled=\"false\">");
+        output.push_str(&html_escape(reason));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    <div role=\"debug-callstack\">unavailable; no fake debug data</div>\n");
+    output.push_str("    <div role=\"debug-locals\">unavailable; no fake debug data</div>\n");
+    output.push_str("    <div role=\"debug-watches\">unavailable; no fake debug data</div>\n");
+    output.push_str("    <div role=\"debug-breakpoints\">unavailable; no fake debug data</div>\n");
     output.push_str("  </section>\n");
 }
 
@@ -816,6 +972,12 @@ mod tests {
         assert!(output.contains("COM reference non-Windows unavailable"));
         assert!(output.contains("gui-com-reference-native-service-missing"));
         assert!(output.contains("COM reference native service missing"));
+        assert!(output.contains("gui-run-timeline-simulated"));
+        assert!(output.contains("Run timeline simulated"));
+        assert!(output.contains("gui-immediate-browser-disabled"));
+        assert!(output.contains("Immediate browser disabled"));
+        assert!(output.contains("gui-debug-browser-disabled"));
+        assert!(output.contains("Debug browser disabled"));
     }
 
     #[test]
@@ -958,6 +1120,28 @@ mod tests {
             native_missing.kind,
             GuiScenarioKind::NativeComServiceMissing
         );
+    }
+
+    #[test]
+    fn built_in_registry_finds_w270_runtime_surface_scenarios_by_id() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let run_timeline = registry
+            .find(GUI_RUN_TIMELINE_SIMULATED)
+            .expect("run timeline scenario");
+        let immediate = registry
+            .find(GUI_IMMEDIATE_BROWSER_DISABLED)
+            .expect("Immediate browser disabled scenario");
+        let debug = registry
+            .find(GUI_DEBUG_BROWSER_DISABLED)
+            .expect("debug browser disabled scenario");
+
+        assert_eq!(run_timeline.title, "Run timeline simulated");
+        assert_eq!(run_timeline.kind, GuiScenarioKind::RunTimelineSimulated);
+        assert_eq!(immediate.title, "Immediate browser disabled");
+        assert_eq!(immediate.kind, GuiScenarioKind::ImmediateBrowserDisabled);
+        assert_eq!(debug.title, "Debug browser disabled");
+        assert_eq!(debug.kind, GuiScenarioKind::DebugBrowserDisabled);
     }
 
     #[test]
@@ -1122,6 +1306,77 @@ mod tests {
         assert!(rendered.contains("Windows native profile"));
         assert!(rendered.contains("COM runtime disabled"));
         assert!(!rendered.contains("pure browser/WASM cannot directly call Windows COM"));
+    }
+
+    #[test]
+    fn run_timeline_simulated_scenario_renders_ordered_timeline() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_RUN_TIMELINE_SIMULATED)
+            .expect("render run timeline scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-run-timeline-simulated\""));
+        assert!(rendered.contains("role=\"run-timeline\" data-provider=\"simulated\""));
+        assert!(rendered.contains("data-status=\"completed\""));
+        assert!(rendered.contains("data-native-execution=\"false\""));
+        assert!(rendered.contains("data-com-runtime=\"false\""));
+        assert!(rendered.contains("role=\"run-timeline-target\">ThinSliceHello::Module1.Main"));
+        assert!(rendered.contains(
+            "data-index=\"1\" data-event-kind=\"lifecycle\" data-provenance=\"simulated\""
+        ));
+        assert!(rendered.contains("run started"));
+        assert!(rendered.contains("data-index=\"2\" data-event-kind=\"activity\""));
+        assert!(rendered.contains("simulated provider invoked ThinSliceHello::Module1.Main"));
+        assert!(rendered.contains("data-index=\"3\" data-event-kind=\"output\""));
+        assert!(rendered.contains("simulated output: Main completed with answer 42"));
+        assert!(rendered.contains("data-index=\"4\" data-event-kind=\"lifecycle\""));
+        assert!(rendered.contains("run completed"));
+    }
+
+    #[test]
+    fn immediate_browser_disabled_scenario_renders_disabled_panel_without_responses() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_IMMEDIATE_BROWSER_DISABLED)
+            .expect("render Immediate browser disabled scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-immediate-browser-disabled\""));
+        assert!(rendered.contains("role=\"immediate-panel\" data-profile=\"browser-disabled\""));
+        assert!(rendered.contains("data-enabled=\"false\""));
+        assert!(rendered.contains("data-native-runtime-required=\"true\""));
+        assert!(rendered.contains("data-com-runtime-required=\"false\""));
+        assert!(rendered.contains("data-fake-responses=\"false\""));
+        assert!(rendered.contains(
+            "Immediate disabled: browser-safe profile has no native OxVba runtime session"
+        ));
+        assert!(rendered.contains("No Immediate responses rendered without runtime session"));
+        assert!(rendered.contains("COM unavailable"));
+    }
+
+    #[test]
+    fn debug_browser_disabled_scenario_renders_disabled_panel_without_fake_debug_data() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_DEBUG_BROWSER_DISABLED)
+            .expect("render debug browser disabled scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-debug-browser-disabled\""));
+        assert!(rendered.contains("role=\"debug-panel\" data-profile=\"browser-disabled\""));
+        assert!(rendered.contains("data-enabled=\"false\""));
+        assert!(rendered.contains("data-native-runtime-required=\"true\""));
+        assert!(rendered.contains("data-com-runtime-required=\"false\""));
+        assert!(rendered.contains("data-fake-debug-data=\"false\""));
+        assert!(
+            rendered.contains("Debug disabled: browser-safe profile has no OxVba debug session")
+        );
+        assert!(rendered.contains("role=\"debug-callstack\""));
+        assert!(rendered.contains("role=\"debug-locals\""));
+        assert!(rendered.contains("role=\"debug-watches\""));
+        assert!(rendered.contains("role=\"debug-breakpoints\""));
+        assert!(rendered.contains("unavailable; no fake debug data"));
     }
 
     #[test]
