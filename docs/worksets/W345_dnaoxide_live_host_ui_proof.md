@@ -48,7 +48,8 @@ Tests:
   - Documentation grep for proof mode and no-claim tokens.
 
 Evidence:
-  - Host proof mode note.
+  - [`docs/DNAOXIDE_HOST_UI_PROOF_MODE.md`](../DNAOXIDE_HOST_UI_PROOF_MODE.md).
+  - `target/w345-b00-host-ui-proof-mode.txt`.
 
 Closure:
   - [ ] Proof mode is explicit.
@@ -70,7 +71,7 @@ Tests:
   - Grep for ThinSliceHello, Module1.bas, DNA OxIde in rendered output.
 
 Evidence:
-  - `target/w345-host-shell-render.txt` or equivalent.
+  - `target/w345-host-shell-render.txt`.
 
 Closure:
   - [ ] Shared shell mounts in DnaOxIde path.
@@ -137,7 +138,8 @@ Tests:
   - Anti-overclaim scan.
 
 Evidence:
-  - W345 acceptance outputs.
+  - `target/w345-acceptance.txt`.
+  - [`docs/HANDOFF_W345_DNAOXIDE_HOST_UI_PROOF.md`](../HANDOFF_W345_DNAOXIDE_HOST_UI_PROOF.md).
 
 Closure:
   - [ ] DnaOxIde host UI proof is reviewable.

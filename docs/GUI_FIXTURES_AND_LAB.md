@@ -1222,6 +1222,42 @@ Implementation notes:
 4. The frontend command client accepts an injected invoke implementation for the future Tauri path and provides a browser fixture client for review.
 5. W345 owns live host UI proof and must state whether it drives Tauri/WebView IPC, static frontend output, Rust render, or another bounded proof mode.
 
-## 23. Cross-Repo Fixture Policy
+## 23. W345 DnaOxIde Host UI Proof Acceptance Target
+
+W345 closes against the selected static frontend host fixture proof mode:
+
+```powershell
+npm --prefix apps/dna-oxide run host-ui:check
+npm --prefix apps/dna-oxide run host-lifecycle:check
+npm --prefix apps/dna-oxide run host-services:check
+npm --prefix apps/dna-oxide run command-client:check
+npm --prefix apps/dna-oxide run scaffold:check
+cargo test --manifest-path crates/Cargo.toml -p oxide-ui-leptos
+cargo test --manifest-path crates/Cargo.toml -p oxide-host-bridge
+```
+
+Observed W345 acceptance evidence is captured in `target/w345-acceptance.txt` and contains:
+
+- `role="dnaoxide-host-ui-proof"`,
+- `data-proof-mode="static-frontend-host-fixture"`,
+- `data-shared-ui-crate="oxide-ui-leptos"`,
+- `data-host-bridge-crate="oxide-host-bridge"`,
+- `DNA OxIde`, `ThinSliceHello`, and `Module1.bas`,
+- project, editor, diagnostics, lifecycle, command-palette, runtime, Immediate, debug, and COM panes,
+- `proven-oxide-only`, `oxvba-available-subset`, `oxvba-fixture-evidenced`, `pending-oxvba-hardening`, and `native-service-missing` labels,
+- runtime/Immediate/debug/COM empty-state markers such as output events `0`, Immediate responses `0`, callstack/locals/watches/breakpoints `0`, and COM runtime invocation `false`,
+- checked-in fixture mutation guard,
+- no direct Tauri import/global in frontend/shared UI/host bridge paths,
+- no true runtime/COM/fake-data/live-proof claim tokens.
+
+Implementation notes:
+
+1. W345 is reviewable static frontend host proof, not live Tauri/WebView IPC.
+2. `apps/dna-oxide/src/main.js` mounts the host shell into `#dna-oxide-root`.
+3. `apps/dna-oxide/src/host-shell.js` is thin DnaOxIde app glue over W342/W343/W344 contract labels and W344 command-client buckets.
+4. Lifecycle proof files live under `target/`; checked-in `examples/thin-slice/Module1.bas` remains unchanged.
+5. W346 owns the first interaction/e2e harness and must not overclaim full browser/accessibility/runtime behavior.
+
+## 24. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.

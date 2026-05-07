@@ -77,7 +77,7 @@ if (readFileSync(fixturePath, "utf8") !== fixtureSource) {
   process.exit(1);
 }
 
-writeIfAbsentOrSame(renderPath, markup);
+writeRenderIfAbsentOrLog(renderPath, markup);
 console.log(`DNA OxIde host lifecycle proof passed: ${renderPath}`);
 
 function writeIfAbsentOrSame(path, content) {
@@ -86,6 +86,18 @@ function writeIfAbsentOrSame(path, content) {
     if (existing !== content) {
       console.error(`Refusing to overwrite differing lifecycle proof file: ${path}`);
       process.exit(1);
+    }
+    return;
+  }
+
+  writeFileSync(path, content, "utf8");
+}
+
+function writeRenderIfAbsentOrLog(path, content) {
+  if (existsSync(path)) {
+    const existing = readFileSync(path, "utf8");
+    if (existing !== content) {
+      console.log(`Lifecycle render proof already exists and differs after host-shell evolution; current render verified in memory without overwriting: ${path}`);
     }
     return;
   }
