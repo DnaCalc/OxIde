@@ -623,6 +623,51 @@ impl RunOutputEvent {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RunTimeline {
+    pub request: RunRequest,
+    pub provider_label: String,
+    pub status: RunTranscriptStatus,
+    pub native_execution_available: bool,
+    pub com_runtime_available: bool,
+    pub entries: Vec<RunTimelineEntry>,
+}
+
+impl RunTimeline {
+    pub fn from_transcript(transcript: &RunTranscript, profile: &RunCapabilityProfile) -> Self {
+        Self {
+            request: transcript.request.clone(),
+            provider_label: transcript.provider_label.clone(),
+            status: transcript.status,
+            native_execution_available: profile.native_execution_available,
+            com_runtime_available: profile.com_runtime_available,
+            entries: transcript
+                .events
+                .iter()
+                .enumerate()
+                .map(|(index, event)| RunTimelineEntry {
+                    index: index + 1,
+                    kind: event.kind,
+                    message: event.message.clone(),
+                    provenance_label: transcript.provider_label.clone(),
+                })
+                .collect(),
+        }
+    }
+
+    pub fn status_label(&self) -> &'static str {
+        self.status.label()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RunTimelineEntry {
+    pub index: usize,
+    pub kind: RunOutputEventKind,
+    pub message: String,
+    pub provenance_label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ComReferenceFact {
     pub display_name: String,
     pub identifier: String,
@@ -1128,6 +1173,64 @@ mod tests {
         assert_eq!(RunOutputEventKind::Activity.label(), "activity");
         assert_eq!(RunOutputEventKind::Diagnostic.label(), "diagnostic");
         assert_eq!(RunOutputEventKind::Output.label(), "output");
+    }
+
+    #[test]
+    fn simulated_run_timeline_preserves_event_order_and_provider() {
+        let profile = RunCapabilityProfile::simulated_supported();
+        let request = RunRequest::new("ThinSliceHello", "Module1", "Main");
+        let transcript = RunTranscript::simulated_completed(request);
+
+        let timeline = RunTimeline::from_transcript(&transcript, &profile);
+
+        assert_eq!(timeline.provider_label, "simulated");
+        assert_eq!(timeline.status_label(), "completed");
+        assert!(!timeline.native_execution_available);
+        assert!(!timeline.com_runtime_available);
+        assert_eq!(
+            timeline.request.display_target(),
+            "ThinSliceHello::Module1.Main"
+        );
+        assert_eq!(timeline.entries.len(), 4);
+        assert_eq!(timeline.entries[0].index, 1);
+        assert_eq!(timeline.entries[0].kind, RunOutputEventKind::Lifecycle);
+        assert_eq!(timeline.entries[0].message, "run started");
+        assert_eq!(timeline.entries[1].index, 2);
+        assert!(
+            timeline.entries[1]
+                .message
+                .contains("simulated provider invoked ThinSliceHello::Module1.Main")
+        );
+        assert_eq!(timeline.entries[2].kind, RunOutputEventKind::Output);
+        assert!(timeline.entries[2].message.contains("answer 42"));
+        assert!(
+            timeline
+                .entries
+                .iter()
+                .all(|entry| entry.provenance_label == "simulated")
+        );
+    }
+
+    #[test]
+    fn browser_disabled_run_timeline_preserves_disabled_reason() {
+        let profile = RunCapabilityProfile::browser_safe_unsupported();
+        let request = RunRequest::new("ThinSliceHello", "Module1", "Main");
+        let transcript = RunTranscript::browser_disabled(request, profile.clone());
+
+        let timeline = RunTimeline::from_transcript(&transcript, &profile);
+
+        assert_eq!(timeline.provider_label, "browser-unsupported");
+        assert_eq!(timeline.status_label(), "disabled");
+        assert!(!timeline.native_execution_available);
+        assert!(!timeline.com_runtime_available);
+        assert_eq!(timeline.entries.len(), 2);
+        assert_eq!(timeline.entries[0].message, "run requested");
+        assert_eq!(timeline.entries[1].kind, RunOutputEventKind::Diagnostic);
+        assert!(
+            timeline.entries[1]
+                .message
+                .contains("native execution provider unavailable")
+        );
     }
 
     #[test]
