@@ -54,6 +54,7 @@ pub const GUI_WEB_COMMAND_PALETTE_DOM_SMOKE: &str = "gui-web-command-palette-dom
 pub const GUI_WEB_NO_MOUSE_ACCESSIBILITY_DOM_SMOKE: &str =
     "gui-web-no-mouse-accessibility-dom-smoke";
 pub const GUI_DNAONECALC_WEB_SHELL_HOST_CONTRACT: &str = "gui-dnaonecalc-web-shell-host-contract";
+pub const GUI_DNAONECALC_WEB_SHELL_DOM_READINESS: &str = "gui-dnaonecalc-web-shell-dom-readiness";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,6 +106,7 @@ pub enum GuiScenarioKind {
     WebCommandPaletteDomSmoke,
     WebNoMouseAccessibilityDomSmoke,
     DnaOneCalcWebShellHostContract,
+    DnaOneCalcWebShellDomReadiness,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -279,8 +281,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_DNAONECALC_WEB_SHELL_HOST_CONTRACT,
                 title: "DnaOneCalc web shell host contract",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::DnaOneCalcWebShellHostContract,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_DNAONECALC_WEB_SHELL_DOM_READINESS,
+                title: "DnaOneCalc web shell DOM readiness",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::DnaOneCalcWebShellDomReadiness,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -371,7 +379,8 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::WebShellDomSmoke
         | GuiScenarioKind::WebCommandPaletteDomSmoke
         | GuiScenarioKind::WebNoMouseAccessibilityDomSmoke
-        | GuiScenarioKind::DnaOneCalcWebShellHostContract => view.active_source.source_text.clone(),
+        | GuiScenarioKind::DnaOneCalcWebShellHostContract
+        | GuiScenarioKind::DnaOneCalcWebShellDomReadiness => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -569,6 +578,22 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         }
         GuiScenarioKind::DnaOneCalcWebShellHostContract => {
             render_dnaonecalc_web_shell_host_contract_section(
+                &mut output,
+                &scenario.fixture_path,
+                &view.project_name,
+                &view
+                    .modules
+                    .iter()
+                    .map(|module| {
+                        GuiShellModuleSummary::new(&module.display_name, module.is_active)
+                    })
+                    .collect::<Vec<_>>(),
+                &view.active_source.module_display_name,
+                &view.active_source.source_text,
+            )
+        }
+        GuiScenarioKind::DnaOneCalcWebShellDomReadiness => {
+            render_dnaonecalc_web_shell_dom_readiness_section(
                 &mut output,
                 &scenario.fixture_path,
                 &view.project_name,
@@ -1825,6 +1850,75 @@ fn render_dnaonecalc_web_shell_host_contract_section(
     output.push_str("  </section>\n");
 }
 
+fn render_dnaonecalc_web_shell_dom_readiness_section(
+    output: &mut String,
+    workspace_path: &Path,
+    project_name: &str,
+    modules: &[GuiShellModuleSummary],
+    active_module: &str,
+    source_text: &str,
+) {
+    let shell_packet = build_shell_packet_baseline(
+        workspace_path,
+        project_name,
+        modules,
+        active_module,
+        source_text,
+    );
+    let static_report = run_static_shell_dom_smoke(&shell_packet);
+    let command_report = run_command_palette_dom_smoke(&shell_packet);
+    let accessibility_report = run_no_mouse_accessibility_dom_smoke(&shell_packet);
+
+    output.push_str("  <section role=\"dnaonecalc-web-shell-dom-readiness\" data-host=\"DnaOneCalc\" data-source=\"W300 DOM smoke reports\" data-static-shell=\"");
+    output.push_str(if static_report.all_passed() {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-command-palette=\"");
+    output.push_str(if command_report.all_passed() {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-no-mouse-accessibility=\"");
+    output.push_str(if accessibility_report.all_passed() {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-browser-runtime=\"false\" data-dnaonecalc-host-smoke=\"false\" data-dom-audited=\"false\" data-filesystem-persistence=\"false\" data-native-runtime=\"false\" data-com-runtime=\"false\">\n");
+    for (label, report) in [
+        ("static-shell", &static_report),
+        ("command-palette", &command_report),
+        ("no-mouse-accessibility", &accessibility_report),
+    ] {
+        output.push_str("    <section role=\"dnaonecalc-dom-readiness-report\" data-report=\"");
+        output.push_str(label);
+        output.push_str("\" data-smoke-kind=\"");
+        output.push_str(report.smoke_kind);
+        output.push_str("\" data-all-passed=\"");
+        output.push_str(if report.all_passed() { "true" } else { "false" });
+        output.push_str("\" data-browser-runtime=\"");
+        output.push_str(if report.browser_runtime_claimed {
+            "true"
+        } else {
+            "false"
+        });
+        output.push_str("\" data-dom-audited=\"");
+        output.push_str(if report.dom_accessibility_audited {
+            "true"
+        } else {
+            "false"
+        });
+        output.push_str("\" data-check-count=\"");
+        output.push_str(&report.checks.len().to_string());
+        output.push_str("\"></section>\n");
+    }
+    output.push_str("    <div role=\"dnaonecalc-dom-readiness-policy\">OxIde parsed HTML DOM readiness only; DnaOneCalc browser host smoke, filesystem persistence, native runtime, COM runtime, and full accessibility audit are not claimed.</div>\n");
+    output.push_str("  </section>\n");
+}
+
 fn render_com_capability_section(output: &mut String, profile: ComCapabilityProfile) {
     output.push_str("  <section role=\"com-capability\" data-profile=\"");
     output.push_str(profile.host_kind.label());
@@ -2267,6 +2361,8 @@ mod tests {
         assert!(output.contains("Web no-mouse accessibility DOM smoke"));
         assert!(output.contains("gui-dnaonecalc-web-shell-host-contract"));
         assert!(output.contains("DnaOneCalc web shell host contract"));
+        assert!(output.contains("gui-dnaonecalc-web-shell-dom-readiness"));
+        assert!(output.contains("DnaOneCalc web shell DOM readiness"));
     }
 
     #[test]
@@ -2476,6 +2572,9 @@ mod tests {
         let dnaonecalc_web_shell_host_contract = registry
             .find(GUI_DNAONECALC_WEB_SHELL_HOST_CONTRACT)
             .expect("DnaOneCalc web shell host contract scenario");
+        let dnaonecalc_web_shell_dom_readiness = registry
+            .find(GUI_DNAONECALC_WEB_SHELL_DOM_READINESS)
+            .expect("DnaOneCalc web shell DOM readiness scenario");
 
         assert_eq!(command_palette.title, "Command palette baseline");
         assert_eq!(
@@ -2544,6 +2643,14 @@ mod tests {
         assert_eq!(
             dnaonecalc_web_shell_host_contract.kind,
             GuiScenarioKind::DnaOneCalcWebShellHostContract
+        );
+        assert_eq!(
+            dnaonecalc_web_shell_dom_readiness.title,
+            "DnaOneCalc web shell DOM readiness"
+        );
+        assert_eq!(
+            dnaonecalc_web_shell_dom_readiness.kind,
+            GuiScenarioKind::DnaOneCalcWebShellDomReadiness
         );
     }
 
@@ -3306,6 +3413,35 @@ mod tests {
         assert!(rendered.contains("data-no-mouse-accessibility=\"true\""));
         assert!(rendered.contains("DnaOneCalc browser host smoke is not claimed"));
         assert!(rendered.contains("did not modify DnaOneCalc files"));
+    }
+
+    #[test]
+    fn dnaonecalc_web_shell_dom_readiness_scenario_reuses_w300_reports_without_host_claims() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_DNAONECALC_WEB_SHELL_DOM_READINESS)
+            .expect("render DnaOneCalc web shell DOM readiness scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-dnaonecalc-web-shell-dom-readiness\""));
+        assert!(rendered.contains("role=\"dnaonecalc-web-shell-dom-readiness\""));
+        assert!(rendered.contains("data-host=\"DnaOneCalc\""));
+        assert!(rendered.contains("data-source=\"W300 DOM smoke reports\""));
+        assert!(rendered.contains("data-static-shell=\"true\""));
+        assert!(rendered.contains("data-command-palette=\"true\""));
+        assert!(rendered.contains("data-no-mouse-accessibility=\"true\""));
+        assert!(rendered.contains("data-browser-runtime=\"false\""));
+        assert!(rendered.contains("data-dnaonecalc-host-smoke=\"false\""));
+        assert!(rendered.contains("data-dom-audited=\"false\""));
+        assert!(rendered.contains("data-filesystem-persistence=\"false\""));
+        assert!(rendered.contains("data-native-runtime=\"false\""));
+        assert!(rendered.contains("data-com-runtime=\"false\""));
+        assert!(rendered.contains("data-report=\"static-shell\" data-smoke-kind=\"parsed-html-tree\" data-all-passed=\"true\""));
+        assert!(rendered.contains("data-report=\"command-palette\" data-smoke-kind=\"parsed-html-command-palette\" data-all-passed=\"true\""));
+        assert!(rendered.contains("data-report=\"no-mouse-accessibility\" data-smoke-kind=\"parsed-html-no-mouse-accessibility\" data-all-passed=\"true\""));
+        assert!(rendered.contains("OxIde parsed HTML DOM readiness only"));
+        assert!(rendered.contains("DnaOneCalc browser host smoke"));
+        assert!(rendered.contains("full accessibility audit are not claimed"));
     }
 
     #[test]
