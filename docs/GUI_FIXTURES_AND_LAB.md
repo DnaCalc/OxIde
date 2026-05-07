@@ -170,23 +170,82 @@ Known W220 limitations:
 3. no inline markers yet,
 4. no standalone `diagnostics-demo` fixture yet because the thin-slice in-memory edit is stable enough for this acceptance step.
 
-## 8. W230 Handoff
+## 8. W230 Acceptance Target
 
-W230 should start from both lab commands:
+W230 closes against an honest lifecycle/session lab scenario:
+
+```text
+Open examples/thin-slice/ThinSliceHello.basproj
+  -> project spine still shows ThinSliceHello and Module1.bas
+  -> working source shows the W220 deterministic edit
+  -> document lifecycle state is dirty
+  -> browser-limited save/reload commands explain direct filesystem persistence is unavailable
+  -> local revert remains available where it is a pure state transition
+  -> in-memory save evidence is explicitly labeled non-filesystem
+  -> session restore reconstructs workspace/module/working-source dirty state
+  -> capability/status surface still states browser-safe COM-unavailable profile
+```
+
+Current W230 evidence command:
+
+```powershell
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-lifecycle
+```
+
+Observed W230 output is deterministic text/HTML-like lab output. It contains:
+
+- `data-scenario="gui-thin-slice-lifecycle"`,
+- `ThinSliceHello`,
+- `Module1.bas`,
+- edited source with `answer = 40 + 2` and without `Dim answer`,
+- `role="document-lifecycle"`,
+- `data-provider="browser-limited"`,
+- `data-dirty="true"`,
+- `data-command="save" data-enabled="false"`,
+- `data-command="reload" data-enabled="false"`,
+- `data-command="revert" data-enabled="true"`,
+- `browser-safe profile has no direct filesystem persistence`,
+- `role="persistence-proof"`,
+- `data-provider="in-memory"`,
+- `data-filesystem="false"`,
+- `no filesystem persistence claimed`,
+- `role="session-restore"`,
+- `data-profile="browser-limited"`,
+- `role="restored-module">Module1.bas`,
+- browser-safe host capability text including `COM unavailable`.
+
+Implementation notes:
+
+1. `oxide-core` owns pure lifecycle and session snapshot state.
+2. `oxide-guilab` renders lifecycle/session evidence without mutating checked-in fixtures.
+3. Browser-limited save/reload are disabled honestly; in-memory persistence is labeled as a proof seam only.
+4. No parked TUI session store is imported.
+
+Known W230 limitations:
+
+1. no real DOM/Leptos save controls yet,
+2. no real filesystem write/reload fixture yet,
+3. no conflict resolution or multi-project restore,
+4. no run/output surface yet; W240 owns that next step.
+
+## 9. W240 Handoff
+
+W240 should start from the three current regression lab commands:
 
 ```powershell
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-loaded
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-edited-diagnostics
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-lifecycle
 ```
 
-W230 prerequisites:
+W240 prerequisites:
 
-1. preserve disk source until explicit save is requested,
-2. introduce an OxIde-owned dirty/persisted document state model,
-3. make save/reload/session restore visible in `oxide-guilab`,
-4. define how `HostWorkspaceSession` overlays survive or reset after save/reload,
-5. keep browser-safe capability text visible while persistence is unavailable or simulated.
+1. preserve lifecycle dirty/session evidence while adding run/output state,
+2. introduce an OxIde-owned run request/event/output model rather than raw log strings,
+3. make browser-safe run unsupported reasons explicit,
+4. avoid claiming native execution until a supported/simulated run provider is tested,
+5. decide whether the first supported run-output proof uses the existing thin-slice source or a dedicated `run-output-demo` fixture.
 
-## 9. Cross-Repo Fixture Policy
+## 10. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.

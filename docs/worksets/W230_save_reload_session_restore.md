@@ -75,8 +75,27 @@ W230 does not need to perform real disk writes to `examples/thin-slice` in its f
 - **Evidence.** Test output, lab render output, and W240 handoff note.
 - **Closure.** W230 acceptance target is satisfied; W240 has explicit prerequisites and no hidden persistence gaps.
 
+## Acceptance Evidence
+
+W230 was accepted with:
+
+```powershell
+cargo test --manifest-path crates/Cargo.toml --workspace
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-loaded
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-edited-diagnostics
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-lifecycle
+```
+
+The accepted lifecycle lab output contains `gui-thin-slice-lifecycle`,
+`ThinSliceHello`, `Module1.bas`, edited source with `answer = 40 + 2`
+and without `Dim answer`, dirty lifecycle state, browser-limited save/reload
+filesystem-disabled reasons, pure revert availability, in-memory non-filesystem
+persistence proof, session restore state, and browser-safe `COM unavailable`
+capability text.
+
 ## Out-of-scope
 
+- Real filesystem writes to checked-in fixtures.
 - Multi-project workspace restore.
 - Advanced conflict resolution.
 - Cloud sync or arbitrary host persistence systems.
