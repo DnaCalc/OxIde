@@ -9,7 +9,8 @@
     "scaffold:check": "node ./scripts/verify-scaffold.mjs",
     "command-client:check": "node ./scripts/verify-command-client.mjs",
     "host-ui:check": "node ./scripts/verify-host-ui.mjs",
-    "host-lifecycle:check": "node ./scripts/verify-host-lifecycle.mjs"
+    "host-lifecycle:check": "node ./scripts/verify-host-lifecycle.mjs",
+    "host-services:check": "node ./scripts/verify-host-services.mjs"
   },
   "dependencies": {},
   "devDependencies": {}

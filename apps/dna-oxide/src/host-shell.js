@@ -192,10 +192,42 @@ function renderCommandRow(row) {
 }
 
 function renderServicePanel(title, role, response) {
-  return `<section role="${role}" class="panel" data-command="${escapeHtml(response.commandName)}" data-state="${escapeHtml(response.bucket)}" data-provider="native-service-missing" data-enabled="${String(response.enabled)}" data-real-execution="${String(response.claims.realExecutionClaimed)}" data-native-runtime="${String(response.claims.nativeRuntimeClaimed)}" data-com-runtime="${String(response.claims.comRuntimeClaimed)}" data-fake-responses="${String(response.claims.fakeResponses)}" data-fake-debug-data="${String(response.claims.fakeDebugData)}">
+  const service = serviceMetadata(role);
+  return `<section role="${role}" class="panel" data-command="${escapeHtml(response.commandName)}" data-state="${escapeHtml(response.bucket)}" data-provider="native-service-missing" data-enabled="${String(response.enabled)}" data-real-execution="${String(response.claims.realExecutionClaimed)}" data-native-runtime="${String(response.claims.nativeRuntimeClaimed)}" data-com-runtime="${String(response.claims.comRuntimeClaimed)}" data-fake-responses="${String(response.claims.fakeResponses)}" data-fake-debug-data="${String(response.claims.fakeDebugData)}" ${service.attributes}>
     <h2>${escapeHtml(title)}</h2>
     <p role="host-service-disabled-reason">${escapeHtml(response.disabledReason ?? "available")}</p>
+    <p role="host-service-empty-state">${escapeHtml(service.emptyState)}</p>
   </section>`;
+}
+
+function serviceMetadata(role) {
+  switch (role) {
+    case "host-runtime-panel":
+      return {
+        attributes: 'data-output-events="0" data-runtime-id=""',
+        emptyState: "No runtime events or runtime ID are synthesized by the static host proof."
+      };
+    case "host-immediate-panel":
+      return {
+        attributes: 'data-immediate-responses="0" data-immediate-session-id=""',
+        emptyState: "No Immediate responses are synthesized by the static host proof."
+      };
+    case "host-debug-panel":
+      return {
+        attributes: 'data-callstack-frames="0" data-locals="0" data-watches="0" data-breakpoints="0" data-debug-session-id=""',
+        emptyState: "No callstack, locals, watches, breakpoints, or debug session ID are synthesized."
+      };
+    case "host-com-panel":
+      return {
+        attributes: 'data-com-candidates="0" data-com-runtime-invocation="false"',
+        emptyState: "COM capability may be fixture-evidenced, but COM runtime invocation is not claimed."
+      };
+    default:
+      return {
+        attributes: 'data-service-rows="0"',
+        emptyState: "No service rows are synthesized."
+      };
+  }
 }
 
 function renderClaim(label, id, value) {
