@@ -6,9 +6,13 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+use oxide_domain::DiagnosticRow;
 use oxide_domain::OxideDomainRole;
 use oxide_editor_core::{EditOperation, SourceSnapshot};
-use oxide_oxvba::{ProjectOpenSpineError, load_project_open_spine};
+use oxide_oxvba::{
+    EditedDocumentDiagnosticsError, ProjectOpenSpineError, load_edited_document_diagnostics,
+    load_project_open_spine,
+};
 
 pub const GUI_THIN_SLICE_LOADED: &str = "gui-thin-slice-loaded";
 pub const GUI_THIN_SLICE_EDITED_DIAGNOSTICS: &str = "gui-thin-slice-edited-diagnostics";
@@ -161,11 +165,40 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
     output.push_str("\">");
     output.push_str(&html_escape(&source_text));
     output.push_str("</pre>\n");
+    if scenario.source_edit == ScenarioSourceEdit::RemoveAnswerDeclaration {
+        let diagnostics = load_edited_document_diagnostics(
+            &scenario.fixture_path,
+            &view.active_source.module_display_name,
+            &source_text,
+        )
+        .map_err(GuiLabError::Diagnostics)?;
+        output.push_str("  <section role=\"diagnostics\">\n");
+        for diagnostic in &diagnostics.diagnostics {
+            render_diagnostic_row(&mut output, diagnostic);
+        }
+        output.push_str("  </section>\n");
+    }
     output.push_str("  <footer role=\"host-capability\">");
     output.push_str(&view.capability.status_text);
     output.push_str("</footer>\n");
     output.push_str("</section>\n");
     Ok(output)
+}
+
+fn render_diagnostic_row(output: &mut String, diagnostic: &DiagnosticRow) {
+    output.push_str("    <div role=\"diagnostic-row\" data-severity=\"");
+    output.push_str(&html_escape(&diagnostic.severity_label));
+    output.push_str("\" data-module=\"");
+    output.push_str(&html_escape(&diagnostic.module_display_name));
+    output.push_str("\" data-start=\"");
+    output.push_str(&diagnostic.span_start.to_string());
+    output.push_str("\" data-end=\"");
+    output.push_str(&diagnostic.span_end.to_string());
+    output.push_str("\">");
+    output.push_str(&html_escape(&diagnostic.message));
+    output.push_str(" <span role=\"diagnostic-provenance\">");
+    output.push_str(&html_escape(&diagnostic.provenance_label));
+    output.push_str("</span></div>\n");
 }
 
 fn html_escape(text: &str) -> String {
@@ -180,6 +213,7 @@ pub enum GuiLabError {
     UnknownScenario { id: String },
     Usage { message: String },
     ProjectOpen(ProjectOpenSpineError),
+    Diagnostics(EditedDocumentDiagnosticsError),
 }
 
 impl std::fmt::Display for GuiLabError {
@@ -189,6 +223,7 @@ impl std::fmt::Display for GuiLabError {
             Self::UnknownScenario { id } => write!(f, "unknown GUI scenario id {id}"),
             Self::Usage { message } => write!(f, "{message}"),
             Self::ProjectOpen(source) => write!(f, "project-open scenario failed: {source}"),
+            Self::Diagnostics(source) => write!(f, "diagnostics scenario failed: {source}"),
         }
     }
 }
@@ -316,5 +351,11 @@ mod tests {
         assert!(rendered.contains("answer = 40 + 2"));
         assert!(rendered.contains("Public Sub Main()"));
         assert!(rendered.contains("COM unavailable"));
+        assert!(rendered.contains("role=\"diagnostics\""));
+        assert!(rendered.contains("role=\"diagnostic-row\""));
+        assert!(rendered.contains("data-severity=\"error\""));
+        assert!(rendered.contains("undeclared variable"));
+        assert!(rendered.contains("answer"));
+        assert!(rendered.contains("OxVba language service"));
     }
 }

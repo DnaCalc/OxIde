@@ -30,6 +30,7 @@ fn error_exit_code(error: &GuiLabError) -> u8 {
         GuiLabError::UnknownScenario { .. } => 2,
         GuiLabError::DuplicateScenarioId { .. } => 3,
         GuiLabError::ProjectOpen(_) => 4,
+        GuiLabError::Diagnostics(_) => 4,
     }
 }
 
