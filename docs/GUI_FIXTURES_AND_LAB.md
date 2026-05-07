@@ -125,26 +125,68 @@ During W210 and later:
 - scenario IDs should be tested by name, not list position,
 - snapshots should assert product contracts rather than fragile prose where possible.
 
-## 7. W220 Handoff
+## 7. W220 Acceptance Target
 
-W220 should start from the W210 view model and lab command, then add the
-smallest editable module surface and diagnostics path.
+W220 closes against a deterministic editable/diagnostic lab scenario:
 
-Known prerequisites:
+```text
+Open examples/thin-slice/ThinSliceHello.basproj
+  -> project spine still shows ThinSliceHello and Module1.bas
+  -> editor/source region shows Module1.bas with a deterministic in-memory edit
+  -> OxVba diagnostics are queried from the edited document snapshot
+  -> diagnostics surface shows at least one OxVba-backed diagnostic row
+  -> capability/status surface still states browser-safe COM-unavailable profile
+```
 
-1. Keep `gui-thin-slice-loaded` stable as the read-only baseline.
-2. Add a new scenario ID for editable/diagnostic state rather than mutating the W210 baseline beyond recognition.
-3. Reuse `ProjectOpenSpineView` only where it remains true; introduce editor/document snapshot types deliberately.
-4. Use OxVba document/session APIs for diagnostics; do not parse VBA in OxIde.
-5. Keep browser-safe capability text visible while editing.
+Current W220 evidence command:
 
-Known gaps:
+```powershell
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-edited-diagnostics
+```
 
-1. no real DOM/Leptos mount yet,
-2. no editor buffer in GUI crates yet,
-3. no document snapshot update path to OxVba yet,
-4. no diagnostic fixture beyond current thin-slice source yet.
+Observed W220 output is deterministic text/HTML-like lab output. It contains:
 
-## 8. Cross-Repo Fixture Policy
+- `data-scenario="gui-thin-slice-edited-diagnostics"`,
+- `ThinSliceHello`,
+- `Module1.bas`,
+- edited source with `answer = 40 + 2` and without `Dim answer`,
+- `role="diagnostics"`,
+- `data-severity="error"`,
+- `use of undeclared variable: answer`,
+- `OxVba language service`,
+- browser-safe host capability text including `COM unavailable`.
+
+Implementation notes:
+
+1. `gui-thin-slice-loaded` remains the W210 read-only baseline.
+2. `oxide-editor-core` owns the rendering-independent deterministic edit operation.
+3. `oxide-oxvba` uses `HostWorkspaceSession` directly; no LSP path or OxIde parser is introduced.
+4. Diagnostic severity is projected as presentation text in `DiagnosticRow`, avoiding local duplication of OxVba diagnostic enums.
+
+Known W220 limitations:
+
+1. no real DOM/Leptos text input yet,
+2. no save/reload/session restore yet,
+3. no inline markers yet,
+4. no standalone `diagnostics-demo` fixture yet because the thin-slice in-memory edit is stable enough for this acceptance step.
+
+## 8. W230 Handoff
+
+W230 should start from both lab commands:
+
+```powershell
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-loaded
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-edited-diagnostics
+```
+
+W230 prerequisites:
+
+1. preserve disk source until explicit save is requested,
+2. introduce an OxIde-owned dirty/persisted document state model,
+3. make save/reload/session restore visible in `oxide-guilab`,
+4. define how `HostWorkspaceSession` overlays survive or reset after save/reload,
+5. keep browser-safe capability text visible while persistence is unavailable or simulated.
+
+## 9. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.

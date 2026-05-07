@@ -76,9 +76,25 @@ W220 does not need to introduce a full Leptos/DOM editor yet. A deterministic ed
 - **Evidence.** Test output, scenario render output, and W230 handoff note.
 - **Closure.** W220 acceptance target is satisfied; W230 has concrete prerequisites and no hidden fixture/lab gaps.
 
+## Acceptance Evidence
+
+W220 was accepted with:
+
+```powershell
+cargo test --manifest-path crates/Cargo.toml --workspace
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-edited-diagnostics
+```
+
+The accepted lab output contains `gui-thin-slice-edited-diagnostics`,
+`ThinSliceHello`, `Module1.bas`, edited source with `answer = 40 + 2`
+and without `Dim answer`, a diagnostics region, `data-severity="error"`,
+`use of undeclared variable: answer`, `OxVba language service`, and
+browser-safe `COM unavailable` capability text.
+
 ## Out-of-scope
 
 - Full editor feature parity.
+- Real DOM/Leptos text input.
 - Save/reload/session restore.
 - Completion/hover/reference UX beyond what diagnostics require.
 - Runtime execution.
