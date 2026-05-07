@@ -1780,6 +1780,203 @@ impl GuiFocusGraph {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GuiAccessibleSurfaceRole {
+    ProjectTree,
+    Editor,
+    Diagnostics,
+    LifecycleControls,
+    RunOutput,
+    Immediate,
+    Debug,
+    ComCapability,
+    CommandPalette,
+    CapabilityFooter,
+}
+
+impl GuiAccessibleSurfaceRole {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::ProjectTree => "project-tree",
+            Self::Editor => "editor",
+            Self::Diagnostics => "diagnostics",
+            Self::LifecycleControls => "lifecycle-controls",
+            Self::RunOutput => "run-output",
+            Self::Immediate => "immediate",
+            Self::Debug => "debug",
+            Self::ComCapability => "com-capability",
+            Self::CommandPalette => "command-palette",
+            Self::CapabilityFooter => "capability-footer",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiAccessibilityNode {
+    pub surface_id: String,
+    pub role: GuiAccessibleSurfaceRole,
+    pub accessible_label: String,
+    pub accessible_description: String,
+    pub disabled_reason: Option<String>,
+}
+
+impl GuiAccessibilityNode {
+    pub fn new(
+        surface_id: impl Into<String>,
+        role: GuiAccessibleSurfaceRole,
+        accessible_label: impl Into<String>,
+        accessible_description: impl Into<String>,
+        disabled_reason: Option<String>,
+    ) -> Self {
+        Self {
+            surface_id: surface_id.into(),
+            role,
+            accessible_label: accessible_label.into(),
+            accessible_description: accessible_description.into(),
+            disabled_reason,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiAccessibilityProjection {
+    pub nodes: Vec<GuiAccessibilityNode>,
+    pub source_label: String,
+    pub web_framework_bound: bool,
+}
+
+impl GuiAccessibilityProjection {
+    pub fn baseline(palette: &GuiCommandPalette) -> Self {
+        let command_reason = |id| {
+            palette
+                .command(id)
+                .and_then(|command| command.availability.disabled_reason.clone())
+        };
+        let lifecycle_reason = [
+            GuiCommandId::DocumentSave,
+            GuiCommandId::DocumentReload,
+            GuiCommandId::DocumentRevert,
+        ]
+        .into_iter()
+        .filter_map(command_reason)
+        .collect::<Vec<_>>()
+        .join("; ");
+        let com_profile = ComCapabilityProfile::browser_unavailable(
+            ComReferenceFact::scripting_dictionary_demo(),
+        );
+        let com_reason = format!(
+            "{} {}",
+            com_profile
+                .reference_discovery
+                .reason
+                .clone()
+                .unwrap_or_else(|| String::from("COM discovery unavailable.")),
+            com_profile
+                .runtime_invocation
+                .reason
+                .clone()
+                .unwrap_or_else(|| String::from("COM runtime unavailable."))
+        );
+
+        let nodes = vec![
+            GuiAccessibilityNode::new(
+                "project-tree",
+                GuiAccessibleSurfaceRole::ProjectTree,
+                "Project tree",
+                "Navigate modules in the active OxVba project.",
+                None,
+            ),
+            GuiAccessibilityNode::new(
+                "source-editor",
+                GuiAccessibleSurfaceRole::Editor,
+                "Source editor",
+                "Edit the active VBA module source.",
+                None,
+            ),
+            GuiAccessibilityNode::new(
+                "diagnostics-panel",
+                GuiAccessibleSurfaceRole::Diagnostics,
+                "Diagnostics",
+                "Review OxVba language-service diagnostics for the active source.",
+                None,
+            ),
+            GuiAccessibilityNode::new(
+                "lifecycle-controls",
+                GuiAccessibleSurfaceRole::LifecycleControls,
+                "Document lifecycle controls",
+                "Save, reload, or revert the active document through the current persistence profile.",
+                if lifecycle_reason.is_empty() {
+                    None
+                } else {
+                    Some(lifecycle_reason)
+                },
+            ),
+            GuiAccessibilityNode::new(
+                "run-output",
+                GuiAccessibleSurfaceRole::RunOutput,
+                "Run output",
+                "Run transcript and output events for the selected entrypoint.",
+                command_reason(GuiCommandId::RuntimeRun),
+            ),
+            GuiAccessibilityNode::new(
+                "immediate-panel",
+                GuiAccessibleSurfaceRole::Immediate,
+                "Immediate window",
+                "Immediate execution surface for an authoritative OxVba runtime session.",
+                command_reason(GuiCommandId::RuntimeImmediate),
+            ),
+            GuiAccessibilityNode::new(
+                "debug-panel",
+                GuiAccessibleSurfaceRole::Debug,
+                "Debug panel",
+                "Debug session surface for an authoritative OxVba debug adapter.",
+                command_reason(GuiCommandId::RuntimeDebug),
+            ),
+            GuiAccessibilityNode::new(
+                "com-capability",
+                GuiAccessibleSurfaceRole::ComCapability,
+                "COM capability",
+                "COM reference discovery and runtime invocation capability status.",
+                Some(com_reason),
+            ),
+            GuiAccessibilityNode::new(
+                "command-palette",
+                GuiAccessibleSurfaceRole::CommandPalette,
+                "Command palette",
+                "Search GUI commands and hear disabled reasons before activation.",
+                None,
+            ),
+            GuiAccessibilityNode::new(
+                "capability-footer",
+                GuiAccessibleSurfaceRole::CapabilityFooter,
+                "Host capability summary",
+                "Browser-safe profile: editing and semantic projection available; native execution and COM unavailable.",
+                Some(String::from(
+                    "native execution and COM are unavailable in the browser-safe profile",
+                )),
+            ),
+        ];
+
+        Self {
+            nodes,
+            source_label: String::from("gui-core accessibility projection"),
+            web_framework_bound: false,
+        }
+    }
+
+    pub fn node(&self, surface_id: &str) -> Option<&GuiAccessibilityNode> {
+        self.nodes.iter().find(|node| node.surface_id == surface_id)
+    }
+
+    pub fn disabled_reason_surface_ids(&self) -> Vec<&str> {
+        self.nodes
+            .iter()
+            .filter(|node| node.disabled_reason.is_some())
+            .map(|node| node.surface_id.as_str())
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2717,5 +2914,86 @@ mod tests {
         assert!(disabled_focusable.contains(&"immediate-panel"));
         assert!(disabled_focusable.contains(&"debug-panel"));
         assert!(disabled_focusable.contains(&"com-capability"));
+    }
+
+    #[test]
+    fn accessibility_projection_labels_every_major_surface() {
+        let document = DocumentLifecycleState::open_clean(
+            "Option Explicit",
+            LifecycleCapabilities::browser_limited(),
+        );
+        let palette = GuiCommandPalette::browser_safe_baseline(&document);
+        let accessibility = GuiAccessibilityProjection::baseline(&palette);
+
+        assert_eq!(
+            accessibility
+                .nodes
+                .iter()
+                .map(|node| node.role.label())
+                .collect::<Vec<_>>(),
+            vec![
+                "project-tree",
+                "editor",
+                "diagnostics",
+                "lifecycle-controls",
+                "run-output",
+                "immediate",
+                "debug",
+                "com-capability",
+                "command-palette",
+                "capability-footer",
+            ]
+        );
+        assert!(
+            accessibility
+                .nodes
+                .iter()
+                .all(|node| !node.accessible_label.is_empty())
+        );
+        assert!(!accessibility.web_framework_bound);
+    }
+
+    #[test]
+    fn accessibility_projection_exposes_disabled_reason_descriptions() {
+        let document = DocumentLifecycleState::open_clean(
+            "Option Explicit",
+            LifecycleCapabilities::browser_limited(),
+        );
+        let palette = GuiCommandPalette::browser_safe_baseline(&document);
+        let accessibility = GuiAccessibilityProjection::baseline(&palette);
+
+        assert!(
+            accessibility
+                .disabled_reason_surface_ids()
+                .contains(&"run-output")
+        );
+        assert!(
+            accessibility
+                .node("run-output")
+                .and_then(|node| node.disabled_reason.as_deref())
+                .expect("run disabled reason")
+                .contains("native execution provider unavailable")
+        );
+        assert!(
+            accessibility
+                .node("immediate-panel")
+                .and_then(|node| node.disabled_reason.as_deref())
+                .expect("Immediate disabled reason")
+                .contains("no native OxVba runtime session")
+        );
+        assert!(
+            accessibility
+                .node("debug-panel")
+                .and_then(|node| node.disabled_reason.as_deref())
+                .expect("debug disabled reason")
+                .contains("no OxVba debug session")
+        );
+        assert!(
+            accessibility
+                .node("com-capability")
+                .and_then(|node| node.disabled_reason.as_deref())
+                .expect("COM disabled reason")
+                .contains("COM discovery unavailable in browser-safe profile")
+        );
     }
 }

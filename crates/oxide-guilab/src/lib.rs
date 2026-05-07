@@ -9,10 +9,11 @@ use std::path::{Path, PathBuf};
 use oxide_bridge::EmbeddedIdePacket;
 use oxide_core::{
     ComCapabilityProfile, ComCapabilityStatus, ComReferenceFact, DebugCapabilityProfile,
-    DocumentLifecycleState, GuiCommandPalette, GuiFocusGraph, GuiKeyboardMap, GuiSessionSnapshot,
-    ImmediateCapabilityProfile, InMemoryDocumentPersistence, LifecycleCapabilities,
-    LifecycleCommand, LifecycleCommandStatus, RunCapabilityProfile, RunRequest, RunTimeline,
-    RunTranscript, SessionCapabilityProfile, save_lifecycle_to_persistence,
+    DocumentLifecycleState, GuiAccessibilityProjection, GuiCommandPalette, GuiFocusGraph,
+    GuiKeyboardMap, GuiSessionSnapshot, ImmediateCapabilityProfile, InMemoryDocumentPersistence,
+    LifecycleCapabilities, LifecycleCommand, LifecycleCommandStatus, RunCapabilityProfile,
+    RunRequest, RunTimeline, RunTranscript, SessionCapabilityProfile,
+    save_lifecycle_to_persistence,
 };
 use oxide_domain::{DiagnosticRow, OxideDomainRole};
 use oxide_editor_core::{EditOperation, SourceSnapshot};
@@ -38,6 +39,7 @@ pub const GUI_DEBUG_BROWSER_DISABLED: &str = "gui-debug-browser-disabled";
 pub const GUI_COMMAND_PALETTE_BASELINE: &str = "gui-command-palette-baseline";
 pub const GUI_KEYBOARD_CONTEXTS_BASELINE: &str = "gui-keyboard-contexts-baseline";
 pub const GUI_FOCUS_GRAPH_NO_MOUSE: &str = "gui-focus-graph-no-mouse";
+pub const GUI_ACCESSIBILITY_DISABLED_REASONS: &str = "gui-accessibility-disabled-reasons";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -79,6 +81,7 @@ pub enum GuiScenarioKind {
     CommandPaletteBaseline,
     KeyboardContextsBaseline,
     FocusGraphNoMouse,
+    AccessibilityDisabledReasons,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -193,8 +196,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_FOCUS_GRAPH_NO_MOUSE,
                 title: "Focus graph no-mouse",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::FocusGraphNoMouse,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_ACCESSIBILITY_DISABLED_REASONS,
+                title: "Accessibility disabled reasons",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::AccessibilityDisabledReasons,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -275,7 +284,8 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::DebugBrowserDisabled
         | GuiScenarioKind::CommandPaletteBaseline
         | GuiScenarioKind::KeyboardContextsBaseline
-        | GuiScenarioKind::FocusGraphNoMouse => view.active_source.source_text.clone(),
+        | GuiScenarioKind::FocusGraphNoMouse
+        | GuiScenarioKind::AccessibilityDisabledReasons => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -360,6 +370,12 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         }
         GuiScenarioKind::FocusGraphNoMouse => {
             render_focus_graph_no_mouse_section(&mut output, &view.active_source.source_text)
+        }
+        GuiScenarioKind::AccessibilityDisabledReasons => {
+            render_accessibility_disabled_reasons_section(
+                &mut output,
+                &view.active_source.source_text,
+            )
         }
     }
     output.push_str("  <footer role=\"host-capability\">");
@@ -766,6 +782,52 @@ fn render_focus_graph_no_mouse_section(output: &mut String, source_text: &str) {
     }
     output.push_str("    </section>\n");
     output.push_str("    <div role=\"focus-policy-note\">Disabled reason panels remain reachable in the no-mouse route.</div>\n");
+    output.push_str("  </section>\n");
+}
+
+fn render_accessibility_disabled_reasons_section(output: &mut String, source_text: &str) {
+    let document =
+        DocumentLifecycleState::open_clean(source_text, LifecycleCapabilities::browser_limited());
+    let palette = GuiCommandPalette::browser_safe_baseline(&document);
+    let accessibility = GuiAccessibilityProjection::baseline(&palette);
+
+    output.push_str("  <section role=\"accessibility-projection\" data-source=\"");
+    output.push_str(&html_escape(&accessibility.source_label));
+    output.push_str("\" data-web-framework-bound=\"");
+    output.push_str(if accessibility.web_framework_bound {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-surface-count=\"");
+    output.push_str(&accessibility.nodes.len().to_string());
+    output.push_str("\">\n");
+    for node in &accessibility.nodes {
+        output.push_str("    <div role=\"accessible-surface\" data-surface-id=\"");
+        output.push_str(&html_escape(&node.surface_id));
+        output.push_str("\" data-role=\"");
+        output.push_str(node.role.label());
+        output.push_str("\" data-has-disabled-reason=\"");
+        output.push_str(if node.disabled_reason.is_some() {
+            "true"
+        } else {
+            "false"
+        });
+        output.push_str("\">\n");
+        output.push_str("      <span role=\"accessible-label\">");
+        output.push_str(&html_escape(&node.accessible_label));
+        output.push_str("</span>\n");
+        output.push_str("      <span role=\"accessible-description\">");
+        output.push_str(&html_escape(&node.accessible_description));
+        output.push_str("</span>\n");
+        if let Some(reason) = &node.disabled_reason {
+            output.push_str("      <span role=\"accessible-disabled-reason\">");
+            output.push_str(&html_escape(reason));
+            output.push_str("</span>\n");
+        }
+        output.push_str("    </div>\n");
+    }
+    output.push_str("    <div role=\"accessibility-policy-note\">Projection data only; no web framework accessibility API is chosen in core.</div>\n");
     output.push_str("  </section>\n");
 }
 
@@ -1191,6 +1253,8 @@ mod tests {
         assert!(output.contains("Keyboard contexts baseline"));
         assert!(output.contains("gui-focus-graph-no-mouse"));
         assert!(output.contains("Focus graph no-mouse"));
+        assert!(output.contains("gui-accessibility-disabled-reasons"));
+        assert!(output.contains("Accessibility disabled reasons"));
     }
 
     #[test]
@@ -1370,6 +1434,9 @@ mod tests {
         let focus_graph = registry
             .find(GUI_FOCUS_GRAPH_NO_MOUSE)
             .expect("focus graph no-mouse scenario");
+        let accessibility = registry
+            .find(GUI_ACCESSIBILITY_DISABLED_REASONS)
+            .expect("accessibility disabled reasons scenario");
 
         assert_eq!(command_palette.title, "Command palette baseline");
         assert_eq!(
@@ -1383,6 +1450,11 @@ mod tests {
         );
         assert_eq!(focus_graph.title, "Focus graph no-mouse");
         assert_eq!(focus_graph.kind, GuiScenarioKind::FocusGraphNoMouse);
+        assert_eq!(accessibility.title, "Accessibility disabled reasons");
+        assert_eq!(
+            accessibility.kind,
+            GuiScenarioKind::AccessibilityDisabledReasons
+        );
     }
 
     #[test]
@@ -1719,6 +1791,42 @@ mod tests {
         assert!(rendered.contains("data-index=\"9\" data-node-id=\"command-palette\""));
         assert!(rendered.contains("returns to source-editor"));
         assert!(rendered.contains("Disabled reason panels remain reachable"));
+    }
+
+    #[test]
+    fn accessibility_disabled_reasons_scenario_renders_labels_and_descriptions() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_ACCESSIBILITY_DISABLED_REASONS)
+            .expect("render accessibility disabled reasons scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-accessibility-disabled-reasons\""));
+        assert!(rendered.contains("role=\"accessibility-projection\""));
+        assert!(rendered.contains("data-source=\"gui-core accessibility projection\""));
+        assert!(rendered.contains("data-web-framework-bound=\"false\""));
+        assert!(rendered.contains("data-surface-count=\"10\""));
+        assert!(rendered.contains("data-surface-id=\"source-editor\" data-role=\"editor\""));
+        assert!(rendered.contains("role=\"accessible-label\">Source editor"));
+        assert!(
+            rendered.contains("data-surface-id=\"diagnostics-panel\" data-role=\"diagnostics\"")
+        );
+        assert!(rendered.contains("OxVba language-service diagnostics"));
+        assert!(rendered.contains("data-surface-id=\"run-output\" data-role=\"run-output\" data-has-disabled-reason=\"true\""));
+        assert!(rendered.contains("native execution provider unavailable"));
+        assert!(rendered.contains("data-surface-id=\"immediate-panel\" data-role=\"immediate\" data-has-disabled-reason=\"true\""));
+        assert!(rendered.contains("no native OxVba runtime session"));
+        assert!(rendered.contains(
+            "data-surface-id=\"debug-panel\" data-role=\"debug\" data-has-disabled-reason=\"true\""
+        ));
+        assert!(rendered.contains("no OxVba debug session"));
+        assert!(rendered.contains("data-surface-id=\"com-capability\" data-role=\"com-capability\" data-has-disabled-reason=\"true\""));
+        assert!(rendered.contains("COM discovery unavailable in browser-safe profile"));
+        assert!(
+            rendered
+                .contains("data-surface-id=\"capability-footer\" data-role=\"capability-footer\"")
+        );
+        assert!(rendered.contains("no web framework accessibility API is chosen in core"));
     }
 
     #[test]
