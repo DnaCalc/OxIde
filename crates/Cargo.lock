@@ -602,6 +602,7 @@ dependencies = [
  "oxide-domain",
  "oxide-editor-core",
  "oxide-oxvba",
+ "oxide-ui-leptos",
  "oxide-webshell",
 ]
 

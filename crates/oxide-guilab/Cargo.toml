@@ -10,4 +10,5 @@ oxide-core = { path = "../oxide-core" }
 oxide-domain = { path = "../oxide-domain" }
 oxide-editor-core = { path = "../oxide-editor-core" }
 oxide-oxvba = { path = "../oxide-oxvba" }
+oxide-ui-leptos = { path = "../oxide-ui-leptos" }
 oxide-webshell = { path = "../oxide-webshell" }

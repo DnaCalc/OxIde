@@ -26,6 +26,7 @@ use oxide_oxvba::{
     EditedDocumentDiagnosticsError, ProjectOpenSpineError, load_edited_document_diagnostics,
     load_project_open_spine,
 };
+use oxide_ui_leptos::{SharedIdeSurfaceModel, UiDataProvenance, render_shared_ide_surface};
 use oxide_webshell::{
     render_web_shell_snapshot, run_command_palette_dom_smoke, run_no_mouse_accessibility_dom_smoke,
     run_static_shell_dom_smoke,
@@ -71,6 +72,7 @@ pub const GUI_IMMEDIATE_SERVICE_CONTRACT_NATIVE_MISSING: &str =
     "gui-immediate-service-contract-native-missing";
 pub const GUI_DEBUG_SERVICE_CONTRACT_NATIVE_MISSING: &str =
     "gui-debug-service-contract-native-missing";
+pub const GUI_SHARED_UI_SHELL_COMPONENT: &str = "gui-shared-ui-shell-component";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -130,6 +132,7 @@ pub enum GuiScenarioKind {
     RuntimeServiceContractNativeMissing,
     ImmediateServiceContractNativeMissing,
     DebugServiceContractNativeMissing,
+    SharedUiShellComponent,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -352,8 +355,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_DEBUG_SERVICE_CONTRACT_NATIVE_MISSING,
                 title: "Debug service contract native missing",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::DebugServiceContractNativeMissing,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_SHARED_UI_SHELL_COMPONENT,
+                title: "Shared UI shell component",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::SharedUiShellComponent,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -452,9 +461,8 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::RuntimeServiceContractBrowserDisabled
         | GuiScenarioKind::RuntimeServiceContractNativeMissing
         | GuiScenarioKind::ImmediateServiceContractNativeMissing
-        | GuiScenarioKind::DebugServiceContractNativeMissing => {
-            view.active_source.source_text.clone()
-        }
+        | GuiScenarioKind::DebugServiceContractNativeMissing
+        | GuiScenarioKind::SharedUiShellComponent => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -734,6 +742,18 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
                 DebugServicePacket::native_service_missing(),
             )
         }
+        GuiScenarioKind::SharedUiShellComponent => render_shared_ui_shell_component_section(
+            &mut output,
+            &scenario.fixture_path,
+            &view.project_name,
+            &view
+                .modules
+                .iter()
+                .map(|module| GuiShellModuleSummary::new(&module.display_name, module.is_active))
+                .collect::<Vec<_>>(),
+            &view.active_source.module_display_name,
+            &view.active_source.source_text,
+        ),
     }
     output.push_str("  <footer role=\"host-capability\">");
     output.push_str(scenario_host_capability_text(
@@ -762,8 +782,9 @@ fn scenario_host_capability_text<'a>(kind: GuiScenarioKind, default_text: &'a st
         GuiScenarioKind::RuntimeServiceContractBrowserDisabled
         | GuiScenarioKind::RuntimeServiceContractNativeMissing
         | GuiScenarioKind::ImmediateServiceContractNativeMissing
-        | GuiScenarioKind::DebugServiceContractNativeMissing => {
-            "Runtime service contract profile: no real execution, fake data, native runtime, or COM runtime is claimed."
+        | GuiScenarioKind::DebugServiceContractNativeMissing
+        | GuiScenarioKind::SharedUiShellComponent => {
+            "Shared UI component profile: no real execution, fake data, native runtime, or COM runtime is claimed."
         }
         _ => default_text,
     }
@@ -1247,6 +1268,72 @@ fn build_dnaonecalc_web_shell_host_packet(
         &shell_packet,
         WebShellDomReadinessSummary::parsed_html_all_passed(),
     )
+}
+
+fn render_shared_ui_shell_component_section(
+    output: &mut String,
+    workspace_path: &Path,
+    project_name: &str,
+    modules: &[GuiShellModuleSummary],
+    active_module: &str,
+    source_text: &str,
+) {
+    let shell = build_shell_packet_baseline(
+        workspace_path,
+        project_name,
+        modules,
+        active_module,
+        source_text,
+    );
+    let runtime = RuntimeServicePacket::native_service_missing(
+        workspace_path.display().to_string(),
+        project_name,
+        module_stem(active_module),
+        "Main",
+    );
+    let immediate = ImmediateServicePacket::native_service_missing(Some(String::from("?answer")));
+    let debug = DebugServicePacket::native_service_missing();
+    let model = SharedIdeSurfaceModel {
+        shell,
+        runtime,
+        immediate,
+        debug,
+        provenance: UiDataProvenance::PendingOxVbaHardening {
+            gap: "W342 shared UI consumes packets; full OxVba stable IDs/events/watch/breakpoint/COM runtime evidence pending",
+        },
+    };
+    let render = render_shared_ide_surface(&model);
+
+    output.push_str("  <section role=\"shared-ui-component-route\" data-source=\"oxide-ui-leptos\" data-component-crate=\"");
+    output.push_str(render.component_crate);
+    output.push_str("\" data-native-runtime=\"");
+    output.push_str(if render.native_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-com-runtime=\"");
+    output.push_str(if render.com_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-fake-responses=\"");
+    output.push_str(if render.fake_immediate_responses {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-fake-debug-data=\"");
+    output.push_str(if render.fake_debug_data {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    output.push_str(render.markup());
+    output.push_str("    <div role=\"shared-ui-component-policy\">Shared UI route renders oxide-ui-leptos component output from packets; no live Tauri/WebView, real runtime, fake Immediate response, fake debug data, or COM runtime is claimed.</div>\n");
+    output.push_str("  </section>\n");
 }
 
 fn render_shell_packet_baseline_section(
@@ -3298,6 +3385,52 @@ mod tests {
             debug_native_missing.kind,
             GuiScenarioKind::DebugServiceContractNativeMissing
         );
+    }
+
+    #[test]
+    fn built_in_registry_finds_w342_shared_ui_component_scenario_by_id() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let shared_ui = registry
+            .find(GUI_SHARED_UI_SHELL_COMPONENT)
+            .expect("shared UI shell component scenario");
+
+        assert_eq!(shared_ui.kind, GuiScenarioKind::SharedUiShellComponent);
+    }
+
+    #[test]
+    fn shared_ui_shell_component_scenario_renders_shared_component_markup() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_SHARED_UI_SHELL_COMPONENT)
+            .expect("render shared UI shell component scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-shared-ui-shell-component\""));
+        assert!(rendered.contains("role=\"shared-ui-component-route\""));
+        assert!(rendered.contains("data-source=\"oxide-ui-leptos\""));
+        assert!(rendered.contains("role=\"shared-ide-surface\""));
+        assert!(rendered.contains("data-component-crate=\"oxide-ui-leptos\""));
+        assert!(rendered.contains("data-provenance=\"pending-oxvba-hardening\""));
+        assert!(rendered.contains("role=\"shared-project-spine\""));
+        assert!(rendered.contains("role=\"shared-editor-boundary\""));
+        assert!(rendered.contains("role=\"shared-diagnostics-summary\""));
+        assert!(rendered.contains("role=\"shared-lifecycle-summary\""));
+        assert!(rendered.contains("role=\"shared-run-output\""));
+        assert!(rendered.contains("role=\"shared-command-palette\""));
+        assert!(rendered.contains("role=\"shared-focus-accessibility\""));
+        assert!(rendered.contains("role=\"shared-runtime-service\""));
+        assert!(rendered.contains("role=\"shared-immediate-service\""));
+        assert!(rendered.contains("role=\"shared-debug-service\""));
+        assert!(rendered.contains("role=\"shared-com-capability\""));
+        assert!(rendered.contains("ThinSliceHello"));
+        assert!(rendered.contains("Module1.bas"));
+        assert!(rendered.contains("Public Sub Main()"));
+        assert!(rendered.contains("data-native-runtime=\"false\""));
+        assert!(rendered.contains("data-com-runtime=\"false\""));
+        assert!(rendered.contains("data-fake-responses=\"false\""));
+        assert!(rendered.contains("data-fake-debug-data=\"false\""));
+        assert!(rendered.contains("no live Tauri/WebView, real runtime, fake Immediate response, fake debug data, or COM runtime is claimed"));
     }
 
     #[test]
