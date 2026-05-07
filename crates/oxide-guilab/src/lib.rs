@@ -22,11 +22,18 @@ use oxide_core::{
 };
 use oxide_domain::{DiagnosticRow, OxideDomainRole};
 use oxide_editor_core::{EditOperation, SourceSnapshot};
+use oxide_host_bridge::{
+    BrowserReviewFixtureHost, HostCapabilityApi, command_availability_for_statuses,
+    host_bridge_command_catalog,
+};
 use oxide_oxvba::{
     EditedDocumentDiagnosticsError, ProjectOpenSpineError, load_edited_document_diagnostics,
     load_project_open_spine,
 };
-use oxide_ui_leptos::{SharedIdeSurfaceModel, UiDataProvenance, render_shared_ide_surface};
+use oxide_ui_leptos::{
+    SharedIdeSurfaceModel, UiDataProvenance, render_host_bridge_command_panel,
+    render_shared_ide_surface,
+};
 use oxide_webshell::{
     render_web_shell_snapshot, run_command_palette_dom_smoke, run_no_mouse_accessibility_dom_smoke,
     run_static_shell_dom_smoke,
@@ -73,6 +80,7 @@ pub const GUI_IMMEDIATE_SERVICE_CONTRACT_NATIVE_MISSING: &str =
 pub const GUI_DEBUG_SERVICE_CONTRACT_NATIVE_MISSING: &str =
     "gui-debug-service-contract-native-missing";
 pub const GUI_SHARED_UI_SHELL_COMPONENT: &str = "gui-shared-ui-shell-component";
+pub const GUI_HOST_BRIDGE_COMMAND_DISPATCH: &str = "gui-host-bridge-command-dispatch";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -133,6 +141,7 @@ pub enum GuiScenarioKind {
     ImmediateServiceContractNativeMissing,
     DebugServiceContractNativeMissing,
     SharedUiShellComponent,
+    HostBridgeCommandDispatch,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -361,8 +370,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_SHARED_UI_SHELL_COMPONENT,
                 title: "Shared UI shell component",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::SharedUiShellComponent,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_HOST_BRIDGE_COMMAND_DISPATCH,
+                title: "Host bridge command dispatch",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::HostBridgeCommandDispatch,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -462,7 +477,8 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::RuntimeServiceContractNativeMissing
         | GuiScenarioKind::ImmediateServiceContractNativeMissing
         | GuiScenarioKind::DebugServiceContractNativeMissing
-        | GuiScenarioKind::SharedUiShellComponent => view.active_source.source_text.clone(),
+        | GuiScenarioKind::SharedUiShellComponent
+        | GuiScenarioKind::HostBridgeCommandDispatch => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -754,6 +770,18 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
             &view.active_source.module_display_name,
             &view.active_source.source_text,
         ),
+        GuiScenarioKind::HostBridgeCommandDispatch => render_host_bridge_command_dispatch_section(
+            &mut output,
+            &scenario.fixture_path,
+            &view.project_name,
+            &view
+                .modules
+                .iter()
+                .map(|module| GuiShellModuleSummary::new(&module.display_name, module.is_active))
+                .collect::<Vec<_>>(),
+            &view.active_source.module_display_name,
+            &view.active_source.source_text,
+        ),
     }
     output.push_str("  <footer role=\"host-capability\">");
     output.push_str(scenario_host_capability_text(
@@ -783,7 +811,8 @@ fn scenario_host_capability_text<'a>(kind: GuiScenarioKind, default_text: &'a st
         | GuiScenarioKind::RuntimeServiceContractNativeMissing
         | GuiScenarioKind::ImmediateServiceContractNativeMissing
         | GuiScenarioKind::DebugServiceContractNativeMissing
-        | GuiScenarioKind::SharedUiShellComponent => {
+        | GuiScenarioKind::SharedUiShellComponent
+        | GuiScenarioKind::HostBridgeCommandDispatch => {
             "Shared UI component profile: no real execution, fake data, native runtime, or COM runtime is claimed."
         }
         _ => default_text,
@@ -1333,6 +1362,64 @@ fn render_shared_ui_shell_component_section(
     output.push_str("\">\n");
     output.push_str(render.markup());
     output.push_str("    <div role=\"shared-ui-component-policy\">Shared UI route renders oxide-ui-leptos component output from packets; no live Tauri/WebView, real runtime, fake Immediate response, fake debug data, or COM runtime is claimed.</div>\n");
+    output.push_str("  </section>\n");
+}
+
+fn render_host_bridge_command_dispatch_section(
+    output: &mut String,
+    workspace_path: &Path,
+    project_name: &str,
+    modules: &[GuiShellModuleSummary],
+    active_module: &str,
+    source_text: &str,
+) {
+    let shell = build_shell_packet_baseline(
+        workspace_path,
+        project_name,
+        modules,
+        active_module,
+        source_text,
+    );
+    let host = BrowserReviewFixtureHost::new(shell);
+    let availability = command_availability_for_statuses(
+        &host_bridge_command_catalog(),
+        &host.capability_statuses(),
+    );
+    let render = render_host_bridge_command_panel(&availability);
+
+    output.push_str("  <section role=\"host-bridge-command-dispatch-route\" data-source=\"oxide-host-bridge+oxide-ui-leptos\" data-component-crate=\"");
+    output.push_str(render.component_crate);
+    output.push_str("\" data-command-count=\"");
+    output.push_str(&render.command_count.to_string());
+    output.push_str("\" data-enabled-count=\"");
+    output.push_str(&render.enabled_count.to_string());
+    output.push_str("\" data-native-runtime=\"");
+    output.push_str(if render.native_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-com-runtime=\"");
+    output.push_str(if render.com_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-fake-responses=\"");
+    output.push_str(if render.fake_immediate_responses {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-fake-debug-data=\"");
+    output.push_str(if render.fake_debug_data {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    output.push_str(render.markup());
+    output.push_str("    <div role=\"host-bridge-command-policy\">Shared UI command intents are projected from HostBridgeServiceStatus through oxide-host-bridge; oxvba-fixture-evidenced commands remain adapter-target labels, not real DnaOxIde runtime/debug/Immediate/COM claims.</div>\n");
     output.push_str("  </section>\n");
 }
 
@@ -3399,6 +3486,20 @@ mod tests {
     }
 
     #[test]
+    fn built_in_registry_finds_w343_host_bridge_command_dispatch_scenario_by_id() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let command_dispatch = registry
+            .find(GUI_HOST_BRIDGE_COMMAND_DISPATCH)
+            .expect("host bridge command dispatch scenario");
+
+        assert_eq!(
+            command_dispatch.kind,
+            GuiScenarioKind::HostBridgeCommandDispatch
+        );
+    }
+
+    #[test]
     fn shared_ui_shell_component_scenario_renders_shared_component_markup() {
         let registry = GuiScenarioRegistry::built_in(repo_root());
 
@@ -3431,6 +3532,42 @@ mod tests {
         assert!(rendered.contains("data-fake-responses=\"false\""));
         assert!(rendered.contains("data-fake-debug-data=\"false\""));
         assert!(rendered.contains("no live Tauri/WebView, real runtime, fake Immediate response, fake debug data, or COM runtime is claimed"));
+    }
+
+    #[test]
+    fn host_bridge_command_dispatch_scenario_renders_command_availability() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_HOST_BRIDGE_COMMAND_DISPATCH)
+            .expect("render host bridge command dispatch scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-host-bridge-command-dispatch\""));
+        assert!(rendered.contains("role=\"host-bridge-command-dispatch-route\""));
+        assert!(rendered.contains("data-source=\"oxide-host-bridge+oxide-ui-leptos\""));
+        assert!(rendered.contains("role=\"shared-command-dispatch\""));
+        assert!(rendered.contains("data-source=\"HostBridgeCommandAvailability\""));
+        assert!(rendered.contains("data-command-count=\"26\""));
+        assert!(rendered.contains("data-dnaonecalc-reusable=\"true\""));
+        assert!(rendered.contains("data-command-id=\"project.open\""));
+        assert!(rendered.contains("data-category=\"HostProjectApi\""));
+        assert!(rendered.contains("data-enabled=\"true\""));
+        assert!(rendered.contains("data-command-id=\"runtime.run\""));
+        assert!(rendered.contains("data-state=\"oxvba-fixture-evidenced\""));
+        assert!(
+            rendered.contains("ThinSliceHello fixture covers EmbeddedBuildRunHost::run_project")
+        );
+        assert!(rendered.contains("data-command-id=\"runtime.immediate\""));
+        assert!(rendered.contains("EmbeddedRunSession::into_immediate_session"));
+        assert!(rendered.contains("data-command-id=\"watch.upsert\""));
+        assert!(rendered.contains("watch registry/evaluation"));
+        assert!(rendered.contains("data-command-id=\"references.com.search\""));
+        assert!(rendered.contains("ComSelectionService reference state and capability_profile"));
+        assert!(rendered.contains("data-native-runtime=\"false\""));
+        assert!(rendered.contains("data-com-runtime=\"false\""));
+        assert!(rendered.contains("data-fake-responses=\"false\""));
+        assert!(rendered.contains("data-fake-debug-data=\"false\""));
+        assert!(rendered.contains("not real DnaOxIde runtime/debug/Immediate/COM claims"));
     }
 
     #[test]

@@ -8,6 +8,7 @@ use oxide_core::{
     DebugServicePacket, GuiShellModuleSummary, GuiShellPacket, ImmediateServicePacket,
     RuntimeServicePacket,
 };
+use oxide_host_bridge::HostBridgeCommandAvailability;
 
 /// Compile-time marker for the shared UI crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,6 +41,10 @@ pub enum UiDataProvenance {
         surface: &'static str,
         evidence: &'static str,
     },
+    OxVbaFixtureEvidenced {
+        seam: &'static str,
+        evidence: &'static str,
+    },
     PendingOxVbaHardening {
         gap: &'static str,
     },
@@ -53,6 +58,7 @@ impl UiDataProvenance {
         match self {
             Self::ProvenOxideState => "proven-oxide-state",
             Self::OxVbaAvailableSubset { .. } => "oxvba-available-subset",
+            Self::OxVbaFixtureEvidenced { .. } => "oxvba-fixture-evidenced",
             Self::PendingOxVbaHardening { .. } => "pending-oxvba-hardening",
             Self::UnavailableNoClaim { .. } => "unavailable-no-claim",
         }
@@ -62,6 +68,7 @@ impl UiDataProvenance {
         match self {
             Self::ProvenOxideState => "state proven inside OxIde tests",
             Self::OxVbaAvailableSubset { evidence, .. } => evidence,
+            Self::OxVbaFixtureEvidenced { evidence, .. } => evidence,
             Self::PendingOxVbaHardening { gap } => gap,
             Self::UnavailableNoClaim { reason } => reason,
         }
@@ -116,6 +123,109 @@ impl SharedIdeSurfaceRender {
     pub fn markup(&self) -> &str {
         &self.markup
     }
+}
+
+/// Deterministic render output for host bridge command availability.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SharedCommandDispatchRender {
+    markup: String,
+    pub component_crate: &'static str,
+    pub source_contract: &'static str,
+    pub command_count: usize,
+    pub enabled_count: usize,
+    pub native_runtime_claimed: bool,
+    pub com_runtime_claimed: bool,
+    pub fake_immediate_responses: bool,
+    pub fake_debug_data: bool,
+}
+
+impl SharedCommandDispatchRender {
+    pub fn markup(&self) -> &str {
+        &self.markup
+    }
+}
+
+/// Render shared UI command intents after host bridge availability projection.
+pub fn render_host_bridge_command_panel(
+    commands: &[HostBridgeCommandAvailability],
+) -> SharedCommandDispatchRender {
+    let role = OxideUiLeptosRole::SharedIdeComponentBoundary;
+    let native_runtime_claimed = commands
+        .iter()
+        .any(|command| command.native_runtime_claimed || command.real_execution_claimed);
+    let com_runtime_claimed = commands.iter().any(|command| command.com_runtime_claimed);
+    let fake_immediate_responses = commands
+        .iter()
+        .any(|command| command.fake_immediate_responses);
+    let fake_debug_data = commands.iter().any(|command| command.fake_debug_data);
+    let enabled_count = commands.iter().filter(|command| command.enabled).count();
+
+    let mut markup = String::new();
+    markup.push_str("<section role=\"shared-command-dispatch\" data-component-crate=\"");
+    markup.push_str(role.crate_name());
+    markup.push_str("\" data-source=\"HostBridgeCommandAvailability\" data-command-count=\"");
+    markup.push_str(&commands.len().to_string());
+    markup.push_str("\" data-enabled-count=\"");
+    markup.push_str(&enabled_count.to_string());
+    markup.push_str(
+        "\" data-tauri-coupled=\"false\" data-dnaonecalc-reusable=\"true\" data-native-runtime=\"",
+    );
+    markup.push_str(bool_attr(native_runtime_claimed));
+    markup.push_str("\" data-com-runtime=\"");
+    markup.push_str(bool_attr(com_runtime_claimed));
+    markup.push_str("\" data-fake-responses=\"");
+    markup.push_str(bool_attr(fake_immediate_responses));
+    markup.push_str("\" data-fake-debug-data=\"");
+    markup.push_str(bool_attr(fake_debug_data));
+    markup.push_str("\">\n");
+    markup.push_str("  <h2>Host bridge command dispatch</h2>\n");
+    for command in commands {
+        render_host_command_row(&mut markup, command);
+    }
+    markup.push_str("</section>\n");
+
+    SharedCommandDispatchRender {
+        markup,
+        component_crate: role.crate_name(),
+        source_contract: "HostBridgeCommandAvailability",
+        command_count: commands.len(),
+        enabled_count,
+        native_runtime_claimed,
+        com_runtime_claimed,
+        fake_immediate_responses,
+        fake_debug_data,
+    }
+}
+
+fn render_host_command_row(markup: &mut String, command: &HostBridgeCommandAvailability) {
+    markup.push_str("  <div role=\"shared-host-command\" data-command-id=\"");
+    markup.push_str(&html_escape(&command.stable_id));
+    markup.push_str("\" data-category=\"");
+    markup.push_str(command.category.api_name());
+    markup.push_str("\" data-state=\"");
+    markup.push_str(command.state.label());
+    markup.push_str("\" data-enabled=\"");
+    markup.push_str(bool_attr(command.enabled));
+    markup.push_str("\" data-native-runtime=\"");
+    markup.push_str(bool_attr(
+        command.native_runtime_claimed || command.real_execution_claimed,
+    ));
+    markup.push_str("\" data-com-runtime=\"");
+    markup.push_str(bool_attr(command.com_runtime_claimed));
+    markup.push_str("\" data-fake-responses=\"");
+    markup.push_str(bool_attr(command.fake_immediate_responses));
+    markup.push_str("\" data-fake-debug-data=\"");
+    markup.push_str(bool_attr(command.fake_debug_data));
+    markup.push_str("\">\n");
+    markup.push_str("    <span role=\"shared-host-command-label\">");
+    markup.push_str(&html_escape(&command.label));
+    markup.push_str("</span>\n");
+    if let Some(reason) = &command.disabled_reason {
+        markup.push_str("    <span role=\"shared-host-command-disabled-reason\">");
+        markup.push_str(&html_escape(reason));
+        markup.push_str("</span>\n");
+    }
+    markup.push_str("  </div>\n");
 }
 
 /// Render the first shared shell surface around `GuiShellPacket`.
@@ -472,6 +582,10 @@ mod tests {
         DebugServicePacket, GuiShellDiagnosticSummary, GuiShellModuleSummary,
         ImmediateServicePacket, RuntimeServicePacket,
     };
+    use oxide_host_bridge::{
+        command_availability_for_statuses, host_bridge_command_catalog, BrowserReviewFixtureHost,
+        HostCapabilityApi,
+    };
 
     fn shell_packet() -> GuiShellPacket {
         GuiShellPacket::browser_safe_baseline(
@@ -565,6 +679,27 @@ mod tests {
     }
 
     #[test]
+    fn shared_shell_can_label_oxvba_fixture_evidence_without_full_claims() {
+        let packet = shell_packet();
+        let render = render_shared_shell(
+            &packet,
+            UiDataProvenance::OxVbaFixtureEvidenced {
+                seam: "EmbeddedRunSession::into_debug_session",
+                evidence: "DNAOXIDE_THIN_SLICE_HELLO_FIXTURE_2026-05-07",
+            },
+        );
+        let markup = render.markup();
+
+        assert_eq!(render.provenance_label, "oxvba-fixture-evidenced");
+        assert!(markup.contains("data-provenance=\"oxvba-fixture-evidenced\""));
+        assert!(markup.contains("DNAOXIDE_THIN_SLICE_HELLO_FIXTURE_2026-05-07"));
+        assert!(markup.contains("data-native-runtime=\"false\""));
+        assert!(markup.contains("data-com-runtime=\"false\""));
+        assert!(markup.contains("data-fake-responses=\"false\""));
+        assert!(markup.contains("data-fake-debug-data=\"false\""));
+    }
+
+    #[test]
     fn shared_ide_surface_renders_accepted_panes_without_fake_data() {
         let model = surface_model();
         let render = render_shared_ide_surface(&model);
@@ -615,5 +750,42 @@ mod tests {
         assert!(markup.contains("data-fake-debug-data=\"false\""));
         assert!(markup.contains("data-runtime-available=\"false\""));
         assert!(markup.contains("data-dom-audited=\"false\""));
+    }
+
+    #[test]
+    fn shared_command_dispatch_renders_host_bridge_availability_without_claims() {
+        let host = BrowserReviewFixtureHost::new(shell_packet());
+        let commands = command_availability_for_statuses(
+            &host_bridge_command_catalog(),
+            &host.capability_statuses(),
+        );
+        let render = render_host_bridge_command_panel(&commands);
+        let markup = render.markup();
+
+        assert_eq!(render.component_crate, "oxide-ui-leptos");
+        assert_eq!(render.source_contract, "HostBridgeCommandAvailability");
+        assert_eq!(render.command_count, 26);
+        assert!(render.enabled_count >= 1);
+        assert!(!render.native_runtime_claimed);
+        assert!(!render.com_runtime_claimed);
+        assert!(!render.fake_immediate_responses);
+        assert!(!render.fake_debug_data);
+
+        assert!(markup.contains("role=\"shared-command-dispatch\""));
+        assert!(markup.contains("data-tauri-coupled=\"false\""));
+        assert!(markup.contains("data-dnaonecalc-reusable=\"true\""));
+        assert!(markup.contains("data-command-count=\"26\""));
+        assert!(markup.contains("data-command-id=\"project.open\""));
+        assert!(markup.contains("data-category=\"HostProjectApi\""));
+        assert!(markup.contains("data-enabled=\"true\""));
+        assert!(markup.contains("data-command-id=\"runtime.run\""));
+        assert!(markup.contains("data-state=\"oxvba-fixture-evidenced\""));
+        assert!(markup.contains("ThinSliceHello fixture covers EmbeddedBuildRunHost::run_project"));
+        assert!(markup.contains("data-command-id=\"references.com.search\""));
+        assert!(markup.contains("ComSelectionService reference state and capability_profile"));
+        assert!(markup.contains("data-native-runtime=\"false\""));
+        assert!(markup.contains("data-com-runtime=\"false\""));
+        assert!(markup.contains("data-fake-responses=\"false\""));
+        assert!(markup.contains("data-fake-debug-data=\"false\""));
     }
 }

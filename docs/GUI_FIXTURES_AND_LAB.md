@@ -1140,7 +1140,7 @@ Implementation notes:
 1. `oxide-ui-leptos` is the shared UI component boundary for DnaOxIde, DnaOneCalc, and GUI-lab review.
 2. W342 starts with deterministic HTML-string component output over OxIde packets; real Leptos hydration is not yet claimed.
 3. Shared components consume `GuiShellPacket`, `RuntimeServicePacket`, `ImmediateServicePacket`, and `DebugServicePacket` inputs.
-4. Shared components carry provenance labels such as `proven-oxide-state`, `oxvba-available-subset`, `pending-oxvba-hardening`, and `unavailable-no-claim`.
+4. Shared components carry provenance labels such as `proven-oxide-state`, `oxvba-available-subset`, `oxvba-fixture-evidenced`, `pending-oxvba-hardening`, and `unavailable-no-claim`.
 5. `oxide-guilab` preserves existing scenario IDs and adds `gui-shared-ui-shell-component` as the component-backed route.
 6. W342 keeps Tauri/app-folder dependencies out of the shared UI crate.
 7. W343 owns the next host bridge facade; W344 owns DnaOxIde Tauri command adapters.
@@ -1154,6 +1154,43 @@ Known W342 limitations:
 5. no real OxVba runtime/debug/Immediate/COM adapter evidence,
 6. no DnaOneCalc repo mount.
 
-## 21. Cross-Repo Fixture Policy
+## 21. W343 Host Bridge Command Dispatch Acceptance Target
+
+W343-B03 closes against host bridge command availability projected into the shared UI and a deterministic GUI-lab route:
+
+```powershell
+cargo test --manifest-path crates/Cargo.toml -p oxide-host-bridge
+cargo test --manifest-path crates/Cargo.toml -p oxide-ui-leptos
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-host-bridge-command-dispatch
+```
+
+Observed W343 command dispatch output contains:
+
+- `data-scenario="gui-host-bridge-command-dispatch"`,
+- `role="host-bridge-command-dispatch-route"`,
+- `data-source="oxide-host-bridge+oxide-ui-leptos"`,
+- `role="shared-command-dispatch"`,
+- `data-source="HostBridgeCommandAvailability"`,
+- `data-command-id="project.open"` with `data-enabled="true"`,
+- `data-command-id="runtime.run"` with `data-state="oxvba-fixture-evidenced"`,
+- `data-command-id="runtime.immediate"`,
+- `data-command-id="watch.upsert"`,
+- `data-command-id="references.com.search"`,
+- `ThinSliceHello fixture covers EmbeddedBuildRunHost::run_project`,
+- `ComSelectionService reference state and capability_profile`,
+- `data-native-runtime="false"`,
+- `data-com-runtime="false"`,
+- `data-fake-responses="false"`,
+- `data-fake-debug-data="false"`.
+
+Implementation notes:
+
+1. `oxide-host-bridge` owns the command catalog and availability projection over `HostBridgeServiceStatus`.
+2. `oxide-ui-leptos` renders `HostBridgeCommandAvailability` without depending on Tauri or app-specific host code.
+3. `oxide-guilab` provides the deterministic review route.
+4. OxVba ThinSliceHello fixture-evidenced commands remain adapter-target labels until OxIde adds direct adapter tests.
+5. Real DnaOxIde runtime/debug/Immediate/COM claims remain false.
+
+## 22. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.

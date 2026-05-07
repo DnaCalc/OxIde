@@ -11,3 +11,4 @@ hydration = []
 
 [dependencies]
 oxide-core = { path = "../oxide-core" }
+oxide-host-bridge = { path = "../oxide-host-bridge" }

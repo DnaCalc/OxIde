@@ -601,6 +601,7 @@ dependencies = [
  "oxide-core",
  "oxide-domain",
  "oxide-editor-core",
+ "oxide-host-bridge",
  "oxide-oxvba",
  "oxide-ui-leptos",
  "oxide-webshell",
@@ -628,6 +629,7 @@ name = "oxide-ui-leptos"
 version = "0.1.0"
 dependencies = [
  "oxide-core",
+ "oxide-host-bridge",
 ]
 
 [[package]]

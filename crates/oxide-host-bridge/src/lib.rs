@@ -203,6 +203,216 @@ impl HostCommandIntent {
     }
 }
 
+/// Stable command descriptor shared by UI renderers and host implementations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HostBridgeCommandSpec {
+    pub stable_id: &'static str,
+    pub label: &'static str,
+    pub category: HostBridgeServiceCategory,
+    pub state_override: Option<HostBridgeCapabilityState>,
+    pub disabled_reason_override: Option<&'static str>,
+}
+
+impl HostBridgeCommandSpec {
+    pub const fn new(
+        stable_id: &'static str,
+        label: &'static str,
+        category: HostBridgeServiceCategory,
+    ) -> Self {
+        Self {
+            stable_id,
+            label,
+            category,
+            state_override: None,
+            disabled_reason_override: None,
+        }
+    }
+
+    pub const fn pending(
+        stable_id: &'static str,
+        label: &'static str,
+        category: HostBridgeServiceCategory,
+        reason: &'static str,
+    ) -> Self {
+        Self {
+            stable_id,
+            label,
+            category,
+            state_override: Some(HostBridgeCapabilityState::PendingOxVbaHardening),
+            disabled_reason_override: Some(reason),
+        }
+    }
+
+    pub fn intent(self) -> HostCommandIntent {
+        HostCommandIntent::new(self.stable_id, self.category)
+    }
+}
+
+/// Command availability projected from host service status.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HostBridgeCommandAvailability {
+    pub stable_id: String,
+    pub label: String,
+    pub category: HostBridgeServiceCategory,
+    pub state: HostBridgeCapabilityState,
+    pub enabled: bool,
+    pub disabled_reason: Option<String>,
+    pub real_execution_claimed: bool,
+    pub native_runtime_claimed: bool,
+    pub com_runtime_claimed: bool,
+    pub fake_immediate_responses: bool,
+    pub fake_debug_data: bool,
+}
+
+impl HostBridgeCommandAvailability {
+    pub fn from_status(spec: HostBridgeCommandSpec, status: &HostBridgeServiceStatus) -> Self {
+        let state = spec.state_override.unwrap_or(status.state);
+        let enabled = command_enabled_by_default(status, state, spec);
+        Self {
+            stable_id: spec.stable_id.to_string(),
+            label: spec.label.to_string(),
+            category: spec.category,
+            state,
+            enabled,
+            disabled_reason: disabled_reason_for_command(spec, status, state, enabled),
+            real_execution_claimed: status.real_execution_claimed,
+            native_runtime_claimed: status.native_runtime_claimed,
+            com_runtime_claimed: status.com_runtime_claimed,
+            fake_immediate_responses: status.fake_immediate_responses,
+            fake_debug_data: status.fake_debug_data,
+        }
+    }
+
+    pub fn unavailable(spec: HostBridgeCommandSpec) -> Self {
+        Self::from_status(
+            spec,
+            &HostBridgeServiceStatus::new(
+                spec.category,
+                HostBridgeCapabilityState::UnavailableNoClaim,
+                Some(format!(
+                    "{} has no host bridge service status in this host",
+                    spec.category.api_name()
+                )),
+            ),
+        )
+    }
+
+    pub fn no_claim_flags_false(&self) -> bool {
+        !self.real_execution_claimed
+            && !self.native_runtime_claimed
+            && !self.com_runtime_claimed
+            && !self.fake_immediate_responses
+            && !self.fake_debug_data
+    }
+}
+
+fn command_enabled_by_default(
+    status: &HostBridgeServiceStatus,
+    state: HostBridgeCapabilityState,
+    spec: HostBridgeCommandSpec,
+) -> bool {
+    spec.state_override.is_none()
+        && state == HostBridgeCapabilityState::ProvenOxideOnly
+        && status.disabled_reason.is_none()
+        && status.no_claim_flags_false()
+}
+
+fn disabled_reason_for_command(
+    spec: HostBridgeCommandSpec,
+    status: &HostBridgeServiceStatus,
+    state: HostBridgeCapabilityState,
+    enabled: bool,
+) -> Option<String> {
+    if enabled {
+        return None;
+    }
+    Some(
+        spec.disabled_reason_override
+            .map(String::from)
+            .or_else(|| status.disabled_reason.clone())
+            .unwrap_or_else(|| {
+                format!(
+                    "{} command {} is {} for this host",
+                    spec.category.api_name(),
+                    spec.stable_id,
+                    state.label()
+                )
+            }),
+    )
+}
+
+/// Stable W343 command catalog in display order.
+pub fn host_bridge_command_catalog() -> Vec<HostBridgeCommandSpec> {
+    use HostBridgeServiceCategory as Category;
+    vec![
+        HostBridgeCommandSpec::new("project.open", "Open project", Category::Project),
+        HostBridgeCommandSpec::new("project.inspect", "Inspect project", Category::Project),
+        HostBridgeCommandSpec::new("document.save", "Save document", Category::Document),
+        HostBridgeCommandSpec::new("document.reload", "Reload document", Category::Document),
+        HostBridgeCommandSpec::new("document.revert", "Revert document", Category::Document),
+        HostBridgeCommandSpec::new("language.diagnostics", "Diagnostics", Category::Language),
+        HostBridgeCommandSpec::new("language.hover", "Hover", Category::Language),
+        HostBridgeCommandSpec::new(
+            "language.definition",
+            "Go to definition",
+            Category::Language,
+        ),
+        HostBridgeCommandSpec::new("language.references", "Find references", Category::Language),
+        HostBridgeCommandSpec::pending(
+            "compile.options",
+            "Compile options",
+            Category::Compile,
+            "project properties / compile options DTOs pending OxIde adoption",
+        ),
+        HostBridgeCommandSpec::new("compile.check", "Build/check", Category::Compile),
+        HostBridgeCommandSpec::new("references.show", "Show references", Category::Reference),
+        HostBridgeCommandSpec::new(
+            "references.com.search",
+            "Search COM references",
+            Category::Reference,
+        ),
+        HostBridgeCommandSpec::new("runtime.run", "Run", Category::Runtime),
+        HostBridgeCommandSpec::pending(
+            "runtime.stop",
+            "Stop",
+            Category::Runtime,
+            "stop/cancel command availability pending OxIde adoption",
+        ),
+        HostBridgeCommandSpec::new("runtime.immediate", "Immediate", Category::Immediate),
+        HostBridgeCommandSpec::new("runtime.debug", "Debug", Category::Debug),
+        HostBridgeCommandSpec::new("debug.continue", "Continue", Category::Debug),
+        HostBridgeCommandSpec::new("debug.step_into", "Step into", Category::Debug),
+        HostBridgeCommandSpec::new("debug.step_over", "Step over", Category::Debug),
+        HostBridgeCommandSpec::new("debug.step_out", "Step out", Category::Debug),
+        HostBridgeCommandSpec::new("watch.upsert", "Upsert watch", Category::Debug),
+        HostBridgeCommandSpec::new("breakpoint.set", "Set breakpoint", Category::Debug),
+        HostBridgeCommandSpec::new("settings.open", "Open settings", Category::Settings),
+        HostBridgeCommandSpec::new("capability.show", "Show capabilities", Category::Capability),
+        HostBridgeCommandSpec::new(
+            "shell.command_palette",
+            "Command palette",
+            Category::Capability,
+        ),
+    ]
+}
+
+/// Project command availability from current service statuses.
+pub fn command_availability_for_statuses(
+    specs: &[HostBridgeCommandSpec],
+    statuses: &[HostBridgeServiceStatus],
+) -> Vec<HostBridgeCommandAvailability> {
+    specs
+        .iter()
+        .map(|spec| {
+            statuses
+                .iter()
+                .find(|status| status.category == spec.category)
+                .map(|status| HostBridgeCommandAvailability::from_status(*spec, status))
+                .unwrap_or_else(|| HostBridgeCommandAvailability::unavailable(*spec))
+        })
+        .collect()
+}
+
 pub trait HostProjectApi {
     fn project_status(&self) -> HostBridgeServiceStatus;
     fn shell_packet(&self) -> HostBridgeResponse<GuiShellPacket>;
@@ -461,10 +671,7 @@ impl HostCapabilityApi for BrowserReviewFixtureHost {
             self.immediate_status(),
             self.debug_status(),
             self.settings_status(),
-            HostBridgeServiceStatus::pending_oxvba_hardening(
-                HostBridgeServiceCategory::Capability,
-                "shared capability/error taxonomy pending",
-            ),
+            HostBridgeServiceStatus::proven_oxide_only(HostBridgeServiceCategory::Capability),
         ]
     }
 }
@@ -578,6 +785,80 @@ mod tests {
         let intent = HostCommandIntent::new("runtime.run", HostBridgeServiceCategory::Runtime);
         assert_eq!(intent.stable_id, "runtime.run");
         assert_eq!(intent.category.api_name(), "HostRuntimeApi");
+    }
+
+    #[test]
+    fn command_catalog_maps_shared_ui_commands_to_host_categories() {
+        let catalog = host_bridge_command_catalog();
+        let ids = catalog
+            .iter()
+            .map(|command| command.stable_id)
+            .collect::<Vec<_>>();
+
+        assert_eq!(catalog.len(), 26);
+        assert!(ids.contains(&"project.open"));
+        assert!(ids.contains(&"document.save"));
+        assert!(ids.contains(&"language.diagnostics"));
+        assert!(ids.contains(&"compile.check"));
+        assert!(ids.contains(&"references.com.search"));
+        assert!(ids.contains(&"runtime.run"));
+        assert!(ids.contains(&"runtime.immediate"));
+        assert!(ids.contains(&"runtime.debug"));
+        assert!(ids.contains(&"watch.upsert"));
+        assert!(ids.contains(&"breakpoint.set"));
+        assert!(ids.contains(&"shell.command_palette"));
+        assert_eq!(
+            catalog
+                .iter()
+                .find(|command| command.stable_id == "runtime.run")
+                .expect("runtime command")
+                .intent()
+                .category,
+            HostBridgeServiceCategory::Runtime
+        );
+    }
+
+    #[test]
+    fn command_availability_tracks_host_status_disabled_reasons_and_no_claims() {
+        let host = BrowserReviewFixtureHost::new(fixture_shell_packet());
+        let catalog = host_bridge_command_catalog();
+        let availability = command_availability_for_statuses(&catalog, &host.capability_statuses());
+
+        assert_eq!(availability.len(), catalog.len());
+        assert!(availability
+            .iter()
+            .all(|command| command.no_claim_flags_false()));
+
+        let project_open = availability
+            .iter()
+            .find(|command| command.stable_id == "project.open")
+            .expect("project.open availability");
+        assert!(project_open.enabled);
+        assert_eq!(
+            project_open.state,
+            HostBridgeCapabilityState::ProvenOxideOnly
+        );
+        assert_eq!(project_open.disabled_reason, None);
+
+        let run = availability
+            .iter()
+            .find(|command| command.stable_id == "runtime.run")
+            .expect("runtime.run availability");
+        assert!(!run.enabled);
+        assert_eq!(run.state, HostBridgeCapabilityState::OxVbaFixtureEvidenced);
+        assert!(run
+            .disabled_reason
+            .as_deref()
+            .expect("runtime disabled reason")
+            .contains("ThinSliceHello fixture covers EmbeddedBuildRunHost::run_project"));
+
+        let palette = availability
+            .iter()
+            .find(|command| command.stable_id == "shell.command_palette")
+            .expect("command palette availability");
+        assert!(palette.enabled);
+        assert_eq!(palette.state, HostBridgeCapabilityState::ProvenOxideOnly);
+        assert_eq!(palette.disabled_reason, None);
     }
 
     #[test]
