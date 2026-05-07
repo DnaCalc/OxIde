@@ -1,6 +1,6 @@
 # DNA OxIde (`DnaOxIde`)
 
-Status: `scaffold_design_locked`
+Status: `scaffold_reviewable_w341`
 Date: 2026-05-07
 Product name: **DNA OxIde**
 Internal app name: `DnaOxIde`
@@ -91,3 +91,4 @@ The verifier checks required files, product/scaffold tokens, frontend host-coupl
 - [`../../docs/worksets/W341_dnaoxide_tauri_app_scaffold.md`](../../docs/worksets/W341_dnaoxide_tauri_app_scaffold.md)
 - [`../../docs/worksets/W342_shared_ide_ui_component_layer.md`](../../docs/worksets/W342_shared_ide_ui_component_layer.md)
 - [`../../docs/worksets/W343_oxide_host_bridge_facade.md`](../../docs/worksets/W343_oxide_host_bridge_facade.md)
+- [`../../docs/worksets/W344_dnaoxide_tauri_command_boundary_stubs.md`](../../docs/worksets/W344_dnaoxide_tauri_command_boundary_stubs.md)

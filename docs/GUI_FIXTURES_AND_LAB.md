@@ -1065,6 +1065,41 @@ Known W330 limitations:
 4. no native COM discovery or invocation,
 5. no DnaOneCalc host implementation.
 
-## 19. Cross-Repo Fixture Policy
+## 19. W341 DnaOxIde Scaffold Acceptance Target
+
+W341 closes against a deterministic app scaffold verification rather than a GUI-lab scenario:
+
+```powershell
+node apps/dna-oxide/scripts/verify-scaffold.mjs
+```
+
+Observed W341 scaffold verification covers:
+
+- required app files under `apps/dna-oxide/`,
+- `DNA OxIde` product branding,
+- `DnaOxIde` internal app naming,
+- Tauri-ready `src-tauri/tauri.conf.json` metadata with `productName = DNA OxIde`,
+- frontend entry files with no direct Tauri invoke or OxVba coupling,
+- dependency-free native scaffold tests under `apps/dna-oxide/src-tauri`,
+- command-name placeholders only,
+- explicit false/no-claim runtime, native runtime, COM runtime, fake Immediate response, and fake debug data states.
+
+Implementation notes:
+
+1. W341 does not add shared UI components; W342 owns reusable UI.
+2. W341 does not implement host bridge traits; W343 owns the shared facade.
+3. W341 does not implement Tauri command adapters; W344 owns command wiring.
+4. W341 does not claim a live Tauri/WebView runtime; W345/W346 own host UI and interaction proof.
+5. W341 does not claim real OxVba runtime/debug/Immediate/COM capability.
+
+Known W341 limitations:
+
+1. no shared UI crate yet,
+2. no host bridge crate yet,
+3. no real Tauri runtime dependency or WebView smoke yet,
+4. no real project open/save through Tauri commands yet,
+5. no real OxVba compile/runtime/debug/Immediate/COM adapter evidence yet.
+
+## 20. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.
