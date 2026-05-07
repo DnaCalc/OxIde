@@ -7,8 +7,9 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use oxide_core::{
-    DocumentLifecycleState, InMemoryDocumentPersistence, LifecycleCapabilities, LifecycleCommand,
-    LifecycleCommandStatus, save_lifecycle_to_persistence,
+    DocumentLifecycleState, GuiSessionSnapshot, InMemoryDocumentPersistence, LifecycleCapabilities,
+    LifecycleCommand, LifecycleCommandStatus, SessionCapabilityProfile,
+    save_lifecycle_to_persistence,
 };
 use oxide_domain::{DiagnosticRow, OxideDomainRole};
 use oxide_editor_core::{EditOperation, SourceSnapshot};
@@ -187,9 +188,13 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
             }
             output.push_str("  </section>\n");
         }
-        GuiScenarioKind::Lifecycle => {
-            render_lifecycle_section(&mut output, &view.active_source.source_text, &source_text)
-        }
+        GuiScenarioKind::Lifecycle => render_lifecycle_section(
+            &mut output,
+            &scenario.fixture_path,
+            &view.active_source.module_display_name,
+            &view.active_source.source_text,
+            &source_text,
+        ),
     }
     output.push_str("  <footer role=\"host-capability\">");
     output.push_str(&view.capability.status_text);
@@ -206,7 +211,13 @@ fn edited_diagnostics_source(source_text: &str) -> String {
         .to_string()
 }
 
-fn render_lifecycle_section(output: &mut String, persisted_source: &str, working_source: &str) {
+fn render_lifecycle_section(
+    output: &mut String,
+    workspace_path: &Path,
+    active_module: &str,
+    persisted_source: &str,
+    working_source: &str,
+) {
     let mut browser_state = DocumentLifecycleState::open_clean(
         persisted_source,
         LifecycleCapabilities::browser_limited(),
@@ -264,6 +275,33 @@ fn render_lifecycle_section(output: &mut String, persisted_source: &str, working
     output.push_str("\">\n");
     output.push_str("    <div role=\"persistence-note\">In-memory provider only; no filesystem persistence claimed.</div>\n");
     output.push_str("    <div role=\"persistence-state\">saved clean</div>\n");
+    output.push_str("  </section>\n");
+
+    let snapshot = GuiSessionSnapshot::capture(
+        workspace_path.display().to_string(),
+        active_module,
+        &browser_state,
+        SessionCapabilityProfile::BrowserLimited,
+    );
+    let restored = snapshot.restore();
+    output.push_str("  <section role=\"session-restore\" data-profile=\"");
+    output.push_str(restored.capability_profile.label());
+    output.push_str("\" data-dirty=\"");
+    output.push_str(if restored.document.is_dirty() {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    output.push_str("    <div role=\"restored-workspace\">");
+    output.push_str(&html_escape(&restored.workspace_path));
+    output.push_str("</div>\n");
+    output.push_str("    <div role=\"restored-module\">");
+    output.push_str(&html_escape(&restored.active_module));
+    output.push_str("</div>\n");
+    output.push_str("    <pre role=\"restored-working-source\">");
+    output.push_str(&html_escape(restored.document.working_source()));
+    output.push_str("</pre>\n");
     output.push_str("  </section>\n");
 }
 
@@ -518,6 +556,12 @@ mod tests {
         assert!(rendered.contains("data-filesystem=\"false\""));
         assert!(rendered.contains("no filesystem persistence claimed"));
         assert!(rendered.contains("saved clean"));
+        assert!(rendered.contains("role=\"session-restore\""));
+        assert!(rendered.contains("data-profile=\"browser-limited\""));
+        assert!(rendered.contains("role=\"restored-workspace\""));
+        assert!(rendered.contains("ThinSliceHello.basproj"));
+        assert!(rendered.contains("role=\"restored-module\">Module1.bas"));
+        assert!(rendered.contains("role=\"restored-working-source\""));
         assert!(rendered.contains("COM unavailable"));
     }
 }

@@ -4,6 +4,7 @@
 //! vocabulary. It must not import parked TUI session/editor code.
 
 use oxide_domain::OxideDomainRole;
+use serde::{Deserialize, Serialize};
 
 /// Compile-time marker for the GUI core crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -332,6 +333,80 @@ pub fn save_lifecycle_to_persistence(
         })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SessionCapabilityProfile {
+    AllSupported,
+    BrowserLimited,
+}
+
+impl SessionCapabilityProfile {
+    pub fn lifecycle_capabilities(self) -> LifecycleCapabilities {
+        match self {
+            Self::AllSupported => LifecycleCapabilities::all_supported(),
+            Self::BrowserLimited => LifecycleCapabilities::browser_limited(),
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::AllSupported => "all-supported",
+            Self::BrowserLimited => "browser-limited",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiSessionSnapshot {
+    pub workspace_path: String,
+    pub active_module: String,
+    pub persisted_source: String,
+    pub working_source: String,
+    pub capability_profile: SessionCapabilityProfile,
+}
+
+impl GuiSessionSnapshot {
+    pub fn capture(
+        workspace_path: impl Into<String>,
+        active_module: impl Into<String>,
+        document: &DocumentLifecycleState,
+        capability_profile: SessionCapabilityProfile,
+    ) -> Self {
+        Self {
+            workspace_path: workspace_path.into(),
+            active_module: active_module.into(),
+            persisted_source: document.persisted_source().to_string(),
+            working_source: document.working_source().to_string(),
+            capability_profile,
+        }
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        self.persisted_source != self.working_source
+    }
+
+    pub fn restore(&self) -> RestoredGuiSession {
+        let mut document = DocumentLifecycleState::open_clean(
+            self.persisted_source.clone(),
+            self.capability_profile.lifecycle_capabilities(),
+        );
+        document.edit_working_source(self.working_source.clone());
+        RestoredGuiSession {
+            workspace_path: self.workspace_path.clone(),
+            active_module: self.active_module.clone(),
+            document,
+            capability_profile: self.capability_profile,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestoredGuiSession {
+    pub workspace_path: String,
+    pub active_module: String,
+    pub document: DocumentLifecycleState,
+    pub capability_profile: SessionCapabilityProfile,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -484,5 +559,73 @@ mod tests {
 
         assert_eq!(state.persisted_source(), "working");
         assert_eq!(persistence.persisted_source(), "working");
+    }
+
+    #[test]
+    fn session_snapshot_round_trips_through_json() {
+        let mut state = DocumentLifecycleState::open_clean(
+            "persisted source",
+            LifecycleCapabilities::browser_limited(),
+        );
+        state.edit_working_source("working source");
+        let snapshot = GuiSessionSnapshot::capture(
+            "examples/thin-slice/ThinSliceHello.basproj",
+            "Module1.bas",
+            &state,
+            SessionCapabilityProfile::BrowserLimited,
+        );
+
+        let encoded = serde_json::to_string(&snapshot).expect("serialize snapshot");
+        let decoded: GuiSessionSnapshot =
+            serde_json::from_str(&encoded).expect("deserialize snapshot");
+
+        assert_eq!(decoded, snapshot);
+        assert!(decoded.is_dirty());
+    }
+
+    #[test]
+    fn restored_dirty_session_preserves_active_module_and_working_source() {
+        let mut state = DocumentLifecycleState::open_clean(
+            "persisted",
+            LifecycleCapabilities::browser_limited(),
+        );
+        state.edit_working_source("working");
+        let snapshot = GuiSessionSnapshot::capture(
+            "examples/thin-slice/ThinSliceHello.basproj",
+            "Module1.bas",
+            &state,
+            SessionCapabilityProfile::BrowserLimited,
+        );
+
+        let restored = snapshot.restore();
+
+        assert_eq!(
+            restored.workspace_path,
+            "examples/thin-slice/ThinSliceHello.basproj"
+        );
+        assert_eq!(restored.active_module, "Module1.bas");
+        assert_eq!(restored.capability_profile.label(), "browser-limited");
+        assert_eq!(restored.document.persisted_source(), "persisted");
+        assert_eq!(restored.document.working_source(), "working");
+        assert!(restored.document.is_dirty());
+    }
+
+    #[test]
+    fn restored_clean_session_does_not_invent_edits() {
+        let state =
+            DocumentLifecycleState::open_clean("same", LifecycleCapabilities::all_supported());
+        let snapshot = GuiSessionSnapshot::capture(
+            "examples/thin-slice/ThinSliceHello.basproj",
+            "Module1.bas",
+            &state,
+            SessionCapabilityProfile::AllSupported,
+        );
+
+        let restored = snapshot.restore();
+
+        assert!(!snapshot.is_dirty());
+        assert_eq!(restored.document.persisted_source(), "same");
+        assert_eq!(restored.document.working_source(), "same");
+        assert!(!restored.document.is_dirty());
     }
 }
