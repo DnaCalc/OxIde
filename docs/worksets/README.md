@@ -38,8 +38,9 @@ Specs executors will touch next for the Rust/WASM-capable GUI pivot:
 - `W280_command_keyboard_accessibility_polish.md`
 - `W290_host_mounted_gui_shell.md`
 - `W300_mounted_web_shell_adapter.md`
+- `W310_dnaonecalc_web_shell_hosting.md`
 
-`W300` is the active follow-on to the accepted W290 host-mounted/static shell proof. It keeps `GuiShellPacket` as the state contract and adds only DOM/browser claims backed by W300 tests.
+`W310` is the active follow-on to the accepted W300 mounted web shell adapter. It is scoped to an OxIde-side DnaOneCalc host contract unless sibling repo writes are explicitly authorized.
 
 ## Parked TUI Lineage
 
