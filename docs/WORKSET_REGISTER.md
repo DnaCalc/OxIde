@@ -85,8 +85,9 @@ sequence for the GUI pivot.
 12. `W310` — DnaOneCalc web shell hosting
 13. `W320` — native filesystem and session persistence
 14. `W330` — OxVba native runtime service contract
+15. `W340` — DnaOxIde standalone host foundation
 
-`W330` is the active follow-on to the accepted W320 native filesystem/session persistence workset. It is scoped to OxIde-owned runtime/debug/Immediate service contract packets and GUI-lab evidence; real OxVba native-service implementation and paired DnaOneCalc implementation still require explicit sibling-repo write authorization.
+`W340` is the active follow-on to the accepted W330 runtime service contract. It introduces the DnaOxIde / DNA OxIde standalone host lane inside this repo, with Tauri desktop-first planning, optional standalone WASM host posture, and shared UI/host factoring for DnaOneCalc. Real OxVba native-service implementation and paired DnaOneCalc implementation still require explicit sibling-repo write authorization.
 
 ## Workset Specs
 
@@ -121,6 +122,7 @@ sequence for the GUI pivot.
 - [W310_dnaonecalc_web_shell_hosting.md](worksets/W310_dnaonecalc_web_shell_hosting.md)
 - [W320_native_filesystem_session_persistence.md](worksets/W320_native_filesystem_session_persistence.md)
 - [W330_oxvba_native_runtime_service_contract.md](worksets/W330_oxvba_native_runtime_service_contract.md)
+- [W340_dnaoxide_standalone_host_foundation.md](worksets/W340_dnaoxide_standalone_host_foundation.md)
 
 ## Use Rule
 
