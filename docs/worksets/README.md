@@ -28,6 +28,18 @@ log and in `.beads/` closure records.
 Specs executors will touch next for the Rust/WASM-capable GUI pivot:
 
 - `W200_gui_pivot_foundation.md`
+- `W210_gui_project_open_spine.md`
+- `W220_editable_module_and_diagnostics.md`
+- `W230_save_reload_session_restore.md`
+- `W240_capability_aware_run_output.md`
+- `W250_dnaonecalc_embedding_proof.md`
+- `W260_windows_com_capability_proof.md`
+- `W270_run_debug_immediate_gui_surfaces.md`
+- `W280_command_keyboard_accessibility_polish.md`
+
+`W210` through `W280` are scaffolded future worksets. Expand each
+Beads section into concrete executable packets before starting code
+against that workset.
 
 ## Parked TUI Lineage
 

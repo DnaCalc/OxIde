@@ -72,6 +72,18 @@ sequence for the GUI pivot.
 ## Active GUI Pivot Sequence
 
 1. `W200` — GUI pivot foundation, codebase review, and TUI parking
+2. `W210` — GUI project-open spine
+3. `W220` — editable module and diagnostics
+4. `W230` — save, reload, and session restore
+5. `W240` — capability-aware run and output
+6. `W250` — DnaOneCalc embedded IDE and runtime proof
+7. `W260` — Windows COM capability proof
+8. `W270` — run, debug, and Immediate GUI surfaces
+9. `W280` — command, keyboard, accessibility, and polish
+
+`W210` through `W280` are scaffolded future GUI worksets. Before any
+of them is executed, its Beads section must be expanded into concrete
+Goal / Design / Tests / Evidence / Closure packets.
 
 ## Workset Specs
 
@@ -93,6 +105,14 @@ sequence for the GUI pivot.
 - [W100_terminal_capability.md](worksets/W100_terminal_capability.md)
 - [W110_polish_and_recovery.md](worksets/W110_polish_and_recovery.md)
 - [W200_gui_pivot_foundation.md](worksets/W200_gui_pivot_foundation.md)
+- [W210_gui_project_open_spine.md](worksets/W210_gui_project_open_spine.md)
+- [W220_editable_module_and_diagnostics.md](worksets/W220_editable_module_and_diagnostics.md)
+- [W230_save_reload_session_restore.md](worksets/W230_save_reload_session_restore.md)
+- [W240_capability_aware_run_output.md](worksets/W240_capability_aware_run_output.md)
+- [W250_dnaonecalc_embedding_proof.md](worksets/W250_dnaonecalc_embedding_proof.md)
+- [W260_windows_com_capability_proof.md](worksets/W260_windows_com_capability_proof.md)
+- [W270_run_debug_immediate_gui_surfaces.md](worksets/W270_run_debug_immediate_gui_surfaces.md)
+- [W280_command_keyboard_accessibility_polish.md](worksets/W280_command_keyboard_accessibility_polish.md)
 
 ## Use Rule
 
