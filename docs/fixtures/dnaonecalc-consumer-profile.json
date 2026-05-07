@@ -1,0 +1,41 @@
+{
+  "profileId": "dnaonecalc-consumer",
+  "proofScope": "OxIde-owned reuse fixture only",
+  "siblingRepoWrites": false,
+  "realDnaOneCalcMountClaimed": false,
+  "productShellOwner": "DnaOneCalc",
+  "ideSurfaceOwner": "OxIde",
+  "vbaTruthOwner": "OxVba",
+  "sharedInputs": [
+    "GuiShellPacket",
+    "RuntimeServicePacket",
+    "ImmediateServicePacket",
+    "DebugServicePacket",
+    "HostBridgeCommandAvailability",
+    "DnaOneCalcWebShellHostPacket"
+  ],
+  "reusedCrates": [
+    "oxide-ui-leptos",
+    "oxide-host-bridge",
+    "oxide-core",
+    "oxide-webshell",
+    "oxide-guilab"
+  ],
+  "expectedScenario": "gui-dnaonecalc-web-shell-host-contract",
+  "claimFlags": {
+    "hostMountClaimed": false,
+    "nativeRuntimeClaimed": false,
+    "comRuntimeClaimed": false,
+    "domAuditClaimed": false,
+    "fakeImmediateResponses": false,
+    "fakeDebugData": false
+  },
+  "visibleTokens": [
+    "data-host=\"DnaOneCalc\"",
+    "data-sibling-repo-writes=\"false\"",
+    "data-host-mount-claimed=\"false\"",
+    "data-native-runtime=\"false\"",
+    "data-com-runtime=\"false\"",
+    "data-dom-audited=\"false\""
+  ]
+}
