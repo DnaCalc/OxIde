@@ -15,7 +15,8 @@
     "interaction-focus:check": "node ./scripts/verify-interaction-focus.mjs",
     "interaction-lifecycle:check": "node ./scripts/verify-interaction-lifecycle.mjs",
     "interaction-services:check": "node ./scripts/verify-interaction-services.mjs",
-    "compile-panels:check": "node ./scripts/verify-compile-panels.mjs"
+    "compile-panels:check": "node ./scripts/verify-compile-panels.mjs",
+    "reference-panels:check": "node ./scripts/verify-reference-panels.mjs"
   },
   "dependencies": {},
   "devDependencies": {}
