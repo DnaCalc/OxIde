@@ -22,7 +22,8 @@ use oxide_oxvba::{
     load_project_open_spine,
 };
 use oxide_webshell::{
-    render_web_shell_snapshot, run_command_palette_dom_smoke, run_static_shell_dom_smoke,
+    render_web_shell_snapshot, run_command_palette_dom_smoke, run_no_mouse_accessibility_dom_smoke,
+    run_static_shell_dom_smoke,
 };
 
 pub const GUI_THIN_SLICE_LOADED: &str = "gui-thin-slice-loaded";
@@ -50,6 +51,8 @@ pub const GUI_MOUNTED_NO_MOUSE_ACCESSIBILITY: &str = "gui-mounted-no-mouse-acces
 pub const GUI_WEB_SHELL_ADAPTER_BOUNDARY: &str = "gui-web-shell-adapter-boundary";
 pub const GUI_WEB_SHELL_DOM_SMOKE: &str = "gui-web-shell-dom-smoke";
 pub const GUI_WEB_COMMAND_PALETTE_DOM_SMOKE: &str = "gui-web-command-palette-dom-smoke";
+pub const GUI_WEB_NO_MOUSE_ACCESSIBILITY_DOM_SMOKE: &str =
+    "gui-web-no-mouse-accessibility-dom-smoke";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -99,6 +102,7 @@ pub enum GuiScenarioKind {
     WebShellAdapterBoundary,
     WebShellDomSmoke,
     WebCommandPaletteDomSmoke,
+    WebNoMouseAccessibilityDomSmoke,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -261,8 +265,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_WEB_COMMAND_PALETTE_DOM_SMOKE,
                 title: "Web command palette DOM smoke",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::WebCommandPaletteDomSmoke,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_WEB_NO_MOUSE_ACCESSIBILITY_DOM_SMOKE,
+                title: "Web no-mouse accessibility DOM smoke",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::WebNoMouseAccessibilityDomSmoke,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -351,7 +361,10 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::MountedNoMouseAccessibility
         | GuiScenarioKind::WebShellAdapterBoundary
         | GuiScenarioKind::WebShellDomSmoke
-        | GuiScenarioKind::WebCommandPaletteDomSmoke => view.active_source.source_text.clone(),
+        | GuiScenarioKind::WebCommandPaletteDomSmoke
+        | GuiScenarioKind::WebNoMouseAccessibilityDomSmoke => {
+            view.active_source.source_text.clone()
+        }
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -531,6 +544,22 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
             &view.active_source.module_display_name,
             &view.active_source.source_text,
         ),
+        GuiScenarioKind::WebNoMouseAccessibilityDomSmoke => {
+            render_web_no_mouse_accessibility_dom_smoke_section(
+                &mut output,
+                &scenario.fixture_path,
+                &view.project_name,
+                &view
+                    .modules
+                    .iter()
+                    .map(|module| {
+                        GuiShellModuleSummary::new(&module.display_name, module.is_active)
+                    })
+                    .collect::<Vec<_>>(),
+                &view.active_source.module_display_name,
+                &view.active_source.source_text,
+            )
+        }
     }
     output.push_str("  <footer role=\"host-capability\">");
     output.push_str(scenario_host_capability_text(
@@ -1516,6 +1545,63 @@ fn render_web_command_palette_dom_smoke_section(
     output.push_str("  </section>\n");
 }
 
+fn render_web_no_mouse_accessibility_dom_smoke_section(
+    output: &mut String,
+    workspace_path: &Path,
+    project_name: &str,
+    modules: &[GuiShellModuleSummary],
+    active_module: &str,
+    source_text: &str,
+) {
+    let packet = build_shell_packet_baseline(
+        workspace_path,
+        project_name,
+        modules,
+        active_module,
+        source_text,
+    );
+    let report = run_no_mouse_accessibility_dom_smoke(&packet);
+
+    output.push_str("  <section role=\"web-no-mouse-accessibility-dom-smoke\" data-source=\"");
+    output.push_str(report.snapshot.source_contract);
+    output.push_str("\" data-smoke-kind=\"");
+    output.push_str(report.smoke_kind);
+    output.push_str("\" data-dom-smoke-tested=\"");
+    output.push_str(if report.dom_smoke_tested {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-browser-runtime=\"");
+    output.push_str(if report.browser_runtime_claimed {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-dom-audited=\"");
+    output.push_str(if report.dom_accessibility_audited {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-all-passed=\"");
+    output.push_str(if report.all_passed() { "true" } else { "false" });
+    output.push_str("\" data-check-count=\"");
+    output.push_str(&report.checks.len().to_string());
+    output.push_str("\">\n");
+    for check in &report.checks {
+        output.push_str("    <div role=\"web-no-mouse-accessibility-dom-check\" data-check=\"");
+        output.push_str(&html_escape(&check.name));
+        output.push_str("\" data-passed=\"");
+        output.push_str(if check.passed { "true" } else { "false" });
+        output.push_str("\">");
+        output.push_str(&html_escape(&check.detail));
+        output.push_str("</div>\n");
+    }
+    output.push_str("    <div role=\"web-no-mouse-accessibility-dom-policy\">No-mouse/accessibility DOM smoke consumes GuiShellPacket focus_graph and accessibility; this is not a full accessibility audit.</div>\n");
+    output.push_str("  </section>\n");
+}
+
 fn render_com_capability_section(output: &mut String, profile: ComCapabilityProfile) {
     output.push_str("  <section role=\"com-capability\" data-profile=\"");
     output.push_str(profile.host_kind.label());
@@ -1954,6 +2040,8 @@ mod tests {
         assert!(output.contains("Web shell DOM smoke"));
         assert!(output.contains("gui-web-command-palette-dom-smoke"));
         assert!(output.contains("Web command palette DOM smoke"));
+        assert!(output.contains("gui-web-no-mouse-accessibility-dom-smoke"));
+        assert!(output.contains("Web no-mouse accessibility DOM smoke"));
     }
 
     #[test]
@@ -2157,6 +2245,9 @@ mod tests {
         let web_command_palette_dom_smoke = registry
             .find(GUI_WEB_COMMAND_PALETTE_DOM_SMOKE)
             .expect("web command palette DOM smoke scenario");
+        let web_no_mouse_accessibility_dom_smoke = registry
+            .find(GUI_WEB_NO_MOUSE_ACCESSIBILITY_DOM_SMOKE)
+            .expect("web no-mouse accessibility DOM smoke scenario");
 
         assert_eq!(command_palette.title, "Command palette baseline");
         assert_eq!(
@@ -2209,6 +2300,14 @@ mod tests {
         assert_eq!(
             web_command_palette_dom_smoke.kind,
             GuiScenarioKind::WebCommandPaletteDomSmoke
+        );
+        assert_eq!(
+            web_no_mouse_accessibility_dom_smoke.title,
+            "Web no-mouse accessibility DOM smoke"
+        );
+        assert_eq!(
+            web_no_mouse_accessibility_dom_smoke.kind,
+            GuiScenarioKind::WebNoMouseAccessibilityDomSmoke
         );
     }
 
@@ -2853,6 +2952,74 @@ mod tests {
         assert!(rendered.contains("data-check=\"shell.command_palette gesture survives DOM mounting\" data-passed=\"true\""));
         assert!(rendered.contains("Ctrl+Shift+P"));
         assert!(rendered.contains("parked TUI command model remains isolated"));
+    }
+
+    #[test]
+    fn web_no_mouse_accessibility_dom_smoke_scenario_reports_route_labels_and_disabled_reasons() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_WEB_NO_MOUSE_ACCESSIBILITY_DOM_SMOKE)
+            .expect("render web no-mouse accessibility DOM smoke scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-web-no-mouse-accessibility-dom-smoke\""));
+        assert!(rendered.contains("role=\"web-no-mouse-accessibility-dom-smoke\""));
+        assert!(rendered.contains("data-source=\"GuiShellPacket\""));
+        assert!(rendered.contains("data-smoke-kind=\"parsed-html-no-mouse-accessibility\""));
+        assert!(rendered.contains("data-dom-smoke-tested=\"true\""));
+        assert!(rendered.contains("data-browser-runtime=\"false\""));
+        assert!(rendered.contains("data-dom-audited=\"false\""));
+        assert!(rendered.contains("data-all-passed=\"true\""));
+        assert!(rendered.contains("data-check-count=\"18\""));
+        assert!(
+            rendered
+                .contains("data-check=\"focus route starts at project tree\" data-passed=\"true\"")
+        );
+        assert!(rendered.contains("project-tree"));
+        assert!(
+            rendered
+                .contains("data-check=\"focus route reaches source editor\" data-passed=\"true\"")
+        );
+        assert!(rendered.contains("source-editor"));
+        assert!(
+            rendered
+                .contains("data-check=\"focus route reaches diagnostics\" data-passed=\"true\"")
+        );
+        assert!(rendered.contains("diagnostics-panel"));
+        assert!(
+            rendered.contains("data-check=\"focus route reaches run output\" data-passed=\"true\"")
+        );
+        assert!(rendered.contains("run-output"));
+        assert!(
+            rendered.contains("data-check=\"focus route reaches Immediate\" data-passed=\"true\"")
+        );
+        assert!(rendered.contains("immediate-panel"));
+        assert!(rendered.contains("data-check=\"focus route reaches debug\" data-passed=\"true\""));
+        assert!(rendered.contains("debug-panel"));
+        assert!(
+            rendered
+                .contains("data-check=\"focus route reaches COM capability\" data-passed=\"true\"")
+        );
+        assert!(rendered.contains("com-capability"));
+        assert!(
+            rendered.contains(
+                "data-check=\"focus route reaches command palette\" data-passed=\"true\""
+            )
+        );
+        assert!(rendered.contains("command-palette"));
+        assert!(
+            rendered.contains(
+                "data-check=\"command palette restores editor focus\" data-passed=\"true\""
+            )
+        );
+        assert!(rendered.contains("returns to source-editor"));
+        assert!(rendered.contains("Source editor"));
+        assert!(rendered.contains("Edit the active VBA module source."));
+        assert!(rendered.contains("native execution provider unavailable"));
+        assert!(rendered.contains("no native OxVba runtime session"));
+        assert!(rendered.contains("no OxVba debug session"));
+        assert!(rendered.contains("COM discovery unavailable in browser-safe profile"));
+        assert!(rendered.contains("not a full accessibility audit"));
     }
 
     #[test]

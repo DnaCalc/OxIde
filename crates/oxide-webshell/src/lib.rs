@@ -381,6 +381,165 @@ pub fn run_command_palette_dom_smoke(packet: &GuiShellPacket) -> WebShellDomSmok
     }
 }
 
+/// Parse the adapter markup and verify no-mouse focus route plus
+/// accessibility labels/descriptions/disabled reasons. This is not a full
+/// accessibility audit.
+pub fn run_no_mouse_accessibility_dom_smoke(packet: &GuiShellPacket) -> WebShellDomSmokeReport {
+    let snapshot = render_web_shell_snapshot(packet);
+    let document = Html::parse_fragment(snapshot.markup());
+    let checks = vec![
+        selector_attr_check(
+            &document,
+            "section[role='web-focus-accessibility-summary']",
+            "data-route-length",
+            &packet.focus_graph.no_mouse_route.len().to_string(),
+            "focus route length is packet-derived",
+        ),
+        focus_step_attr_check(
+            &document,
+            1,
+            "data-node-id",
+            "project-tree",
+            "focus route starts at project tree",
+        ),
+        focus_step_attr_check(
+            &document,
+            2,
+            "data-node-id",
+            "source-editor",
+            "focus route reaches source editor",
+        ),
+        focus_step_attr_check(
+            &document,
+            3,
+            "data-node-id",
+            "diagnostics-panel",
+            "focus route reaches diagnostics",
+        ),
+        focus_step_attr_check(
+            &document,
+            5,
+            "data-node-id",
+            "run-output",
+            "focus route reaches run output",
+        ),
+        focus_step_attr_check(
+            &document,
+            6,
+            "data-node-id",
+            "immediate-panel",
+            "focus route reaches Immediate",
+        ),
+        focus_step_attr_check(
+            &document,
+            7,
+            "data-node-id",
+            "debug-panel",
+            "focus route reaches debug",
+        ),
+        focus_step_attr_check(
+            &document,
+            8,
+            "data-node-id",
+            "com-capability",
+            "focus route reaches COM capability",
+        ),
+        focus_step_attr_check(
+            &document,
+            9,
+            "data-node-id",
+            "command-palette",
+            "focus route reaches command palette",
+        ),
+        focus_step_attr_check(
+            &document,
+            9,
+            "data-restoration",
+            "returns to source-editor",
+            "command palette restores editor focus",
+        ),
+        accessible_surface_text_check(
+            &document,
+            "source-editor",
+            "Source editor",
+            "source editor accessible label survives DOM mounting",
+        ),
+        accessible_surface_text_check(
+            &document,
+            "source-editor",
+            "Edit the active VBA module source.",
+            "source editor accessible description survives DOM mounting",
+        ),
+        accessible_surface_text_check(
+            &document,
+            "diagnostics-panel",
+            "OxVba language-service diagnostics",
+            "diagnostics accessible description survives DOM mounting",
+        ),
+        accessible_surface_text_check(
+            &document,
+            "run-output",
+            "native execution provider unavailable",
+            "run output disabled reason survives DOM mounting",
+        ),
+        accessible_surface_text_check(
+            &document,
+            "immediate-panel",
+            "no native OxVba runtime session",
+            "Immediate disabled reason survives DOM mounting",
+        ),
+        accessible_surface_text_check(
+            &document,
+            "debug-panel",
+            "no OxVba debug session",
+            "debug disabled reason survives DOM mounting",
+        ),
+        accessible_surface_text_check(
+            &document,
+            "com-capability",
+            "COM discovery unavailable in browser-safe profile",
+            "COM disabled reason survives DOM mounting",
+        ),
+        selector_attr_check(
+            &document,
+            "section[role='web-shell-adapter']",
+            "data-dom-audited",
+            "false",
+            "DOM accessibility audit remains unclaimed",
+        ),
+    ];
+
+    WebShellDomSmokeReport {
+        snapshot,
+        smoke_kind: "parsed-html-no-mouse-accessibility",
+        dom_smoke_tested: true,
+        browser_runtime_claimed: false,
+        dom_accessibility_audited: false,
+        checks,
+    }
+}
+
+fn focus_step_attr_check(
+    document: &Html,
+    index: usize,
+    attr: &str,
+    expected: &str,
+    name: &str,
+) -> WebShellDomSmokeCheck {
+    let selector = format!("div[role='web-focus-step'][data-index='{index}']");
+    selector_attr_check(document, &selector, attr, expected, name)
+}
+
+fn accessible_surface_text_check(
+    document: &Html,
+    surface_id: &str,
+    expected: &str,
+    name: &str,
+) -> WebShellDomSmokeCheck {
+    let selector = format!("div[role='web-accessible-surface'][data-surface-id='{surface_id}']");
+    selector_text_check(document, &selector, expected, name)
+}
+
 fn command_attr_check(
     document: &Html,
     command_id: &str,
@@ -615,6 +774,10 @@ fn render_focus_accessibility_summary(markup: &mut String, packet: &GuiShellPack
         markup.push_str(&step.index.to_string());
         markup.push_str("\" data-node-id=\"");
         markup.push_str(&html_escape(&step.node_id));
+        if let Some(restoration_hint) = &step.restoration_hint {
+            markup.push_str("\" data-restoration=\"");
+            markup.push_str(&html_escape(restoration_hint));
+        }
         markup.push_str("\"></div>\n");
     }
     for node in &packet.accessibility.nodes {
@@ -625,6 +788,9 @@ fn render_focus_accessibility_summary(markup: &mut String, packet: &GuiShellPack
         markup.push_str("\">\n");
         markup.push_str("      <span role=\"web-accessible-label\">");
         markup.push_str(&html_escape(&node.accessible_label));
+        markup.push_str("</span>\n");
+        markup.push_str("      <span role=\"web-accessible-description\">");
+        markup.push_str(&html_escape(&node.accessible_description));
         markup.push_str("</span>\n");
         if let Some(reason) = &node.disabled_reason {
             markup.push_str("      <span role=\"web-accessible-disabled-reason\">");
@@ -781,6 +947,53 @@ mod tests {
                 .checks
                 .iter()
                 .any(|check| check.name == "shell.command_palette gesture survives DOM mounting")
+        );
+    }
+
+    #[test]
+    fn no_mouse_accessibility_dom_smoke_verifies_route_labels_descriptions_and_disabled_reasons() {
+        let packet = baseline_packet();
+
+        let report = run_no_mouse_accessibility_dom_smoke(&packet);
+
+        assert!(report.dom_smoke_tested);
+        assert_eq!(report.smoke_kind, "parsed-html-no-mouse-accessibility");
+        assert!(!report.browser_runtime_claimed);
+        assert!(!report.dom_accessibility_audited);
+        assert!(report.all_passed());
+        assert_eq!(report.checks.len(), 18);
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.name == "focus route starts at project tree")
+        );
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.name == "focus route reaches command palette")
+        );
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.name == "command palette restores editor focus")
+        );
+        assert!(report.checks.iter().any(
+            |check| check.name == "source editor accessible description survives DOM mounting"
+        ));
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.name == "run output disabled reason survives DOM mounting")
+        );
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|check| check.name == "DOM accessibility audit remains unclaimed")
         );
     }
 
