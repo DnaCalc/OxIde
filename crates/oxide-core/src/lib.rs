@@ -207,6 +207,131 @@ impl std::fmt::Display for LifecycleCommandDisabled {
 
 impl std::error::Error for LifecycleCommandDisabled {}
 
+pub trait DocumentPersistence {
+    fn load(&self) -> Result<String, PersistenceError>;
+    fn save(&mut self, source: &str) -> Result<(), PersistenceError>;
+    fn capabilities(&self) -> LifecycleCapabilities;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InMemoryDocumentPersistence {
+    persisted_source: String,
+}
+
+impl InMemoryDocumentPersistence {
+    pub fn new(source: impl Into<String>) -> Self {
+        Self {
+            persisted_source: source.into(),
+        }
+    }
+
+    pub fn persisted_source(&self) -> &str {
+        &self.persisted_source
+    }
+}
+
+impl DocumentPersistence for InMemoryDocumentPersistence {
+    fn load(&self) -> Result<String, PersistenceError> {
+        Ok(self.persisted_source.clone())
+    }
+
+    fn save(&mut self, source: &str) -> Result<(), PersistenceError> {
+        self.persisted_source = source.to_string();
+        Ok(())
+    }
+
+    fn capabilities(&self) -> LifecycleCapabilities {
+        LifecycleCapabilities::all_supported()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BrowserLimitedPersistence {
+    source_snapshot: String,
+    disabled_reason: String,
+}
+
+impl BrowserLimitedPersistence {
+    pub fn new(source_snapshot: impl Into<String>) -> Self {
+        Self {
+            source_snapshot: source_snapshot.into(),
+            disabled_reason: String::from(
+                "browser-safe profile has no direct filesystem persistence",
+            ),
+        }
+    }
+
+    pub fn source_snapshot(&self) -> &str {
+        &self.source_snapshot
+    }
+}
+
+impl DocumentPersistence for BrowserLimitedPersistence {
+    fn load(&self) -> Result<String, PersistenceError> {
+        Err(PersistenceError::Disabled {
+            operation: PersistenceOperation::Load,
+            reason: self.disabled_reason.clone(),
+        })
+    }
+
+    fn save(&mut self, _source: &str) -> Result<(), PersistenceError> {
+        Err(PersistenceError::Disabled {
+            operation: PersistenceOperation::Save,
+            reason: self.disabled_reason.clone(),
+        })
+    }
+
+    fn capabilities(&self) -> LifecycleCapabilities {
+        LifecycleCapabilities::browser_limited()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PersistenceOperation {
+    Load,
+    Save,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PersistenceError {
+    Disabled {
+        operation: PersistenceOperation,
+        reason: String,
+    },
+}
+
+impl std::fmt::Display for PersistenceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Disabled { operation, reason } => write!(f, "{:?} disabled: {reason}", operation),
+        }
+    }
+}
+
+impl std::error::Error for PersistenceError {}
+
+pub fn open_lifecycle_from_persistence(
+    persistence: &impl DocumentPersistence,
+) -> Result<DocumentLifecycleState, PersistenceError> {
+    Ok(DocumentLifecycleState::open_clean(
+        persistence.load()?,
+        persistence.capabilities(),
+    ))
+}
+
+pub fn save_lifecycle_to_persistence(
+    state: &mut DocumentLifecycleState,
+    persistence: &mut impl DocumentPersistence,
+) -> Result<(), PersistenceError> {
+    persistence.save(state.working_source())?;
+    state
+        .acknowledge_saved()
+        .map_err(|disabled| PersistenceError::Disabled {
+            operation: PersistenceOperation::Save,
+            reason: disabled.reason,
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -309,5 +434,55 @@ mod tests {
             .revert_to_persisted()
             .expect("local revert remains pure");
         assert_eq!(state.working_source(), "before");
+    }
+
+    #[test]
+    fn in_memory_persistence_loads_and_saves_without_disk() {
+        let mut persistence = InMemoryDocumentPersistence::new("before");
+        let mut state = open_lifecycle_from_persistence(&persistence).expect("memory load");
+
+        state.edit_working_source("after");
+        save_lifecycle_to_persistence(&mut state, &mut persistence).expect("memory save");
+
+        assert_eq!(persistence.persisted_source(), "after");
+        assert_eq!(persistence.load().as_deref(), Ok("after"));
+        assert!(!state.is_dirty());
+    }
+
+    #[test]
+    fn browser_limited_persistence_reports_disabled_reasons() {
+        let mut persistence = BrowserLimitedPersistence::new("snapshot");
+
+        assert_eq!(persistence.source_snapshot(), "snapshot");
+        let load = persistence.load().expect_err("browser load disabled");
+        assert_eq!(
+            load,
+            PersistenceError::Disabled {
+                operation: PersistenceOperation::Load,
+                reason: String::from("browser-safe profile has no direct filesystem persistence")
+            }
+        );
+        let save = persistence
+            .save("after")
+            .expect_err("browser save disabled");
+        assert!(save.to_string().contains("filesystem persistence"));
+        assert!(!persistence.capabilities().can_save);
+    }
+
+    #[test]
+    fn lifecycle_and_persistence_keep_working_source_distinct_until_save() {
+        let mut persistence = InMemoryDocumentPersistence::new("persisted");
+        let mut state = open_lifecycle_from_persistence(&persistence).expect("memory load");
+
+        state.edit_working_source("working");
+
+        assert_eq!(state.persisted_source(), "persisted");
+        assert_eq!(state.working_source(), "working");
+        assert_eq!(persistence.persisted_source(), "persisted");
+
+        save_lifecycle_to_persistence(&mut state, &mut persistence).expect("memory save");
+
+        assert_eq!(state.persisted_source(), "working");
+        assert_eq!(persistence.persisted_source(), "working");
     }
 }
