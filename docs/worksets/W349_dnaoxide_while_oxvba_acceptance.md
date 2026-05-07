@@ -92,7 +92,8 @@ Tests:
   - Documentation grep for compile/build, COM, runtime, Immediate, debug/watch/breakpoint readiness.
 
 Evidence:
-  - Readiness report doc or section update.
+  - [`docs/DNAOXIDE_OXVBA_INTEGRATION_READINESS.md`](../DNAOXIDE_OXVBA_INTEGRATION_READINESS.md).
+  - `target/w349-readiness-report.txt`.
 
 Closure:
   - [ ] Readiness report exists.
@@ -113,7 +114,8 @@ Tests:
   - Final no-claim scan.
 
 Evidence:
-  - W349 acceptance outputs.
+  - [`docs/HANDOFF_W349_DNAOXIDE_WHILE_OXVBA_ACCEPTANCE.md`](../HANDOFF_W349_DNAOXIDE_WHILE_OXVBA_ACCEPTANCE.md).
+  - `target/w349-acceptance.txt`.
 
 Closure:
   - [ ] W341-W348 are accepted or explicitly blocked.

@@ -1360,6 +1360,33 @@ Implementation notes:
 4. Real DnaOneCalc mount evidence remains gated on explicit sibling-repo authorization and paired DnaOneCalc tests.
 5. W349 owns the W341-W348 composition/readiness audit.
 
-## 27. Cross-Repo Fixture Policy
+## 27. W349 DnaOxIde While-OxVba Acceptance Target
+
+W349 closes the W341-W348 continuation runway with evidence audit, full regression, and OxVba readiness reporting:
+
+```powershell
+cargo test --manifest-path crates/Cargo.toml --workspace
+cargo test --manifest-path apps/dna-oxide/src-tauri/Cargo.toml
+node tools/verify-dnaonecalc-profile.mjs
+node tools/verify-dnaonecalc-reuse.mjs
+```
+
+Observed W349 acceptance evidence is captured in:
+
+- `target/w349-evidence-audit.txt`,
+- `target/w349-regression.txt`,
+- `target/w349-readiness-report.txt`,
+- `target/w349-acceptance.txt`,
+- `docs/DNAOXIDE_OXVBA_INTEGRATION_READINESS.md`,
+- `docs/HANDOFF_W349_DNAOXIDE_WHILE_OXVBA_ACCEPTANCE.md`.
+
+Implementation notes:
+
+1. W349 accepts the OxIde-side DnaOxIde runway, not full OxVba runtime/debug/Immediate/COM behavior.
+2. W349 keeps true native runtime, COM runtime, COM runtime invocation, fake response, fake debug data, DOM audit, DnaOneCalc mount, and sibling write claims absent.
+3. The next meaningful capability work is direct OxIde adapter adoption over OxVba DTOs/APIs for W355/W360/W365/W370, with local temp-project tests before any claim flags flip.
+4. If adapter work is not ready, DnaOxIde can continue packaging/polish only while preserving no-claim states.
+
+## 28. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.
