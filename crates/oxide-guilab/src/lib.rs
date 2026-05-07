@@ -6,8 +6,11 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use oxide_domain::DiagnosticRow;
-use oxide_domain::OxideDomainRole;
+use oxide_core::{
+    DocumentLifecycleState, InMemoryDocumentPersistence, LifecycleCapabilities, LifecycleCommand,
+    LifecycleCommandStatus, save_lifecycle_to_persistence,
+};
+use oxide_domain::{DiagnosticRow, OxideDomainRole};
 use oxide_editor_core::{EditOperation, SourceSnapshot};
 use oxide_oxvba::{
     EditedDocumentDiagnosticsError, ProjectOpenSpineError, load_edited_document_diagnostics,
@@ -16,6 +19,7 @@ use oxide_oxvba::{
 
 pub const GUI_THIN_SLICE_LOADED: &str = "gui-thin-slice-loaded";
 pub const GUI_THIN_SLICE_EDITED_DIAGNOSTICS: &str = "gui-thin-slice-edited-diagnostics";
+pub const GUI_THIN_SLICE_LIFECYCLE: &str = "gui-thin-slice-lifecycle";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,13 +41,14 @@ pub struct GuiScenarioDescriptor {
     pub id: &'static str,
     pub title: &'static str,
     pub fixture_path: PathBuf,
-    pub source_edit: ScenarioSourceEdit,
+    pub kind: GuiScenarioKind,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ScenarioSourceEdit {
-    ReadOnly,
-    RemoveAnswerDeclaration,
+pub enum GuiScenarioKind {
+    ReadOnlyProject,
+    EditedDiagnostics,
+    Lifecycle,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,13 +80,19 @@ impl GuiScenarioRegistry {
                 id: GUI_THIN_SLICE_LOADED,
                 title: "Thin-slice project loaded",
                 fixture_path: thin_slice.clone(),
-                source_edit: ScenarioSourceEdit::ReadOnly,
+                kind: GuiScenarioKind::ReadOnlyProject,
             },
             GuiScenarioDescriptor {
                 id: GUI_THIN_SLICE_EDITED_DIAGNOSTICS,
                 title: "Thin-slice edited diagnostics",
+                fixture_path: thin_slice.clone(),
+                kind: GuiScenarioKind::EditedDiagnostics,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_THIN_SLICE_LIFECYCLE,
+                title: "Thin-slice lifecycle state",
                 fixture_path: thin_slice,
-                source_edit: ScenarioSourceEdit::RemoveAnswerDeclaration,
+                kind: GuiScenarioKind::Lifecycle,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -149,14 +160,10 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         output.push_str("</div>\n");
     }
     output.push_str("  </nav>\n");
-    let source_text = match scenario.source_edit {
-        ScenarioSourceEdit::ReadOnly => view.active_source.source_text.clone(),
-        ScenarioSourceEdit::RemoveAnswerDeclaration => {
-            SourceSnapshot::new(&view.active_source.source_text)
-                .apply(&EditOperation::remove_first_answer_declaration())
-                .snapshot
-                .text()
-                .to_string()
+    let source_text = match scenario.kind {
+        GuiScenarioKind::ReadOnlyProject => view.active_source.source_text.clone(),
+        GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
+            edited_diagnostics_source(&view.active_source.source_text)
         }
     };
 
@@ -165,24 +172,138 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
     output.push_str("\">");
     output.push_str(&html_escape(&source_text));
     output.push_str("</pre>\n");
-    if scenario.source_edit == ScenarioSourceEdit::RemoveAnswerDeclaration {
-        let diagnostics = load_edited_document_diagnostics(
-            &scenario.fixture_path,
-            &view.active_source.module_display_name,
-            &source_text,
-        )
-        .map_err(GuiLabError::Diagnostics)?;
-        output.push_str("  <section role=\"diagnostics\">\n");
-        for diagnostic in &diagnostics.diagnostics {
-            render_diagnostic_row(&mut output, diagnostic);
+    match scenario.kind {
+        GuiScenarioKind::ReadOnlyProject => {}
+        GuiScenarioKind::EditedDiagnostics => {
+            let diagnostics = load_edited_document_diagnostics(
+                &scenario.fixture_path,
+                &view.active_source.module_display_name,
+                &source_text,
+            )
+            .map_err(GuiLabError::Diagnostics)?;
+            output.push_str("  <section role=\"diagnostics\">\n");
+            for diagnostic in &diagnostics.diagnostics {
+                render_diagnostic_row(&mut output, diagnostic);
+            }
+            output.push_str("  </section>\n");
         }
-        output.push_str("  </section>\n");
+        GuiScenarioKind::Lifecycle => {
+            render_lifecycle_section(&mut output, &view.active_source.source_text, &source_text)
+        }
     }
     output.push_str("  <footer role=\"host-capability\">");
     output.push_str(&view.capability.status_text);
     output.push_str("</footer>\n");
     output.push_str("</section>\n");
     Ok(output)
+}
+
+fn edited_diagnostics_source(source_text: &str) -> String {
+    SourceSnapshot::new(source_text)
+        .apply(&EditOperation::remove_first_answer_declaration())
+        .snapshot
+        .text()
+        .to_string()
+}
+
+fn render_lifecycle_section(output: &mut String, persisted_source: &str, working_source: &str) {
+    let mut browser_state = DocumentLifecycleState::open_clean(
+        persisted_source,
+        LifecycleCapabilities::browser_limited(),
+    );
+    browser_state.edit_working_source(working_source);
+
+    output.push_str(
+        "  <section role=\"document-lifecycle\" data-provider=\"browser-limited\" data-dirty=\"",
+    );
+    output.push_str(if browser_state.is_dirty() {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    output.push_str("    <div role=\"document-state\">");
+    output.push_str(if browser_state.is_dirty() {
+        "dirty"
+    } else {
+        "clean"
+    });
+    output.push_str("</div>\n");
+    render_lifecycle_command(
+        output,
+        LifecycleCommand::Save,
+        browser_state.command_status(LifecycleCommand::Save),
+    );
+    render_lifecycle_command(
+        output,
+        LifecycleCommand::Reload,
+        browser_state.command_status(LifecycleCommand::Reload),
+    );
+    render_lifecycle_command(
+        output,
+        LifecycleCommand::Revert,
+        browser_state.command_status(LifecycleCommand::Revert),
+    );
+    output.push_str("  </section>\n");
+
+    let mut memory_provider = InMemoryDocumentPersistence::new(persisted_source);
+    let mut memory_state = DocumentLifecycleState::open_clean(
+        persisted_source,
+        LifecycleCapabilities::all_supported(),
+    );
+    memory_state.edit_working_source(working_source);
+    save_lifecycle_to_persistence(&mut memory_state, &mut memory_provider)
+        .expect("in-memory persistence provider supports save");
+
+    output.push_str("  <section role=\"persistence-proof\" data-provider=\"in-memory\" data-filesystem=\"false\" data-dirty-after-save=\"");
+    output.push_str(if memory_state.is_dirty() {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\">\n");
+    output.push_str("    <div role=\"persistence-note\">In-memory provider only; no filesystem persistence claimed.</div>\n");
+    output.push_str("    <div role=\"persistence-state\">saved clean</div>\n");
+    output.push_str("  </section>\n");
+}
+
+fn render_lifecycle_command(
+    output: &mut String,
+    command: LifecycleCommand,
+    status: LifecycleCommandStatus,
+) {
+    output.push_str("    <div role=\"lifecycle-command\" data-command=\"");
+    output.push_str(lifecycle_command_name(command));
+    output.push_str("\" data-enabled=\"");
+    output.push_str(if status.is_enabled { "true" } else { "false" });
+    output.push_str("\">");
+    output.push_str(lifecycle_command_label(command));
+    output.push_str(if status.is_enabled {
+        " enabled"
+    } else {
+        " disabled"
+    });
+    if let Some(reason) = status.reason {
+        output.push_str(": ");
+        output.push_str(&html_escape(&reason));
+    }
+    output.push_str("</div>\n");
+}
+
+fn lifecycle_command_name(command: LifecycleCommand) -> &'static str {
+    match command {
+        LifecycleCommand::Save => "save",
+        LifecycleCommand::Reload => "reload",
+        LifecycleCommand::Revert => "revert",
+    }
+}
+
+fn lifecycle_command_label(command: LifecycleCommand) -> &'static str {
+    match command {
+        LifecycleCommand::Save => "Save",
+        LifecycleCommand::Reload => "Reload",
+        LifecycleCommand::Revert => "Revert",
+    }
 }
 
 fn render_diagnostic_row(output: &mut String, diagnostic: &DiagnosticRow) {
@@ -264,7 +385,7 @@ mod tests {
             id: GUI_THIN_SLICE_LOADED,
             title: "duplicate",
             fixture_path: PathBuf::from("unused.basproj"),
-            source_edit: ScenarioSourceEdit::ReadOnly,
+            kind: GuiScenarioKind::ReadOnlyProject,
         };
 
         let error = GuiScenarioRegistry::new(vec![duplicate.clone(), duplicate])
@@ -286,6 +407,8 @@ mod tests {
         assert!(output.contains("Thin-slice project loaded"));
         assert!(output.contains("gui-thin-slice-edited-diagnostics"));
         assert!(output.contains("Thin-slice edited diagnostics"));
+        assert!(output.contains("gui-thin-slice-lifecycle"));
+        assert!(output.contains("Thin-slice lifecycle state"));
     }
 
     #[test]
@@ -318,6 +441,7 @@ mod tests {
         assert!(rendered.contains("Public Sub Main()"));
         assert!(rendered.contains("COM unavailable"));
         assert!(!rendered.contains("'Option Explicit"));
+        assert!(!rendered.contains("role=\"document-lifecycle\""));
     }
 
     #[test]
@@ -329,10 +453,7 @@ mod tests {
             .expect("edited diagnostics scenario");
 
         assert_eq!(scenario.title, "Thin-slice edited diagnostics");
-        assert_eq!(
-            scenario.source_edit,
-            ScenarioSourceEdit::RemoveAnswerDeclaration
-        );
+        assert_eq!(scenario.kind, GuiScenarioKind::EditedDiagnostics);
     }
 
     #[test]
@@ -357,5 +478,46 @@ mod tests {
         assert!(rendered.contains("undeclared variable"));
         assert!(rendered.contains("answer"));
         assert!(rendered.contains("OxVba language service"));
+    }
+
+    #[test]
+    fn built_in_registry_finds_lifecycle_scenario_by_id() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let scenario = registry
+            .find(GUI_THIN_SLICE_LIFECYCLE)
+            .expect("lifecycle scenario");
+
+        assert_eq!(scenario.title, "Thin-slice lifecycle state");
+        assert_eq!(scenario.kind, GuiScenarioKind::Lifecycle);
+    }
+
+    #[test]
+    fn lifecycle_scenario_renders_dirty_state_and_persistence_honesty() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_THIN_SLICE_LIFECYCLE)
+            .expect("render lifecycle scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-thin-slice-lifecycle\""));
+        assert!(rendered.contains("ThinSliceHello"));
+        assert!(rendered.contains("Module1.bas"));
+        assert!(rendered.contains("answer = 40 + 2"));
+        assert!(!rendered.contains("Dim answer"));
+        assert!(rendered.contains("role=\"document-lifecycle\""));
+        assert!(rendered.contains("data-provider=\"browser-limited\""));
+        assert!(rendered.contains("data-dirty=\"true\""));
+        assert!(rendered.contains("role=\"document-state\">dirty"));
+        assert!(rendered.contains("data-command=\"save\" data-enabled=\"false\""));
+        assert!(rendered.contains("data-command=\"reload\" data-enabled=\"false\""));
+        assert!(rendered.contains("data-command=\"revert\" data-enabled=\"true\""));
+        assert!(rendered.contains("browser-safe profile has no direct filesystem persistence"));
+        assert!(rendered.contains("role=\"persistence-proof\""));
+        assert!(rendered.contains("data-provider=\"in-memory\""));
+        assert!(rendered.contains("data-filesystem=\"false\""));
+        assert!(rendered.contains("no filesystem persistence claimed"));
+        assert!(rendered.contains("saved clean"));
+        assert!(rendered.contains("COM unavailable"));
     }
 }
