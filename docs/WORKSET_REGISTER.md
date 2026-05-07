@@ -86,8 +86,17 @@ sequence for the GUI pivot.
 13. `W320` — native filesystem and session persistence
 14. `W330` — OxVba native runtime service contract
 15. `W340` — DnaOxIde standalone host foundation
+16. `W341` — DnaOxIde Tauri app scaffold
+17. `W342` — shared IDE UI component layer
+18. `W343` — OxIde host bridge facade
+19. `W344` — DnaOxIde Tauri command boundary stubs
+20. `W345` — DnaOxIde live host UI proof
+21. `W346` — DnaOxIde interaction and e2e harness
+22. `W347` — compile options and reference UI placeholders/subset panels
+23. `W348` — DnaOneCalc shared UI reuse path
+24. `W349` — DnaOxIde while-OxVba acceptance
 
-`W340` is the active follow-on to the accepted W330 runtime service contract. It introduces the DnaOxIde / DNA OxIde standalone host lane inside this repo, with Tauri desktop-first planning, optional standalone WASM host posture, and shared UI/host factoring for DnaOneCalc. Real OxVba native-service implementation and paired DnaOneCalc implementation still require explicit sibling-repo write authorization.
+`W341`-`W349` cover the OxIde-side continuation runway while OxVba executes its DNA OxIde full-scope host integration support workset. The runway proceeds with DnaOxIde scaffold, shared UI, host bridge, Tauri command boundaries, live host proof, interaction harness, compile/options/reference panels, and DnaOneCalc reuse path. OxVba feedback now identifies several available-subset direct Rust surfaces, so these worksets should prefer subset-backed adapter evidence where possible while keeping stable IDs/taxonomy/watch/breakpoint/COM-runtime/full-debug claims gated on OxVba evidence and explicit sibling-repo authorization.
 
 ## Workset Specs
 
@@ -123,6 +132,15 @@ sequence for the GUI pivot.
 - [W320_native_filesystem_session_persistence.md](worksets/W320_native_filesystem_session_persistence.md)
 - [W330_oxvba_native_runtime_service_contract.md](worksets/W330_oxvba_native_runtime_service_contract.md)
 - [W340_dnaoxide_standalone_host_foundation.md](worksets/W340_dnaoxide_standalone_host_foundation.md)
+- [W341_dnaoxide_tauri_app_scaffold.md](worksets/W341_dnaoxide_tauri_app_scaffold.md)
+- [W342_shared_ide_ui_component_layer.md](worksets/W342_shared_ide_ui_component_layer.md)
+- [W343_oxide_host_bridge_facade.md](worksets/W343_oxide_host_bridge_facade.md)
+- [W344_dnaoxide_tauri_command_boundary_stubs.md](worksets/W344_dnaoxide_tauri_command_boundary_stubs.md)
+- [W345_dnaoxide_live_host_ui_proof.md](worksets/W345_dnaoxide_live_host_ui_proof.md)
+- [W346_dnaoxide_interaction_e2e_harness.md](worksets/W346_dnaoxide_interaction_e2e_harness.md)
+- [W347_compile_options_reference_placeholders.md](worksets/W347_compile_options_reference_placeholders.md)
+- [W348_dnaonecalc_shared_ui_reuse_path.md](worksets/W348_dnaonecalc_shared_ui_reuse_path.md)
+- [W349_dnaoxide_while_oxvba_acceptance.md](worksets/W349_dnaoxide_while_oxvba_acceptance.md)
 
 ## Use Rule
 

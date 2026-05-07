@@ -322,121 +322,133 @@ Host/service needs:
 
 ## 8. Fast-Track Workset Roadmap
 
-The goal is to reach full standalone host scope soon. Treat the roadmap below as an aggressive vertical path: each workset must land user-visible host capability, not just more abstractions. Shared UI factoring is mandatory, but it should happen just-in-time around the desktop host rather than delaying the desktop host.
+The goal is to reach full standalone host scope soon. Treat the roadmap below as an aggressive vertical path: each workset must land user-visible host capability, subset-backed adapter evidence, or a concrete host-driving test. Shared UI factoring is mandatory, but it must happen just-in-time around the desktop host rather than delaying the desktop host.
+
+OxVba feedback on 2026-05-07 confirms several available-subset direct Rust surfaces already exist. Therefore the OxIde-side plan is not pure waiting/stubbing: W343-W347 should consume those subsets where dependency wiring is ready, while keeping remaining stable-ID/taxonomy/watch/breakpoint/COM-runtime/full-debug gaps visible.
 
 ### W340 — DnaOxIde standalone host foundation
 
-Goal: create the branded host scaffold and shared layout boundaries without real runtime claims.
+Goal: create the branded host lane and full-scope plan without real runtime claims.
 
 Deliverables:
 
-- `apps/dna-oxide/` scaffold,
-- Tauri config with product name `DNA OxIde`,
-- shared host profile boot packet,
-- static shell renders accepted `GuiShellPacket`,
-- no runtime/COM claims.
+- `apps/dna-oxide/` planning scaffold,
+- DNA OxIde product/architecture plan,
+- OxVba requirements and feedback alignment notes,
+- W341-W349 continuation worksets.
 
-### W345 — Host bridge + shared UI minimum viable shell
+### W341 — DnaOxIde Tauri app scaffold
 
-Goal: in one short step, make the same shell consumable by DnaOxIde and future DnaOneCalc host code.
-
-Deliverables:
-
-- `oxide-ui-leptos` shell layout component,
-- `oxide-host-bridge` traits/DTO facade for project/document/language/compile/reference/runtime/Immediate/debug,
-- DnaOxIde frontend uses the shared component,
-- `oxide-guilab` renders the same component state,
-- no Tauri-specific calls inside shared UI.
-
-### W350 — DnaOxIde opens and persists real projects through Tauri
-
-Goal: the desktop app opens ThinSliceHello from disk, edits, saves, reloads, and restores sessions via Tauri commands.
+Goal: create the Tauri-ready app skeleton and product metadata.
 
 Deliverables:
 
-- native file/open folder dialog,
-- `HostProjectApi` and `HostDocumentApi` implemented by DnaOxIde Tauri commands,
-- project-open smoke in the Tauri host,
-- disk-backed save/reload/session restore using existing W320 model,
-- checked-in fixture mutation guard.
+- `apps/dna-oxide` frontend/native scaffold,
+- product name `DNA OxIde`,
+- Tauri config/bootstrap placeholders,
+- scaffold verification and no-claim scan.
 
-### W355 — Compile options and build/check UX
+### W342 — Shared IDE UI component layer
 
-Goal: expose project/compile configuration and build/check results before runtime/debug.
-
-Deliverables:
-
-- project properties panel,
-- compile options panel,
-- compile constants/build profile/run target placeholders from authoritative OxVba/shared DTOs,
-- build/check command,
-- diagnostics/build output timeline,
-- handoff or sibling authorization if OxVba DTOs are missing.
-
-### W360 — Windows COM reference browser and reference editing
-
-Goal: make Windows-native reference/COM work visible and actionable early because it shapes runtime capability.
+Goal: make accepted OxIde GUI panes reusable by DnaOxIde and DnaOneCalc.
 
 Deliverables:
 
-- references dialog,
-- installed COM/type-library search and details,
-- missing/unavailable COM states for browser/non-Windows,
-- selected reference preview/update through OxVba project truth,
-- bitness/compatibility labels,
-- no COM runtime invocation claim until runtime tests pass.
+- shared component crate target, expected `oxide-ui-leptos`,
+- shell/project/editor/diagnostics/lifecycle/runtime/Immediate/debug/COM panes,
+- visible unavailable and available-subset labels,
+- `oxide-guilab` deterministic render path.
 
-### W365 — Native runtime + Immediate vertical slice
+### W343 — OxIde host bridge facade
 
-Goal: replace native-service-missing runtime/Immediate states with the first real OxVba-backed native session.
+Goal: separate shared UI from host/service implementations.
 
 Deliverables:
 
-- native runtime service process or in-process service proof,
-- run target enumeration,
-- build/run lifecycle and output events,
-- stop/cancel,
-- Immediate prompt/history/request/response stream,
-- runtime error taxonomy,
-- no fake responses.
+- host-neutral service categories for project, document, language, compile, references, runtime, Immediate, debug, settings, and capability,
+- available-subset adapter map for current OxVba surfaces,
+- pending-hardening unavailable states for remaining OxVba gaps,
+- no Tauri dependency in shared bridge/UI crates.
 
-### W370 — Debug/watch/breakpoint vertical slice
+### W344 — DnaOxIde Tauri command boundary stubs
 
-Goal: expose real debug sessions as soon as runtime sessions exist.
+Goal: define Tauri IPC command boundaries over the host bridge.
 
 Deliverables:
 
-- debug toolbar,
-- pause/continue/step/stop,
-- current execution marker,
-- callstack,
-- locals,
-- watches,
-- breakpoint bind/unbind/status,
-- no fake debug data.
+- proven OxIde-only project/document/session commands,
+- available-subset OxVba adapter commands where wired,
+- pending-hardening unavailable responses for missing DTOs/events/source spans/watch/breakpoint/COM-runtime gaps,
+- no fake runtime/debug/Immediate data.
 
-### W375 — Packaging and full host regression
+### W345 — DnaOxIde live host UI proof
 
-Goal: make DNA OxIde a reviewable/installable Windows desktop product.
+Goal: make the app host path display the shared IDE shell.
 
 Deliverables:
 
-- local installer/package path,
-- WebView2 behavior documented,
-- native service bundling/sidecar config,
-- Tauri/WebView smoke,
-- Windows-native COM/runtime/debug gated tests,
-- fixture suite beyond thin-slice,
-- crash/log/reporting paths.
+- DNA OxIde host render/proof mode,
+- ThinSliceHello and `Module1.bas` visible,
+- lifecycle/save-reload state visible,
+- runtime/Immediate/debug/COM unavailable or subset-backed states visible,
+- no unproven full capability claim.
 
-### Parallel constraint — OxVba/shared DTO authorization
+### W346 — DnaOxIde interaction and e2e harness
 
-W355/W360/W365/W370 cannot honestly reach full scope without either:
+Goal: add deterministic host interaction coverage.
 
-- explicit authorization to modify OxVba/shared repos, or
-- already-published authoritative OxVba/shared DTOs for compile options, references, runtime, Immediate, debug, watches, and breakpoints.
+Deliverables:
 
-If authorization is not granted, the DnaOxIde work can continue through scaffold, shared UI, Tauri file/session/project lifecycle, and no-claim service stubs, but full runtime/debug/COM scope will remain blocked.
+- command palette/keyboard interaction tests,
+- focus/no-mouse route tests,
+- open/save/reload/session interactions on temp projects,
+- blocked and subset-backed service interaction tests,
+- no full accessibility audit claim unless separately tested.
+
+### W347 — Compile options and reference UI placeholders/subset panels
+
+Goal: build the full-scope compile/options/reference surfaces now.
+
+Deliverables:
+
+- project properties and compile options panels,
+- subset-backed project/reference/build panels where current OxVba APIs provide data,
+- COM candidate/active-selection subset panels where wired,
+- pending states for compile options/run targets/stable taxonomy/COM native boundary gaps.
+
+### W348 — DnaOneCalc shared UI reuse path
+
+Goal: prove inside OxIde that the same shared UI/host bridge path is reusable by DnaOneCalc.
+
+Deliverables:
+
+- DnaOneCalc-like host profile/fixture,
+- shared UI render under a DnaOneCalc-like frame,
+- ownership labels for DnaOneCalc/OxIde/OxVba,
+- no sibling repo writes or real DnaOneCalc mount claim.
+
+### W349 — DnaOxIde while-OxVba acceptance
+
+Goal: consolidate W341-W348 into a coherent runway ready for OxVba full-scope integration.
+
+Deliverables:
+
+- cross-workset evidence audit,
+- full continuation regression,
+- OxVba integration readiness report,
+- remaining gap and authorization list.
+
+### Later real-capability integration worksets
+
+After W349, or in parallel where direct adapter evidence is ready, the next capability worksets can proceed as:
+
+- W355 — compile/build UX over OxVba project properties, compile options, run targets, and typed build/check results;
+- W360 — COM references over OxVba COM/reference capability profile and candidate/repair/apply surfaces;
+- W365 — runtime + Immediate over stable OxVba runtime and Immediate session IDs/events/responses;
+- W370 — debug/watch/breakpoints over stable OxVba debug/session/watch/breakpoint DTOs;
+- W375 — packaging and full host regression.
+
+Those worksets may adopt available-subset OxVba APIs early, but full claims remain gated on OxIde-side tests over matching OxVba evidence.
 
 ## 9. Test Strategy
 
@@ -479,7 +491,7 @@ Required handoff/authorization points:
 - DnaOneCalc consumption of `oxide-ui-leptos` or serialized host packets,
 - any sibling repo writes.
 
-See [`HANDOFF_DNAOXIDE_OXVBA_REQUIREMENTS.md`](HANDOFF_DNAOXIDE_OXVBA_REQUIREMENTS.md) for the fast-track OxVba requirements note.
+See [`HANDOFF_DNAOXIDE_OXVBA_REQUIREMENTS.md`](HANDOFF_DNAOXIDE_OXVBA_REQUIREMENTS.md) for the fast-track OxVba requirements note, and [`HANDOFF_DNAOXIDE_OXVBA_FEEDBACK_ALIGNMENT.md`](HANDOFF_DNAOXIDE_OXVBA_FEEDBACK_ALIGNMENT.md) for the confirmed OxVba feedback that splits current work into available-subset adapter proofs versus remaining stable-ID/taxonomy/watch/breakpoint/COM-runtime/full-debug gaps.
 
 ## 12. External References Checked
 

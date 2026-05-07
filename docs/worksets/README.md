@@ -42,8 +42,17 @@ Specs executors will touch next for the Rust/WASM-capable GUI pivot:
 - `W320_native_filesystem_session_persistence.md`
 - `W330_oxvba_native_runtime_service_contract.md`
 - `W340_dnaoxide_standalone_host_foundation.md`
+- `W341_dnaoxide_tauri_app_scaffold.md`
+- `W342_shared_ide_ui_component_layer.md`
+- `W343_oxide_host_bridge_facade.md`
+- `W344_dnaoxide_tauri_command_boundary_stubs.md`
+- `W345_dnaoxide_live_host_ui_proof.md`
+- `W346_dnaoxide_interaction_e2e_harness.md`
+- `W347_compile_options_reference_placeholders.md`
+- `W348_dnaonecalc_shared_ui_reuse_path.md`
+- `W349_dnaoxide_while_oxvba_acceptance.md`
 
-`W340` is the active follow-on to the accepted W330 runtime service contract. It introduces the DnaOxIde / DNA OxIde standalone host lane inside this repo, with Tauri desktop-first planning, optional standalone WASM host posture, and shared UI/host factoring for DnaOneCalc. Real OxVba native-service implementation and paired DnaOneCalc implementation still require explicit sibling-repo write authorization.
+`W341`-`W349` cover the OxIde-side continuation runway while OxVba executes its DNA OxIde full-scope host integration support workset. OxVba feedback now identifies several available-subset direct Rust surfaces, so the worksets should prefer subset-backed adapter evidence where possible while keeping stable IDs/taxonomy/watch/breakpoint/COM-runtime/full-debug claims gated on OxVba evidence and explicit sibling-repo authorization.
 
 ## Parked TUI Lineage
 

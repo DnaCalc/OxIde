@@ -11,6 +11,8 @@ Target audience: OxVba maintainers and OxIde/DnaOxIde implementers
 
 This note is an OxIde-side requirements handoff. It does not write to the OxVba repo and does not claim that OxIde already consumes these capabilities end-to-end.
 
+Follow-up: OxVba processed this handoff and reported available-subset direct host surfaces plus remaining gaps. See [`HANDOFF_DNAOXIDE_OXVBA_FEEDBACK_ALIGNMENT.md`](HANDOFF_DNAOXIDE_OXVBA_FEEDBACK_ALIGNMENT.md) for the OxIde-side confirmed alignment. This requirements note remains the broad request; the feedback alignment note controls the current available-subset versus pending-hardening split.
+
 ## Product Pressure
 
 DnaOxIde is not just another static shell proof. The desired near-term product shape is:
