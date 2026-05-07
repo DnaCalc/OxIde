@@ -622,6 +622,182 @@ impl RunOutputEvent {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ComReferenceFact {
+    pub display_name: String,
+    pub identifier: String,
+    pub source_label: String,
+}
+
+impl ComReferenceFact {
+    pub fn new(
+        display_name: impl Into<String>,
+        identifier: impl Into<String>,
+        source_label: impl Into<String>,
+    ) -> Self {
+        Self {
+            display_name: display_name.into(),
+            identifier: identifier.into(),
+            source_label: source_label.into(),
+        }
+    }
+
+    pub fn scripting_dictionary_demo() -> Self {
+        Self::new(
+            "COM reference present: Scripting.Dictionary",
+            "Scripting.Dictionary",
+            "project reference fact projected for capability review",
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ComHostProfileKind {
+    BrowserSafe,
+    NonWindowsNative,
+    WindowsNativeServiceMissing,
+    WindowsNativeServiceAvailable,
+}
+
+impl ComHostProfileKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::BrowserSafe => "browser-safe",
+            Self::NonWindowsNative => "non-windows-native",
+            Self::WindowsNativeServiceMissing => "windows-native-service-missing",
+            Self::WindowsNativeServiceAvailable => "windows-native-service-available",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ComCapabilityFeature {
+    ReferenceDiscovery,
+    RuntimeInvocation,
+}
+
+impl ComCapabilityFeature {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::ReferenceDiscovery => "reference-discovery",
+            Self::RuntimeInvocation => "runtime-invocation",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ComCapabilityStatus {
+    pub feature: ComCapabilityFeature,
+    pub is_available: bool,
+    pub reason: Option<String>,
+}
+
+impl ComCapabilityStatus {
+    pub fn available(feature: ComCapabilityFeature) -> Self {
+        Self {
+            feature,
+            is_available: true,
+            reason: None,
+        }
+    }
+
+    pub fn unavailable(feature: ComCapabilityFeature, reason: impl Into<String>) -> Self {
+        Self {
+            feature,
+            is_available: false,
+            reason: Some(reason.into()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ComCapabilityProfile {
+    pub profile_name: String,
+    pub host_kind: ComHostProfileKind,
+    pub reference: ComReferenceFact,
+    pub native_execution_available: bool,
+    pub native_com_service_configured: bool,
+    pub windows_native_host_required: bool,
+    pub reference_discovery: ComCapabilityStatus,
+    pub runtime_invocation: ComCapabilityStatus,
+}
+
+impl ComCapabilityProfile {
+    pub fn browser_unavailable(reference: ComReferenceFact) -> Self {
+        Self {
+            profile_name: String::from("browser-safe-com-unavailable"),
+            host_kind: ComHostProfileKind::BrowserSafe,
+            reference,
+            native_execution_available: false,
+            native_com_service_configured: false,
+            windows_native_host_required: true,
+            reference_discovery: ComCapabilityStatus::unavailable(
+                ComCapabilityFeature::ReferenceDiscovery,
+                "COM discovery unavailable in browser-safe profile; Windows native host required.",
+            ),
+            runtime_invocation: ComCapabilityStatus::unavailable(
+                ComCapabilityFeature::RuntimeInvocation,
+                "COM runtime unavailable in browser-safe profile; pure browser/WASM cannot directly call Windows COM.",
+            ),
+        }
+    }
+
+    pub fn non_windows_native_unavailable(reference: ComReferenceFact) -> Self {
+        Self {
+            profile_name: String::from("non-windows-native-com-unavailable"),
+            host_kind: ComHostProfileKind::NonWindowsNative,
+            reference,
+            native_execution_available: true,
+            native_com_service_configured: false,
+            windows_native_host_required: true,
+            reference_discovery: ComCapabilityStatus::unavailable(
+                ComCapabilityFeature::ReferenceDiscovery,
+                "COM discovery unavailable on non-Windows native host; Windows native host required.",
+            ),
+            runtime_invocation: ComCapabilityStatus::unavailable(
+                ComCapabilityFeature::RuntimeInvocation,
+                "COM runtime unavailable on non-Windows native host; Windows native host required.",
+            ),
+        }
+    }
+
+    pub fn windows_native_service_missing(reference: ComReferenceFact) -> Self {
+        Self {
+            profile_name: String::from("windows-native-com-service-missing"),
+            host_kind: ComHostProfileKind::WindowsNativeServiceMissing,
+            reference,
+            native_execution_available: true,
+            native_com_service_configured: false,
+            windows_native_host_required: false,
+            reference_discovery: ComCapabilityStatus::unavailable(
+                ComCapabilityFeature::ReferenceDiscovery,
+                "native COM service not configured; COM discovery blocked until service handoff is implemented.",
+            ),
+            runtime_invocation: ComCapabilityStatus::unavailable(
+                ComCapabilityFeature::RuntimeInvocation,
+                "native COM service not configured; COM runtime invocation disabled.",
+            ),
+        }
+    }
+
+    pub fn future_windows_native_service_available(reference: ComReferenceFact) -> Self {
+        Self {
+            profile_name: String::from("windows-native-com-service-available"),
+            host_kind: ComHostProfileKind::WindowsNativeServiceAvailable,
+            reference,
+            native_execution_available: true,
+            native_com_service_configured: true,
+            windows_native_host_required: false,
+            reference_discovery: ComCapabilityStatus::available(
+                ComCapabilityFeature::ReferenceDiscovery,
+            ),
+            runtime_invocation: ComCapabilityStatus::available(
+                ComCapabilityFeature::RuntimeInvocation,
+            ),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -952,5 +1128,129 @@ mod tests {
         assert_eq!(RunOutputEventKind::Activity.label(), "activity");
         assert_eq!(RunOutputEventKind::Diagnostic.label(), "diagnostic");
         assert_eq!(RunOutputEventKind::Output.label(), "output");
+    }
+
+    #[test]
+    fn browser_com_profile_reports_unavailable_discovery_and_runtime() {
+        let profile = ComCapabilityProfile::browser_unavailable(
+            ComReferenceFact::scripting_dictionary_demo(),
+        );
+
+        assert_eq!(profile.host_kind, ComHostProfileKind::BrowserSafe);
+        assert_eq!(profile.host_kind.label(), "browser-safe");
+        assert_eq!(profile.reference.identifier, "Scripting.Dictionary");
+        assert!(!profile.native_execution_available);
+        assert!(!profile.native_com_service_configured);
+        assert!(profile.windows_native_host_required);
+        assert!(!profile.reference_discovery.is_available);
+        assert!(!profile.runtime_invocation.is_available);
+        assert!(
+            profile
+                .reference_discovery
+                .reason
+                .as_deref()
+                .expect("discovery reason")
+                .contains("COM discovery unavailable in browser-safe profile")
+        );
+        assert!(
+            profile
+                .runtime_invocation
+                .reason
+                .as_deref()
+                .expect("runtime reason")
+                .contains("pure browser/WASM cannot directly call Windows COM")
+        );
+    }
+
+    #[test]
+    fn non_windows_native_com_profile_keeps_native_execution_distinct_from_com() {
+        let profile = ComCapabilityProfile::non_windows_native_unavailable(
+            ComReferenceFact::scripting_dictionary_demo(),
+        );
+
+        assert_eq!(profile.host_kind, ComHostProfileKind::NonWindowsNative);
+        assert_eq!(profile.host_kind.label(), "non-windows-native");
+        assert!(profile.native_execution_available);
+        assert!(!profile.native_com_service_configured);
+        assert!(profile.windows_native_host_required);
+        assert!(!profile.reference_discovery.is_available);
+        assert!(!profile.runtime_invocation.is_available);
+        assert!(
+            profile
+                .runtime_invocation
+                .reason
+                .as_deref()
+                .expect("runtime reason")
+                .contains("non-Windows native host")
+        );
+    }
+
+    #[test]
+    fn windows_native_service_missing_blocks_com_without_browser_reason() {
+        let profile = ComCapabilityProfile::windows_native_service_missing(
+            ComReferenceFact::scripting_dictionary_demo(),
+        );
+
+        assert_eq!(
+            profile.host_kind,
+            ComHostProfileKind::WindowsNativeServiceMissing
+        );
+        assert_eq!(profile.host_kind.label(), "windows-native-service-missing");
+        assert!(profile.native_execution_available);
+        assert!(!profile.native_com_service_configured);
+        assert!(!profile.windows_native_host_required);
+        assert!(!profile.reference_discovery.is_available);
+        assert!(!profile.runtime_invocation.is_available);
+        assert!(
+            profile
+                .reference_discovery
+                .reason
+                .as_deref()
+                .expect("discovery reason")
+                .contains("native COM service not configured")
+        );
+        assert!(
+            !profile
+                .runtime_invocation
+                .reason
+                .as_deref()
+                .expect("runtime reason")
+                .contains("browser-safe")
+        );
+    }
+
+    #[test]
+    fn future_windows_native_service_available_is_labeled_separately() {
+        let profile = ComCapabilityProfile::future_windows_native_service_available(
+            ComReferenceFact::scripting_dictionary_demo(),
+        );
+
+        assert_eq!(
+            profile.host_kind,
+            ComHostProfileKind::WindowsNativeServiceAvailable
+        );
+        assert_eq!(
+            profile.host_kind.label(),
+            "windows-native-service-available"
+        );
+        assert!(profile.native_execution_available);
+        assert!(profile.native_com_service_configured);
+        assert!(!profile.windows_native_host_required);
+        assert!(profile.reference_discovery.is_available);
+        assert!(profile.runtime_invocation.is_available);
+        assert!(profile.reference_discovery.reason.is_none());
+        assert!(profile.runtime_invocation.reason.is_none());
+    }
+
+    #[test]
+    fn com_capability_feature_labels_are_stable() {
+        assert_eq!(
+            ComCapabilityFeature::ReferenceDiscovery.label(),
+            "reference-discovery"
+        );
+        assert_eq!(
+            ComCapabilityFeature::RuntimeInvocation.label(),
+            "runtime-invocation"
+        );
     }
 }
