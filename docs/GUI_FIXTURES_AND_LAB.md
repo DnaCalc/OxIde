@@ -623,9 +623,9 @@ Known W280 limitations:
 4. no visual theme/high-contrast implementation yet,
 5. no real runtime/debug/Immediate or COM support beyond capability/unavailable projections.
 
-## 14. W290 Handoff
+## 14. W290 Accepted Host-Mounted GUI Shell
 
-W290 should start from the sixteen current regression lab commands:
+W290 accepted against the twenty current regression lab commands:
 
 ```powershell
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-thin-slice-loaded
@@ -644,15 +644,91 @@ cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-comman
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-keyboard-contexts-baseline
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-focus-graph-no-mouse
 cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-accessibility-disabled-reasons
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-shell-packet-baseline
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-mounted-shell-static
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-mounted-command-palette
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-mounted-no-mouse-accessibility
 ```
 
-W290 prerequisites:
+Observed shell-packet output contains:
 
-1. choose a first mounted GUI shell substrate without rewriting the pure projections,
-2. keep `oxide-guilab` deterministic as regression evidence,
-3. preserve W280 command/keyboard/focus/accessibility state as host-independent contracts,
-4. keep DnaOneCalc as a consumer/host boundary rather than owner of OxIde IDE state,
-5. do not claim DOM, filesystem, native runtime, debug, Immediate, or COM support until tested in the target host.
+- `data-scenario="gui-shell-packet-baseline"`,
+- `role="shell-packet"`,
+- `data-source="oxide-core GuiShellPacket"`,
+- `data-project="ThinSliceHello"`,
+- `data-active-module="Module1.bas"`,
+- `data-native-execution-claimed="false"`,
+- `data-com-runtime-claimed="false"`,
+- `data-web-framework-bound="false"`,
+- `data-parked-tui-imported="false"`,
+- `role="shell-packet-command-count">10`,
+- `role="shell-packet-keybinding-count">11`,
+- `role="shell-packet-focus-node-count">9`,
+- `role="shell-packet-accessibility-count">10`.
+
+Observed mounted static output contains:
+
+- `data-scenario="gui-mounted-shell-static"`,
+- `role="mounted-shell-static"`,
+- `data-source="GuiShellPacket"`,
+- `data-static-render="true"`,
+- `data-dom-audited="false"`,
+- `data-filesystem-persistence="false"`,
+- `data-native-runtime="false"`,
+- `data-com-runtime="false"`,
+- `role="mounted-project-tree"`,
+- `role="mounted-editor"`,
+- `role="mounted-diagnostics"`,
+- `role="mounted-run-output"`,
+- `role="mounted-command-palette"`,
+- `Static shell render consumes GuiShellPacket`.
+
+Observed mounted command-palette output contains:
+
+- `data-scenario="gui-mounted-command-palette"`,
+- `role="mounted-command-palette-detail"`,
+- `data-source="GuiShellPacket.command_palette"`,
+- `data-parked-tui-imported="false"`,
+- `data-command-count="10"`,
+- `data-command-id="document.save" data-category="document" data-gesture="Ctrl+S"`,
+- `data-command-id="runtime.run" data-category="runtime" data-gesture="F5"`,
+- `native execution provider unavailable`,
+- `data-command-id="runtime.immediate" data-category="runtime" data-gesture="Enter"`,
+- `no native OxVba runtime session`,
+- `parked TUI command model not imported`.
+
+Observed mounted no-mouse/accessibility output contains:
+
+- `data-scenario="gui-mounted-no-mouse-accessibility"`,
+- `role="mounted-no-mouse-accessibility"`,
+- `data-source="GuiShellPacket.focus_graph+accessibility"`,
+- `data-web-framework-bound="false"`,
+- `data-dom-audited="false"`,
+- `data-route-length="10"`,
+- `data-accessibility-surface-count="10"`,
+- `data-index="1" data-node-id="project-tree"`,
+- `data-index="9" data-node-id="command-palette"`,
+- `returns to source-editor`,
+- `role="mounted-accessible-label">Source editor`,
+- `COM discovery unavailable in browser-safe profile`,
+- `DOM accessibility audit is not claimed`.
+
+Implementation notes:
+
+1. `oxide-core` owns `GuiShellPacket`; it combines existing pure projections rather than forking them.
+2. `oxide-guilab` renders the mounted/static proof from packet state.
+3. Command, keyboard, focus, and accessibility mounted slices consume packet fields.
+4. No parked TUI command/key/focus/widget/shell state is imported.
+5. W290 keeps DnaOneCalc as a consumer/host boundary and does not modify sibling repos.
+
+Known W290 limitations:
+
+1. no real web framework or browser DOM mount yet,
+2. no DOM accessibility audit or accessibility compliance claim,
+3. no real filesystem persistence,
+4. no native runtime/debug/Immediate execution,
+5. no native COM discovery or invocation,
+6. no DnaOneCalc host integration changes.
 
 ## 15. Cross-Repo Fixture Policy
 

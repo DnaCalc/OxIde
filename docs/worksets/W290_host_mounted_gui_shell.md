@@ -163,6 +163,8 @@ Closure:
 
 ### W290-B05 — W290 acceptance and host handoff
 
+Status: Accepted 2026-05-07.
+
 Goal:
   Accept W290 with full regression evidence and document the next host/framework decision.
 
@@ -177,14 +179,16 @@ Tests:
   - Grep shell packet, mounted shell, command palette, focus, and accessibility tokens.
 
 Evidence:
-  - Full nested workspace tests.
-  - Rendered GUI-lab outputs.
-  - Handoff note.
+  - `cargo test --manifest-path crates/Cargo.toml --workspace` passed.
+  - W210-W290 GUI-lab renders collected in `target/w290-acceptance-renders.txt`.
+  - Shell packet, mounted shell, command palette, focus, and accessibility token checks collected in `target/w290-acceptance-grep.txt`.
+  - Next host/framework handoff: [`docs/HANDOFF_W300_MOUNTED_WEB_SHELL_DECISION.md`](../HANDOFF_W300_MOUNTED_WEB_SHELL_DECISION.md).
+  - Frozen OxVba `cfg(kani)` warnings remain non-blocking.
 
 Closure:
-  - [ ] W290 accepted or explicitly blocked with evidence.
-  - [ ] W210-W290 regression scenarios pass.
-  - [ ] Next host/framework prerequisites are documented.
+  - [x] W290 accepted or explicitly blocked with evidence.
+  - [x] W210-W290 regression scenarios pass.
+  - [x] Next host/framework prerequisites are documented.
 
 ## Out-of-scope
 
