@@ -39,11 +39,11 @@ Likely implementation lanes:
 
 **Infrastructure.**
 
-- **Goal.** `cargo test` can build a workspace containing the parked current `ox-ide` crate plus the first empty GUI foundation crates needed for W210, without changing TUI behavior.
-- **Design.** Convert the root `Cargo.toml` to an explicit workspace/package hybrid if needed. Add only crates required for the first project-open spine: `oxide-domain`, `oxide-core`, `oxide-oxvba`, and `oxide-guilab` if that can be done without premature UI dependency weight. Keep `oxide-ui-leptos` out until the first rendering bead if that gives a smaller review surface. No TUI code movement in this bead.
-- **Tests.** `cargo test` for the root/current crate and `cargo test --workspace` if the workspace shape supports it. Unit smoke in each new crate proving it builds and exposes its intended top-level module.
+- **Goal.** `cargo test` can still build the parked current `ox-ide` crate, and `cargo test --manifest-path crates/Cargo.toml --workspace` can build the first empty GUI foundation crates needed for W210, without changing TUI behavior.
+- **Design.** Keep the root `Cargo.toml` as the current parked TUI package so its frozen OxVba path dependencies keep their existing workspace behavior. Add a nested GUI workspace at `crates/Cargo.toml` with only the first project-open spine crates: `oxide-domain`, `oxide-core`, `oxide-oxvba`, and `oxide-guilab`. Keep `oxide-ui-leptos` out until the first rendering bead if that gives a smaller review surface. No TUI code movement in this bead.
+- **Tests.** `cargo test` for the root/current crate and `cargo test --manifest-path crates/Cargo.toml --workspace` for the GUI crate shell. Unit smoke in each new crate proving it builds and exposes its intended top-level role.
 - **Evidence.** Build/test output and directory listing of new crates.
-- **Closure.** Root TUI tests still pass; new crates build; no TUI files are moved or deleted; WTD remains opt-in.
+- **Closure.** Root TUI tests still pass; new GUI workspace crates build; no TUI files are moved or deleted; WTD remains opt-in.
 
 ### W210-B02 — Thin-slice fixture project view model
 

@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "oxide-core",
+    "oxide-domain",
+    "oxide-guilab",
+    "oxide-oxvba",
+]
+resolver = "3"

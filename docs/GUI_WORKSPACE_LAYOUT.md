@@ -68,9 +68,12 @@ Recommended layout rollout:
 
 ### Stage A — workspace shell
 
-- Convert `Cargo.toml` to an explicit workspace root while keeping the current root package buildable.
+- Keep the root `Cargo.toml` as the parked current TUI package until the TUI move is explicitly performed.
+- Add a nested GUI workspace at `crates/Cargo.toml` for initial greenfield GUI crates.
 - Add empty/new GUI crates only when the first implementation bead needs them.
 - Keep WTD tests opt-in.
+
+Rationale: the current root package depends on the frozen OxVba snapshot under `.external/oxvba-frozen`. Making the repo root an immediate workspace causes those frozen path dependencies to be treated as part of the OxIde workspace. The nested GUI workspace avoids that churn while still giving W210 a clean crate runway.
 
 ### Stage B — first GUI crates
 
