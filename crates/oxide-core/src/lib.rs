@@ -980,6 +980,317 @@ impl DebugCapabilityProfile {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GuiCommandCategory {
+    Project,
+    Document,
+    Runtime,
+    Capability,
+    Shell,
+}
+
+impl GuiCommandCategory {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Project => "project",
+            Self::Document => "document",
+            Self::Runtime => "runtime",
+            Self::Capability => "capability",
+            Self::Shell => "shell",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GuiCommandId {
+    ProjectOpen,
+    DocumentSave,
+    DocumentReload,
+    DocumentRevert,
+    RuntimeRun,
+    RuntimeStop,
+    RuntimeImmediate,
+    RuntimeDebug,
+    CapabilityShowCom,
+    ShellCommandPalette,
+}
+
+impl GuiCommandId {
+    pub fn stable_id(self) -> &'static str {
+        match self {
+            Self::ProjectOpen => "project.open",
+            Self::DocumentSave => "document.save",
+            Self::DocumentReload => "document.reload",
+            Self::DocumentRevert => "document.revert",
+            Self::RuntimeRun => "runtime.run",
+            Self::RuntimeStop => "runtime.stop",
+            Self::RuntimeImmediate => "runtime.immediate",
+            Self::RuntimeDebug => "runtime.debug",
+            Self::CapabilityShowCom => "capability.show_com",
+            Self::ShellCommandPalette => "shell.command_palette",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::ProjectOpen => "Open Project",
+            Self::DocumentSave => "Save",
+            Self::DocumentReload => "Reload",
+            Self::DocumentRevert => "Revert",
+            Self::RuntimeRun => "Run",
+            Self::RuntimeStop => "Stop Run",
+            Self::RuntimeImmediate => "Immediate",
+            Self::RuntimeDebug => "Debug",
+            Self::CapabilityShowCom => "Show COM Capability",
+            Self::ShellCommandPalette => "Command Palette",
+        }
+    }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            Self::ProjectOpen => "Open or switch an OxVba project in the IDE surface.",
+            Self::DocumentSave => "Save the active module through the current persistence profile.",
+            Self::DocumentReload => {
+                "Reload the active module from the current persistence profile."
+            }
+            Self::DocumentRevert => "Revert the working source to the last persisted source.",
+            Self::RuntimeRun => {
+                "Run the selected entrypoint through the configured execution provider."
+            }
+            Self::RuntimeStop => "Stop the active run session when one exists.",
+            Self::RuntimeImmediate => {
+                "Use the Immediate surface when an authoritative runtime session exists."
+            }
+            Self::RuntimeDebug => {
+                "Start or use the debug surface when an authoritative debug session exists."
+            }
+            Self::CapabilityShowCom => "Show COM capability and disabled-reason evidence.",
+            Self::ShellCommandPalette => "Open the GUI command palette.",
+        }
+    }
+
+    pub fn category(self) -> GuiCommandCategory {
+        match self {
+            Self::ProjectOpen => GuiCommandCategory::Project,
+            Self::DocumentSave | Self::DocumentReload | Self::DocumentRevert => {
+                GuiCommandCategory::Document
+            }
+            Self::RuntimeRun | Self::RuntimeStop | Self::RuntimeImmediate | Self::RuntimeDebug => {
+                GuiCommandCategory::Runtime
+            }
+            Self::CapabilityShowCom => GuiCommandCategory::Capability,
+            Self::ShellCommandPalette => GuiCommandCategory::Shell,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiCommandAvailability {
+    pub is_enabled: bool,
+    pub disabled_reason: Option<String>,
+    pub capability_label: String,
+}
+
+impl GuiCommandAvailability {
+    pub fn enabled(capability_label: impl Into<String>) -> Self {
+        Self {
+            is_enabled: true,
+            disabled_reason: None,
+            capability_label: capability_label.into(),
+        }
+    }
+
+    pub fn disabled(reason: impl Into<String>, capability_label: impl Into<String>) -> Self {
+        Self {
+            is_enabled: false,
+            disabled_reason: Some(reason.into()),
+            capability_label: capability_label.into(),
+        }
+    }
+
+    fn from_lifecycle_status(
+        status: LifecycleCommandStatus,
+        capability_label: impl Into<String>,
+    ) -> Self {
+        let capability_label = capability_label.into();
+        if status.is_enabled {
+            Self::enabled(capability_label)
+        } else {
+            Self::disabled(
+                status
+                    .reason
+                    .unwrap_or_else(|| String::from("command has no current effect")),
+                capability_label,
+            )
+        }
+    }
+
+    fn from_run_profile(profile: &RunCapabilityProfile) -> Self {
+        let status = profile.command_status();
+        if status.is_enabled {
+            Self::enabled(profile.provider_kind.label())
+        } else {
+            Self::disabled(
+                status
+                    .reason
+                    .unwrap_or_else(|| String::from("run is unavailable in this host profile")),
+                profile.provider_kind.label(),
+            )
+        }
+    }
+
+    fn from_runtime_surface(
+        status: &RuntimeSurfaceCommandStatus,
+        capability_label: impl Into<String>,
+    ) -> Self {
+        let capability_label = capability_label.into();
+        if status.is_enabled {
+            Self::enabled(capability_label)
+        } else {
+            Self::disabled(
+                status
+                    .reason
+                    .clone()
+                    .unwrap_or_else(|| String::from("runtime surface is unavailable")),
+                capability_label,
+            )
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiCommand {
+    pub id: GuiCommandId,
+    pub stable_id: String,
+    pub label: String,
+    pub description: String,
+    pub category: GuiCommandCategory,
+    pub availability: GuiCommandAvailability,
+}
+
+impl GuiCommand {
+    pub fn new(id: GuiCommandId, availability: GuiCommandAvailability) -> Self {
+        Self {
+            id,
+            stable_id: id.stable_id().to_string(),
+            label: id.label().to_string(),
+            description: id.description().to_string(),
+            category: id.category(),
+            availability,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GuiCommandPalette {
+    pub commands: Vec<GuiCommand>,
+    pub source_label: String,
+    pub parked_tui_imported: bool,
+}
+
+impl GuiCommandPalette {
+    pub fn browser_safe_baseline(document: &DocumentLifecycleState) -> Self {
+        Self::with_profiles(
+            document,
+            "browser-limited",
+            &RunCapabilityProfile::browser_safe_unsupported(),
+            &ImmediateCapabilityProfile::browser_disabled(),
+            &DebugCapabilityProfile::browser_disabled(),
+            &ComCapabilityProfile::browser_unavailable(
+                ComReferenceFact::scripting_dictionary_demo(),
+            ),
+        )
+    }
+
+    pub fn with_profiles(
+        document: &DocumentLifecycleState,
+        lifecycle_capability_label: impl Into<String>,
+        run_profile: &RunCapabilityProfile,
+        immediate_profile: &ImmediateCapabilityProfile,
+        debug_profile: &DebugCapabilityProfile,
+        com_profile: &ComCapabilityProfile,
+    ) -> Self {
+        let lifecycle_capability_label = lifecycle_capability_label.into();
+        let commands = vec![
+            GuiCommand::new(
+                GuiCommandId::ProjectOpen,
+                GuiCommandAvailability::enabled("project-open"),
+            ),
+            GuiCommand::new(
+                GuiCommandId::DocumentSave,
+                GuiCommandAvailability::from_lifecycle_status(
+                    document.command_status(LifecycleCommand::Save),
+                    lifecycle_capability_label.clone(),
+                ),
+            ),
+            GuiCommand::new(
+                GuiCommandId::DocumentReload,
+                GuiCommandAvailability::from_lifecycle_status(
+                    document.command_status(LifecycleCommand::Reload),
+                    lifecycle_capability_label.clone(),
+                ),
+            ),
+            GuiCommand::new(
+                GuiCommandId::DocumentRevert,
+                GuiCommandAvailability::from_lifecycle_status(
+                    document.command_status(LifecycleCommand::Revert),
+                    lifecycle_capability_label,
+                ),
+            ),
+            GuiCommand::new(
+                GuiCommandId::RuntimeRun,
+                GuiCommandAvailability::from_run_profile(run_profile),
+            ),
+            GuiCommand::new(
+                GuiCommandId::RuntimeStop,
+                GuiCommandAvailability::disabled(
+                    "no active runtime session to stop",
+                    run_profile.provider_kind.label(),
+                ),
+            ),
+            GuiCommand::new(
+                GuiCommandId::RuntimeImmediate,
+                GuiCommandAvailability::from_runtime_surface(
+                    &immediate_profile.command_status,
+                    immediate_profile.kind.label(),
+                ),
+            ),
+            GuiCommand::new(
+                GuiCommandId::RuntimeDebug,
+                GuiCommandAvailability::from_runtime_surface(
+                    &debug_profile.command_status,
+                    debug_profile.kind.label(),
+                ),
+            ),
+            GuiCommand::new(
+                GuiCommandId::CapabilityShowCom,
+                GuiCommandAvailability::enabled(com_profile.host_kind.label()),
+            ),
+            GuiCommand::new(
+                GuiCommandId::ShellCommandPalette,
+                GuiCommandAvailability::enabled("gui-shell"),
+            ),
+        ];
+
+        Self {
+            commands,
+            source_label: String::from("gui-core command registry"),
+            parked_tui_imported: false,
+        }
+    }
+
+    pub fn command(&self, id: GuiCommandId) -> Option<&GuiCommand> {
+        self.commands.iter().find(|command| command.id == id)
+    }
+
+    pub fn stable_ids(&self) -> Vec<&str> {
+        self.commands
+            .iter()
+            .map(|command| command.stable_id.as_str())
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1577,5 +1888,153 @@ mod tests {
         assert!(!debug.com_runtime_required);
         assert!(!immediate.fake_responses_available);
         assert!(!debug.fake_debug_data_available);
+    }
+
+    #[test]
+    fn command_palette_baseline_has_stable_command_ids_without_tui_import() {
+        let document = DocumentLifecycleState::open_clean(
+            "Option Explicit",
+            LifecycleCapabilities::browser_limited(),
+        );
+
+        let palette = GuiCommandPalette::browser_safe_baseline(&document);
+
+        assert_eq!(
+            palette.stable_ids(),
+            vec![
+                "project.open",
+                "document.save",
+                "document.reload",
+                "document.revert",
+                "runtime.run",
+                "runtime.stop",
+                "runtime.immediate",
+                "runtime.debug",
+                "capability.show_com",
+                "shell.command_palette",
+            ]
+        );
+        assert_eq!(palette.source_label, "gui-core command registry");
+        assert!(!palette.parked_tui_imported);
+        assert_eq!(
+            palette
+                .command(GuiCommandId::RuntimeRun)
+                .expect("run command")
+                .category
+                .label(),
+            "runtime"
+        );
+    }
+
+    #[test]
+    fn browser_safe_command_palette_surfaces_disabled_reasons() {
+        let document = DocumentLifecycleState::open_clean(
+            "Option Explicit",
+            LifecycleCapabilities::browser_limited(),
+        );
+
+        let palette = GuiCommandPalette::browser_safe_baseline(&document);
+
+        let save = palette
+            .command(GuiCommandId::DocumentSave)
+            .expect("save command");
+        assert!(!save.availability.is_enabled);
+        assert!(
+            save.availability
+                .disabled_reason
+                .as_deref()
+                .expect("save disabled reason")
+                .contains("filesystem persistence")
+        );
+
+        let run = palette
+            .command(GuiCommandId::RuntimeRun)
+            .expect("run command");
+        assert!(!run.availability.is_enabled);
+        assert_eq!(run.availability.capability_label, "browser-unsupported");
+        assert!(
+            run.availability
+                .disabled_reason
+                .as_deref()
+                .expect("run disabled reason")
+                .contains("native execution provider unavailable")
+        );
+
+        let immediate = palette
+            .command(GuiCommandId::RuntimeImmediate)
+            .expect("Immediate command");
+        assert!(!immediate.availability.is_enabled);
+        assert_eq!(immediate.availability.capability_label, "browser-disabled");
+        assert!(
+            immediate
+                .availability
+                .disabled_reason
+                .as_deref()
+                .expect("Immediate disabled reason")
+                .contains("no native OxVba runtime session")
+        );
+
+        let debug = palette
+            .command(GuiCommandId::RuntimeDebug)
+            .expect("debug command");
+        assert!(!debug.availability.is_enabled);
+        assert!(
+            debug
+                .availability
+                .disabled_reason
+                .as_deref()
+                .expect("debug disabled reason")
+                .contains("no OxVba debug session")
+        );
+
+        let stop = palette
+            .command(GuiCommandId::RuntimeStop)
+            .expect("stop command");
+        assert!(!stop.availability.is_enabled);
+        assert_eq!(
+            stop.availability.disabled_reason.as_deref(),
+            Some("no active runtime session to stop")
+        );
+
+        assert!(
+            palette
+                .command(GuiCommandId::CapabilityShowCom)
+                .expect("COM command")
+                .availability
+                .is_enabled
+        );
+        assert!(
+            palette
+                .command(GuiCommandId::ShellCommandPalette)
+                .expect("palette command")
+                .availability
+                .is_enabled
+        );
+    }
+
+    #[test]
+    fn simulated_run_command_remains_labeled_simulated() {
+        let document = DocumentLifecycleState::open_clean(
+            "Option Explicit",
+            LifecycleCapabilities::all_supported(),
+        );
+
+        let palette = GuiCommandPalette::with_profiles(
+            &document,
+            "all-supported",
+            &RunCapabilityProfile::simulated_supported(),
+            &ImmediateCapabilityProfile::browser_disabled(),
+            &DebugCapabilityProfile::browser_disabled(),
+            &ComCapabilityProfile::browser_unavailable(
+                ComReferenceFact::scripting_dictionary_demo(),
+            ),
+        );
+
+        let run = palette
+            .command(GuiCommandId::RuntimeRun)
+            .expect("run command");
+        assert!(run.availability.is_enabled);
+        assert_eq!(run.availability.capability_label, "simulated");
+        assert!(run.availability.disabled_reason.is_none());
     }
 }

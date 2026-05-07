@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use oxide_bridge::EmbeddedIdePacket;
 use oxide_core::{
     ComCapabilityProfile, ComCapabilityStatus, ComReferenceFact, DebugCapabilityProfile,
-    DocumentLifecycleState, GuiSessionSnapshot, ImmediateCapabilityProfile,
+    DocumentLifecycleState, GuiCommandPalette, GuiSessionSnapshot, ImmediateCapabilityProfile,
     InMemoryDocumentPersistence, LifecycleCapabilities, LifecycleCommand, LifecycleCommandStatus,
     RunCapabilityProfile, RunRequest, RunTimeline, RunTranscript, SessionCapabilityProfile,
     save_lifecycle_to_persistence,
@@ -35,6 +35,7 @@ pub const GUI_COM_REFERENCE_NATIVE_SERVICE_MISSING: &str =
 pub const GUI_RUN_TIMELINE_SIMULATED: &str = "gui-run-timeline-simulated";
 pub const GUI_IMMEDIATE_BROWSER_DISABLED: &str = "gui-immediate-browser-disabled";
 pub const GUI_DEBUG_BROWSER_DISABLED: &str = "gui-debug-browser-disabled";
+pub const GUI_COMMAND_PALETTE_BASELINE: &str = "gui-command-palette-baseline";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -73,6 +74,7 @@ pub enum GuiScenarioKind {
     RunTimelineSimulated,
     ImmediateBrowserDisabled,
     DebugBrowserDisabled,
+    CommandPaletteBaseline,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -169,8 +171,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_DEBUG_BROWSER_DISABLED,
                 title: "Debug browser disabled",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::DebugBrowserDisabled,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_COMMAND_PALETTE_BASELINE,
+                title: "Command palette baseline",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::CommandPaletteBaseline,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -248,7 +256,8 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::NativeComServiceMissing
         | GuiScenarioKind::RunTimelineSimulated
         | GuiScenarioKind::ImmediateBrowserDisabled
-        | GuiScenarioKind::DebugBrowserDisabled => view.active_source.source_text.clone(),
+        | GuiScenarioKind::DebugBrowserDisabled
+        | GuiScenarioKind::CommandPaletteBaseline => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -325,6 +334,9 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
             render_immediate_browser_disabled_section(&mut output)
         }
         GuiScenarioKind::DebugBrowserDisabled => render_debug_browser_disabled_section(&mut output),
+        GuiScenarioKind::CommandPaletteBaseline => {
+            render_command_palette_baseline_section(&mut output, &view.active_source.source_text)
+        }
     }
     output.push_str("  <footer role=\"host-capability\">");
     output.push_str(scenario_host_capability_text(
@@ -559,6 +571,53 @@ fn render_debug_browser_disabled_section(output: &mut String) {
     output.push_str("    <div role=\"debug-locals\">unavailable; no fake debug data</div>\n");
     output.push_str("    <div role=\"debug-watches\">unavailable; no fake debug data</div>\n");
     output.push_str("    <div role=\"debug-breakpoints\">unavailable; no fake debug data</div>\n");
+    output.push_str("  </section>\n");
+}
+
+fn render_command_palette_baseline_section(output: &mut String, source_text: &str) {
+    let document =
+        DocumentLifecycleState::open_clean(source_text, LifecycleCapabilities::browser_limited());
+    let palette = GuiCommandPalette::browser_safe_baseline(&document);
+
+    output.push_str("  <section role=\"command-palette\" data-source=\"");
+    output.push_str(&html_escape(&palette.source_label));
+    output.push_str("\" data-parked-tui-imported=\"");
+    output.push_str(if palette.parked_tui_imported {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-command-count=\"");
+    output.push_str(&palette.commands.len().to_string());
+    output.push_str("\">\n");
+    for command in &palette.commands {
+        output.push_str("    <div role=\"command-row\" data-command-id=\"");
+        output.push_str(&html_escape(&command.stable_id));
+        output.push_str("\" data-category=\"");
+        output.push_str(command.category.label());
+        output.push_str("\" data-enabled=\"");
+        output.push_str(if command.availability.is_enabled {
+            "true"
+        } else {
+            "false"
+        });
+        output.push_str("\" data-capability=\"");
+        output.push_str(&html_escape(&command.availability.capability_label));
+        output.push_str("\">\n");
+        output.push_str("      <span role=\"command-label\">");
+        output.push_str(&html_escape(&command.label));
+        output.push_str("</span>\n");
+        output.push_str("      <span role=\"command-description\">");
+        output.push_str(&html_escape(&command.description));
+        output.push_str("</span>\n");
+        if let Some(reason) = &command.availability.disabled_reason {
+            output.push_str("      <span role=\"command-disabled-reason\">");
+            output.push_str(&html_escape(reason));
+            output.push_str("</span>\n");
+        }
+        output.push_str("    </div>\n");
+    }
+    output.push_str("    <div role=\"command-registry-note\">GUI-native command registry; parked TUI command model not imported.</div>\n");
     output.push_str("  </section>\n");
 }
 
@@ -978,6 +1037,8 @@ mod tests {
         assert!(output.contains("Immediate browser disabled"));
         assert!(output.contains("gui-debug-browser-disabled"));
         assert!(output.contains("Debug browser disabled"));
+        assert!(output.contains("gui-command-palette-baseline"));
+        assert!(output.contains("Command palette baseline"));
     }
 
     #[test]
@@ -1142,6 +1203,18 @@ mod tests {
         assert_eq!(immediate.kind, GuiScenarioKind::ImmediateBrowserDisabled);
         assert_eq!(debug.title, "Debug browser disabled");
         assert_eq!(debug.kind, GuiScenarioKind::DebugBrowserDisabled);
+    }
+
+    #[test]
+    fn built_in_registry_finds_w280_command_palette_scenario_by_id() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let scenario = registry
+            .find(GUI_COMMAND_PALETTE_BASELINE)
+            .expect("command palette baseline scenario");
+
+        assert_eq!(scenario.title, "Command palette baseline");
+        assert_eq!(scenario.kind, GuiScenarioKind::CommandPaletteBaseline);
     }
 
     #[test]
@@ -1377,6 +1450,39 @@ mod tests {
         assert!(rendered.contains("role=\"debug-watches\""));
         assert!(rendered.contains("role=\"debug-breakpoints\""));
         assert!(rendered.contains("unavailable; no fake debug data"));
+    }
+
+    #[test]
+    fn command_palette_baseline_scenario_renders_command_ids_and_disabled_reasons() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_COMMAND_PALETTE_BASELINE)
+            .expect("render command palette baseline scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-command-palette-baseline\""));
+        assert!(rendered.contains("role=\"command-palette\""));
+        assert!(rendered.contains("data-source=\"gui-core command registry\""));
+        assert!(rendered.contains("data-parked-tui-imported=\"false\""));
+        assert!(rendered.contains("data-command-count=\"10\""));
+        assert!(rendered.contains("data-command-id=\"project.open\""));
+        assert!(rendered.contains("data-command-id=\"document.save\""));
+        assert!(rendered.contains("browser-safe profile has no direct filesystem persistence"));
+        assert!(rendered.contains("data-command-id=\"runtime.run\""));
+        assert!(rendered.contains("data-capability=\"browser-unsupported\""));
+        assert!(rendered.contains("native execution provider unavailable"));
+        assert!(rendered.contains("data-command-id=\"runtime.stop\""));
+        assert!(rendered.contains("no active runtime session to stop"));
+        assert!(rendered.contains("data-command-id=\"runtime.immediate\""));
+        assert!(rendered.contains("no native OxVba runtime session"));
+        assert!(rendered.contains("data-command-id=\"runtime.debug\""));
+        assert!(rendered.contains("no OxVba debug session"));
+        assert!(rendered.contains("data-command-id=\"capability.show_com\""));
+        assert!(rendered.contains("data-command-id=\"shell.command_palette\""));
+        assert!(
+            rendered.contains("GUI-native command registry; parked TUI command model not imported")
+        );
+        assert!(rendered.contains("COM unavailable"));
     }
 
     #[test]
