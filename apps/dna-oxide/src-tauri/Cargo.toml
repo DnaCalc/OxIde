@@ -4,6 +4,8 @@ version = "0.0.0-scaffold"
 edition = "2021"
 publish = false
 
-# W341 keeps this crate dependency-free so scaffold verification is deterministic
-# and does not require fetching Tauri before the native host is wired in later worksets.
+# W341 kept this crate dependency-free. W344 begins Rust-callable command
+# stubs over local OxIde crates while still avoiding a Tauri dependency.
 [dependencies]
+oxide-core = { path = "../../../crates/oxide-core" }
+oxide-oxvba = { path = "../../../crates/oxide-oxvba" }

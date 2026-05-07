@@ -22,9 +22,15 @@ mod tests {
     }
 
     #[test]
-    fn native_scaffold_exposes_command_name_shell_only() {
-        assert_eq!(commands::COMMAND_REGISTRATION_KIND, "w341-command-name-scaffold-only");
+    fn native_scaffold_exposes_rust_callable_command_boundary() {
+        assert_eq!(
+            commands::COMMAND_REGISTRATION_KIND,
+            "w344-rust-callable-tauri-ready"
+        );
         let commands = commands::all_command_placeholders();
-        assert!(commands.len() >= 12);
+        assert!(commands.len() >= 30);
+        assert!(commands.contains(&"dna_oxide_open_project_path"));
+        assert!(commands.contains(&"dna_oxide_build_check"));
+        assert!(commands.contains(&"dna_oxide_run_project"));
     }
 }
