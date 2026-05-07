@@ -907,6 +907,80 @@ Known W310 limitations:
 5. no native runtime/debug/Immediate execution,
 6. no native COM discovery or invocation.
 
-## 17. Cross-Repo Fixture Policy
+## 17. W320 Accepted Native Filesystem And Session Persistence
+
+W320 accepted against the twenty-nine current regression lab commands. W320 added:
+
+```powershell
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-native-save-reload-disk
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-native-session-restore-disk
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-browser-filesystem-still-disabled
+```
+
+Observed native save/reload disk output contains:
+
+- `data-scenario="gui-native-save-reload-disk"`,
+- `role="native-save-reload-disk"`,
+- `data-provider="native-filesystem"`,
+- `data-filesystem-persistence="true"`,
+- `data-test-owned-temp-project="true"`,
+- `data-checked-in-fixture-mutated="false"`,
+- `data-dirty-before-save="true"`,
+- `data-dirty-after-save="false"`,
+- `data-save-acknowledged="true"`,
+- `data-reload-source-matches-disk="true"`,
+- `data-native-runtime="false"`,
+- `data-com-runtime="false"`,
+- `answer = 21 * 2`,
+- `Disk-backed save/reload is proven only against a GUI-lab test-owned temp project copy`.
+
+Observed native session restore disk output contains:
+
+- `data-scenario="gui-native-session-restore-disk"`,
+- `role="native-session-restore-disk"`,
+- `data-provider="native-filesystem"`,
+- `data-session-provider="native-filesystem-session"`,
+- `data-filesystem-persistence="true"`,
+- `data-test-owned-temp-project="true"`,
+- `data-session-file-written="true"`,
+- `data-checked-in-fixture-mutated="false"`,
+- `data-restored-dirty="false"`,
+- `data-native-runtime="false"`,
+- `data-com-runtime="false"`,
+- `role="native-session-module">Module1.bas`,
+- `answer = 84 / 2`,
+- `OxIde-owned session JSON`,
+- `.basproj semantics remain OxVba-owned`.
+
+Observed browser filesystem disabled output contains:
+
+- `data-scenario="gui-browser-filesystem-still-disabled"`,
+- `role="browser-filesystem-still-disabled"`,
+- `data-provider="browser-limited"`,
+- `data-filesystem-persistence="false"`,
+- `data-save-enabled="false"`,
+- `data-reload-enabled="false"`,
+- `data-native-runtime="false"`,
+- `data-com-runtime="false"`,
+- `browser-safe profile has no direct filesystem persistence`,
+- `Browser/WASM direct filesystem persistence remains disabled`.
+
+Implementation notes:
+
+1. `oxide-core` owns `NativeFilesystemDocumentPersistence`, `NativeFilesystemSessionPersistence`, and the native/browser persistence projections.
+2. Disk-write evidence uses test-owned temporary project copies and verifies checked-in thin-slice fixture content remains unchanged.
+3. `oxide-guilab` renders native save/reload and session persistence evidence by creating temporary project copies; it does not mutate checked-in fixtures.
+4. Browser/WASM direct filesystem persistence remains disabled and visible.
+5. W320 does not claim native OxVba runtime/debug/Immediate execution or COM runtime.
+
+Known W320 limitations:
+
+1. no DnaOneCalc host implementation,
+2. no native OxVba runtime/debug/Immediate execution,
+3. no native COM discovery or invocation,
+4. no full browser runtime or DOM accessibility audit,
+5. no conflict resolution or external-file-change handling.
+
+## 18. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.
