@@ -846,6 +846,67 @@ Known W300 limitations:
 5. no native runtime/debug/Immediate execution,
 6. no native COM discovery or invocation.
 
-## 16. Cross-Repo Fixture Policy
+## 16. W310 Accepted DnaOneCalc Web Shell Hosting
+
+W310 accepted against the twenty-six current regression lab commands. W310 added:
+
+```powershell
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-dnaonecalc-web-shell-host-contract
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-dnaonecalc-web-shell-dom-readiness
+```
+
+Observed DnaOneCalc web-shell host contract output contains:
+
+- `data-scenario="gui-dnaonecalc-web-shell-host-contract"`,
+- `role="dnaonecalc-web-shell-host-contract"`,
+- `data-host="DnaOneCalc"`,
+- `data-state-contract="GuiShellPacket"`,
+- `data-embedding-contract="EmbeddedIdePacket"`,
+- `data-web-adapter="oxide-webshell"`,
+- `data-sibling-repo-writes="false"`,
+- `data-host-mount-claimed="false"`,
+- `role="host-ownership-boundary" data-owner="DnaOneCalc"`,
+- `role="host-ownership-boundary" data-owner="OxIde"`,
+- `role="host-ownership-boundary" data-owner="OxVba"`,
+- `role="host-web-shell-summary" data-project="ThinSliceHello" data-active-module="Module1.bas"`,
+- `role="host-dom-readiness" data-smoke-kind="parsed-html" data-all-passed="true"`,
+- `DnaOneCalc browser host smoke is not claimed`,
+- `OxIde-side W310 contract did not modify DnaOneCalc files`.
+
+Observed DnaOneCalc web-shell DOM readiness output contains:
+
+- `data-scenario="gui-dnaonecalc-web-shell-dom-readiness"`,
+- `role="dnaonecalc-web-shell-dom-readiness"`,
+- `data-source="W300 DOM smoke reports"`,
+- `data-static-shell="true"`,
+- `data-command-palette="true"`,
+- `data-no-mouse-accessibility="true"`,
+- `data-browser-runtime="false"`,
+- `data-dnaonecalc-host-smoke="false"`,
+- `data-dom-audited="false"`,
+- `data-filesystem-persistence="false"`,
+- `data-native-runtime="false"`,
+- `data-com-runtime="false"`,
+- `OxIde parsed HTML DOM readiness only`,
+- `full accessibility audit are not claimed`.
+
+Implementation notes:
+
+1. `oxide-bridge` owns `DnaOneCalcWebShellHostPacket`, composing `EmbeddedIdePacket`, `GuiShellPacket`, and parsed DOM readiness/no-claim facts.
+2. `oxide-guilab` renders DnaOneCalc host contract/readiness evidence without modifying sibling repos.
+3. W310 reuses W300 parsed HTML smoke reports; it does not claim a browser runtime or full accessibility audit.
+4. DnaOneCalc remains a consumer/host boundary, not the owner of OxIde IDE state.
+5. `docs/HANDOFF_DNAONECALC_WEB_SHELL_HOST_API.md` documents the paired DnaOneCalc-side host API expectations.
+
+Known W310 limitations:
+
+1. no real DnaOneCalc browser host mount yet,
+2. no sibling DnaOneCalc repository writes,
+3. no full DOM accessibility audit/compliance claim,
+4. no real filesystem persistence,
+5. no native runtime/debug/Immediate execution,
+6. no native COM discovery or invocation.
+
+## 17. Cross-Repo Fixture Policy
 
 If a fixture belongs better in OxVba or DnaOneCalc, create a handoff and consume it from the authoritative repo after coordination. Do not duplicate project semantics locally just to make a short-term OxIde demo easier.
