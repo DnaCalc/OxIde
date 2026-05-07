@@ -1,0 +1,9 @@
+[package]
+name = "dna-oxide-tauri-scaffold"
+version = "0.0.0-scaffold"
+edition = "2021"
+publish = false
+
+# W341 keeps this crate dependency-free so scaffold verification is deterministic
+# and does not require fetching Tauri before the native host is wired in later worksets.
+[dependencies]

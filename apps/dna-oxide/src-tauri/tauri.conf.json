@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "DNA OxIde",
+  "version": "0.0.0-scaffold",
+  "identifier": "com.dnacalc.dnaoxide",
+  "build": {
+    "beforeDevCommand": "npm run scaffold:frontend",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run scaffold:frontend",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "DNA OxIde",
+        "width": 1440,
+        "height": 960,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": false,
+    "targets": "all",
+    "icon": []
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "DNA OxIde scaffold capability placeholder. W341 claims no real runtime, debug, Immediate, or COM service permissions.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
