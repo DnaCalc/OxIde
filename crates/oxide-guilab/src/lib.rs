@@ -43,6 +43,7 @@ pub const GUI_ACCESSIBILITY_DISABLED_REASONS: &str = "gui-accessibility-disabled
 pub const GUI_SHELL_PACKET_BASELINE: &str = "gui-shell-packet-baseline";
 pub const GUI_MOUNTED_SHELL_STATIC: &str = "gui-mounted-shell-static";
 pub const GUI_MOUNTED_COMMAND_PALETTE: &str = "gui-mounted-command-palette";
+pub const GUI_MOUNTED_NO_MOUSE_ACCESSIBILITY: &str = "gui-mounted-no-mouse-accessibility";
 
 /// Compile-time marker for the GUI lab crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -88,6 +89,7 @@ pub enum GuiScenarioKind {
     ShellPacketBaseline,
     MountedShellStatic,
     MountedCommandPalette,
+    MountedNoMouseAccessibility,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -226,8 +228,14 @@ impl GuiScenarioRegistry {
             GuiScenarioDescriptor {
                 id: GUI_MOUNTED_COMMAND_PALETTE,
                 title: "Mounted command palette",
-                fixture_path: thin_slice,
+                fixture_path: thin_slice.clone(),
                 kind: GuiScenarioKind::MountedCommandPalette,
+            },
+            GuiScenarioDescriptor {
+                id: GUI_MOUNTED_NO_MOUSE_ACCESSIBILITY,
+                title: "Mounted no-mouse accessibility",
+                fixture_path: thin_slice,
+                kind: GuiScenarioKind::MountedNoMouseAccessibility,
             },
         ])
         .expect("built-in GUI scenarios have unique IDs")
@@ -312,7 +320,8 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
         | GuiScenarioKind::AccessibilityDisabledReasons
         | GuiScenarioKind::ShellPacketBaseline
         | GuiScenarioKind::MountedShellStatic
-        | GuiScenarioKind::MountedCommandPalette => view.active_source.source_text.clone(),
+        | GuiScenarioKind::MountedCommandPalette
+        | GuiScenarioKind::MountedNoMouseAccessibility => view.active_source.source_text.clone(),
         GuiScenarioKind::EditedDiagnostics | GuiScenarioKind::Lifecycle => {
             edited_diagnostics_source(&view.active_source.source_text)
         }
@@ -440,6 +449,22 @@ fn render_project_open_spine(scenario: &GuiScenarioDescriptor) -> Result<String,
             &view.active_source.module_display_name,
             &view.active_source.source_text,
         ),
+        GuiScenarioKind::MountedNoMouseAccessibility => {
+            render_mounted_no_mouse_accessibility_section(
+                &mut output,
+                &scenario.fixture_path,
+                &view.project_name,
+                &view
+                    .modules
+                    .iter()
+                    .map(|module| {
+                        GuiShellModuleSummary::new(&module.display_name, module.is_active)
+                    })
+                    .collect::<Vec<_>>(),
+                &view.active_source.module_display_name,
+                &view.active_source.source_text,
+            )
+        }
     }
     output.push_str("  <footer role=\"host-capability\">");
     output.push_str(scenario_host_capability_text(
@@ -1178,6 +1203,79 @@ fn render_mounted_command_palette_section(
     output.push_str("  </section>\n");
 }
 
+fn render_mounted_no_mouse_accessibility_section(
+    output: &mut String,
+    workspace_path: &Path,
+    project_name: &str,
+    modules: &[GuiShellModuleSummary],
+    active_module: &str,
+    source_text: &str,
+) {
+    let packet = build_shell_packet_baseline(
+        workspace_path,
+        project_name,
+        modules,
+        active_module,
+        source_text,
+    );
+
+    output.push_str("  <section role=\"mounted-no-mouse-accessibility\" data-source=\"GuiShellPacket.focus_graph+accessibility\" data-web-framework-bound=\"");
+    output.push_str(if packet.web_framework_bound {
+        "true"
+    } else {
+        "false"
+    });
+    output.push_str("\" data-dom-audited=\"false\" data-route-length=\"");
+    output.push_str(&packet.focus_graph.no_mouse_route.len().to_string());
+    output.push_str("\" data-accessibility-surface-count=\"");
+    output.push_str(&packet.accessibility.nodes.len().to_string());
+    output.push_str("\">\n");
+    output.push_str("    <section role=\"mounted-no-mouse-route\">\n");
+    for step in &packet.focus_graph.no_mouse_route {
+        output.push_str("      <div role=\"mounted-focus-step\" data-index=\"");
+        output.push_str(&step.index.to_string());
+        output.push_str("\" data-node-id=\"");
+        output.push_str(&html_escape(&step.node_id));
+        output.push_str("\">\n");
+        if let Some(restoration_hint) = &step.restoration_hint {
+            output.push_str("        <span role=\"mounted-focus-restoration\">");
+            output.push_str(&html_escape(restoration_hint));
+            output.push_str("</span>\n");
+        }
+        output.push_str("      </div>\n");
+    }
+    output.push_str("    </section>\n");
+    output.push_str("    <section role=\"mounted-accessibility-surfaces\">\n");
+    for node in &packet.accessibility.nodes {
+        output.push_str("      <div role=\"mounted-accessible-surface\" data-surface-id=\"");
+        output.push_str(&html_escape(&node.surface_id));
+        output.push_str("\" data-role=\"");
+        output.push_str(node.role.label());
+        output.push_str("\" data-has-disabled-reason=\"");
+        output.push_str(if node.disabled_reason.is_some() {
+            "true"
+        } else {
+            "false"
+        });
+        output.push_str("\">\n");
+        output.push_str("        <span role=\"mounted-accessible-label\">");
+        output.push_str(&html_escape(&node.accessible_label));
+        output.push_str("</span>\n");
+        output.push_str("        <span role=\"mounted-accessible-description\">");
+        output.push_str(&html_escape(&node.accessible_description));
+        output.push_str("</span>\n");
+        if let Some(reason) = &node.disabled_reason {
+            output.push_str("        <span role=\"mounted-accessible-disabled-reason\">");
+            output.push_str(&html_escape(reason));
+            output.push_str("</span>\n");
+        }
+        output.push_str("      </div>\n");
+    }
+    output.push_str("    </section>\n");
+    output.push_str("    <div role=\"mounted-accessibility-policy\">Mounted accessibility projection is packet-derived; DOM accessibility audit is not claimed.</div>\n");
+    output.push_str("  </section>\n");
+}
+
 fn render_com_capability_section(output: &mut String, profile: ComCapabilityProfile) {
     output.push_str("  <section role=\"com-capability\" data-profile=\"");
     output.push_str(profile.host_kind.label());
@@ -1608,6 +1706,8 @@ mod tests {
         assert!(output.contains("Mounted shell static"));
         assert!(output.contains("gui-mounted-command-palette"));
         assert!(output.contains("Mounted command palette"));
+        assert!(output.contains("gui-mounted-no-mouse-accessibility"));
+        assert!(output.contains("Mounted no-mouse accessibility"));
     }
 
     #[test]
@@ -1799,6 +1899,9 @@ mod tests {
         let mounted_command_palette = registry
             .find(GUI_MOUNTED_COMMAND_PALETTE)
             .expect("mounted command palette scenario");
+        let mounted_no_mouse_accessibility = registry
+            .find(GUI_MOUNTED_NO_MOUSE_ACCESSIBILITY)
+            .expect("mounted no-mouse accessibility scenario");
 
         assert_eq!(command_palette.title, "Command palette baseline");
         assert_eq!(
@@ -1825,6 +1928,14 @@ mod tests {
         assert_eq!(
             mounted_command_palette.kind,
             GuiScenarioKind::MountedCommandPalette
+        );
+        assert_eq!(
+            mounted_no_mouse_accessibility.title,
+            "Mounted no-mouse accessibility"
+        );
+        assert_eq!(
+            mounted_no_mouse_accessibility.kind,
+            GuiScenarioKind::MountedNoMouseAccessibility
         );
     }
 
@@ -2300,6 +2411,40 @@ mod tests {
         assert!(rendered.contains("no OxVba debug session"));
         assert!(rendered.contains("Mounted command palette consumes packet state"));
         assert!(rendered.contains("parked TUI command model not imported"));
+    }
+
+    #[test]
+    fn mounted_no_mouse_accessibility_scenario_preserves_focus_route_and_labels() {
+        let registry = GuiScenarioRegistry::built_in(repo_root());
+
+        let rendered = registry
+            .render_text(GUI_MOUNTED_NO_MOUSE_ACCESSIBILITY)
+            .expect("render mounted no-mouse accessibility scenario");
+
+        assert!(rendered.contains("data-scenario=\"gui-mounted-no-mouse-accessibility\""));
+        assert!(rendered.contains("role=\"mounted-no-mouse-accessibility\""));
+        assert!(rendered.contains("data-source=\"GuiShellPacket.focus_graph+accessibility\""));
+        assert!(rendered.contains("data-web-framework-bound=\"false\""));
+        assert!(rendered.contains("data-dom-audited=\"false\""));
+        assert!(rendered.contains("data-route-length=\"10\""));
+        assert!(rendered.contains("data-accessibility-surface-count=\"10\""));
+        assert!(rendered.contains("data-index=\"1\" data-node-id=\"project-tree\""));
+        assert!(rendered.contains("data-index=\"2\" data-node-id=\"source-editor\""));
+        assert!(rendered.contains("data-index=\"3\" data-node-id=\"diagnostics-panel\""));
+        assert!(rendered.contains("data-index=\"5\" data-node-id=\"run-output\""));
+        assert!(rendered.contains("data-index=\"6\" data-node-id=\"immediate-panel\""));
+        assert!(rendered.contains("data-index=\"7\" data-node-id=\"debug-panel\""));
+        assert!(rendered.contains("data-index=\"8\" data-node-id=\"com-capability\""));
+        assert!(rendered.contains("data-index=\"9\" data-node-id=\"command-palette\""));
+        assert!(rendered.contains("returns to source-editor"));
+        assert!(rendered.contains("data-surface-id=\"source-editor\" data-role=\"editor\""));
+        assert!(rendered.contains("role=\"mounted-accessible-label\">Source editor"));
+        assert!(rendered.contains("data-surface-id=\"run-output\" data-role=\"run-output\" data-has-disabled-reason=\"true\""));
+        assert!(rendered.contains("native execution provider unavailable"));
+        assert!(rendered.contains("data-surface-id=\"com-capability\" data-role=\"com-capability\" data-has-disabled-reason=\"true\""));
+        assert!(rendered.contains("COM discovery unavailable in browser-safe profile"));
+        assert!(rendered.contains("Mounted accessibility projection is packet-derived"));
+        assert!(rendered.contains("DOM accessibility audit is not claimed"));
     }
 
     #[test]
