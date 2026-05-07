@@ -66,7 +66,7 @@ data-state-contract="GuiShellPacket"
 data-embedding-contract="EmbeddedIdePacket"
 data-web-adapter="oxide-webshell"
 data-sibling-repo-writes="false" (or true only in the paired DnaOneCalc commit evidence)
-data-host-mount-claimed="true" only after the DnaOneCalc smoke mounts it
+data-host-mount-claimed="<paired-evidence-only>" only after the DnaOneCalc smoke mounts it
 ThinSliceHello
 Module1.bas
 project-spine
@@ -115,6 +115,32 @@ A paired DnaOneCalc implementation must keep these limitations visible unless it
 4. Host DOM exposes ownership boundaries for DnaOneCalc, OxIde, and OxVba.
 5. Host DOM shows W300 parsed DOM readiness as OxIde-side readiness.
 6. Host DOM keeps filesystem/native runtime/COM/DOM-audit claims false.
+
+## W348 Shared UI Reuse Refresh
+
+W348 adds an OxIde-only DnaOneCalc reuse proof without sibling repo writes:
+
+- [`docs/DNAONECALC_SHARED_UI_REUSE_PROOF.md`](DNAONECALC_SHARED_UI_REUSE_PROOF.md),
+- `docs/fixtures/dnaonecalc-consumer-profile.json`,
+- `tools/verify-dnaonecalc-profile.mjs`,
+- `tools/verify-dnaonecalc-reuse.mjs`.
+
+The reuse route now explicitly includes:
+
+- `crates/oxide-ui-leptos` for shared IDE surface rendering,
+- `crates/oxide-host-bridge` for host-neutral command/capability state,
+- `crates/oxide-core` packets including `GuiShellPacket`, service packets, and `DnaOneCalcWebShellHostPacket`,
+- `crates/oxide-webshell` for static web-shell boundary,
+- `crates/oxide-guilab` for deterministic render evidence.
+
+The W348 verifier renders both:
+
+```powershell
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-dnaonecalc-web-shell-host-contract
+cargo run --manifest-path crates/Cargo.toml -p oxide-guilab -- render gui-shared-ui-shell-component
+```
+
+This proves the OxIde-side reuse path remains available, but it still does **not** claim a real DnaOneCalc mount. Any write to `C:/Work/DnaCalc/DnaOneCalc` or any real host-mount claim requires explicit user authorization and paired DnaOneCalc evidence.
 
 ## OxIde Evidence Source
 
