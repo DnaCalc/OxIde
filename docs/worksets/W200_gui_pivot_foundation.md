@@ -15,7 +15,9 @@ The result should be a repo that clearly says:
 
 ## Dependencies
 
-- [`GUI_PIVOT_FIRST_PASS_PLAN.md`](../GUI_PIVOT_FIRST_PASS_PLAN.md) — source planning note for this workset.
+- [`PRODUCT_DIRECTION.md`](../../PRODUCT_DIRECTION.md) — active product direction after W200-B02 reconciliation.
+- [`ARCHITECTURE.md`](../../ARCHITECTURE.md) — active architecture direction after W200-B02 reconciliation.
+- [`GUI_DIRECTION.md`](../GUI_DIRECTION.md), [`DNA_CALC_HOST_INTEGRATION.md`](../DNA_CALC_HOST_INTEGRATION.md), [`GUI_PIVOT_CODEBASE_REVIEW.md`](../GUI_PIVOT_CODEBASE_REVIEW.md), and [`GUI_TEST_STRATEGY.md`](../GUI_TEST_STRATEGY.md) — live split planning docs.
 - Existing TUI lineage `W010` through `W110` — retained as parked design/prototype evidence.
 - OxVba direct host/session surfaces — semantic/project/runtime truth remains in OxVba.
 - DnaOneCalc architecture — first exemplar DNA Calc host for embedded IDE consumption.

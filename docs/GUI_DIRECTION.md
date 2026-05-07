@@ -9,7 +9,7 @@ This note records the active product-direction pivot for OxIde.
 
 OxIde is moving toward a Rust/WASM-capable GUI IDE surface for OxVba that can run standalone and can be embedded inside DNA Calc hosts such as DnaOneCalc.
 
-The detailed first-pass plan is [`GUI_PIVOT_FIRST_PASS_PLAN.md`](GUI_PIVOT_FIRST_PASS_PLAN.md). This document is the short direction anchor used by W200.
+The live product authority is [`../PRODUCT_DIRECTION.md`](../PRODUCT_DIRECTION.md). This document is the short GUI direction anchor used by W200.
 
 ## Direction
 

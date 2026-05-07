@@ -1,366 +1,451 @@
 # OxIde Architecture
 
-## Status
+Status: `active_architecture_direction`
+Date: 2026-05-07
 
-This document is subordinate to `PRODUCT_DIRECTION.md`.
+This document is subordinate to [`PRODUCT_DIRECTION.md`](PRODUCT_DIRECTION.md). It records the implementation seams and ownership boundaries for the active Rust/WASM-capable GUI pivot.
 
-Use it to capture:
-- architectural seams
-- ownership boundaries
-- current integration shape
-- implementation direction implied by the current product direction
+## 1. Architectural Position
 
-Do not treat this file as a competing product-vision document.
+`OxIde` is the OxVba IDE surface for the DNA Calc program.
 
-## Architectural Position
+The active architecture should optimize for:
 
-`OxIde` is a standalone terminal-native IDE for `OxVba`.
+1. a shared Rust IDE core,
+2. a Rust/WASM-capable GUI surface,
+3. browser and desktop host shells,
+4. embedded consumption by DNA Calc hosts such as `DnaOneCalc`,
+5. direct typed OxVba integration for project/language/runtime truth,
+6. explicit host capability profiles,
+7. greenfield GUI implementation rather than mutation of the current TUI codebase.
 
-The architecture should therefore optimize for:
-- a FrankenTui-based shell and editing environment
-- explicit project, document, and editor seams
-- direct embedding of OxVba host/session semantics
-- IDE behavior that is project-aware and stateful
-- terminal-honest UX rather than LSP-shaped or CLI-shaped indirection
+The parked FrankenTui implementation is retained as prototype/evidence lineage, not as the active architectural substrate. See [`docs/TUI_PARKING_PLAN.md`](docs/TUI_PARKING_PLAN.md).
 
-The core rule is:
+## 2. Core Rule
 
-- `PRODUCT_DIRECTION.md` defines what OxIde is trying to be
-- `ARCHITECTURE.md` defines how the codebase should be divided to support that
+```text
+OxVba owns VBA/project/runtime truth.
+OxIde owns IDE experience.
+DNA Calc hosts consume, embed, and run where appropriate.
+```
 
-## Current Stack Choice
+Architectural consequences:
 
-The stack direction is:
+1. do not duplicate OxVba project semantics,
+2. do not duplicate OxVba language semantics,
+3. do not route OxIde internal semantics through LSP,
+4. do not create long-lived local copies of sibling-repo enums/types when authoritative types can be consumed,
+5. prefer coordinated cross-repo interface improvements over compatibility adapter sprawl,
+6. keep host capability truth explicit and testable.
 
-- `FrankenTui` as the shell, layout, rendering, input, and editor foundation
-- `OxVba` as the owner of project truth, workspace loading, document identity, and semantic services
-- `OxIde` as the host shell that orchestrates editing, workspace interaction, and presentation
+## 3. Cross-Repo Architecture Assumption
 
-Important clarification:
-
-- do not route editor semantics through LSP inside OxIde
+OxIde is one repo in the coordinated DNA Calc product family. The architecture may recommend changes in OxVba, DnaOneCalc, Foundation, or other sibling repos when that gives a cleaner final system.
 
-## Ownership Of Truth
-
-The ownership split should remain explicit.
+Execution boundary:
 
-If it defines VBA or project meaning, it belongs in `OxVba`.
-If it defines IDE behavior or presentation, it belongs in `OxIde`.
+- OxIde repo-scoped agents write only inside OxIde,
+- sibling repos may be read freely,
+- needed sibling-repo changes are captured as handoff notes or done in separate repo-scoped runs.
 
-### `OxVba` owns
+This matters because architecture should not contort around avoidable compatibility layers. If a type belongs in OxVba or a shared DNA Calc crate, move/share it through coordinated work rather than duplicating it in OxIde.
 
-- canonical `.basproj` semantics
-- workspace loading and discovery policy
-- project-backed document identity
-- semantic queries and analysis
-- diagnostics
-- document and workspace symbols
-- completions
-- hover
-- go-to-definition
-- references
-- semantic provenance
-- typed host-facing session APIs
-- typed build/run contracts when those are available
+See [`docs/HANDOFF_DNA_CALC_GUI_PIVOT_COORDINATION.md`](docs/HANDOFF_DNA_CALC_GUI_PIVOT_COORDINATION.md).
 
-### `OxIde` owns
+## 4. Target Stack Direction
 
-- shell/UI/application flow
-- panel composition and layout behavior
-- focus routing
-- keybinding and command invocation policy
-- keyboard shortcut profiles, chords, mnemonic sequences, and command aliases
-- editor state and presentation
-- buffer/view/layout orchestration
-- dirty/save/reload/revert UX
-- when OxVba services are invoked
-- how OxVba results are surfaced in the UI
-- project-management and debugging surfaces as UX
+The preferred stack direction is:
 
-## Core Seams
+- Rust for application/domain/editor/session logic,
+- Leptos or a similar Rust/WASM-friendly UI framework for GUI surfaces,
+- browser/WASM host for browser-capable mode and scenario lab,
+- Tauri or equivalent local desktop host for standalone desktop operation,
+- native Windows host service where COM-capable OxVba execution is required,
+- OxVba direct Rust APIs and shared DTOs for project/language/runtime integration.
 
-The top-level seams should remain:
+This is a direction, not a dependency lock. Candidate dependencies must pass engineering, testing, and license review. See [`docs/EDITOR_SUBSTRATE_RESEARCH.md`](docs/EDITOR_SUBSTRATE_RESEARCH.md) and [`docs/THIRD_PARTY_RESEARCH_AND_LICENSES.md`](docs/THIRD_PARTY_RESEARCH_AND_LICENSES.md).
 
-- `OxIdeShell`
-- `ProjectSession`
-- `DocumentSession`
-- `EditorSurface`
-- `OxVbaServices`
+## 5. Proposed Workspace Shape
 
-These seams are useful because they keep project semantics, document lifecycle, editing behavior, and OxVba integration from collapsing into one object.
+The final crate split may change, but the target shape is:
 
-### `OxIdeShell`
+```text
+crates/
+  oxide-domain/
+    pure IDs, view models, capability model, host-independent vocabulary
 
-Owns:
-- pane composition
-- focus movement
-- command routing
-- status surfaces
-- output surfaces
-- inspector/tool surfaces
-- stateful edit/run/debug presentation
+  oxide-core/
+    app state, command registry, reducers, session orchestration
 
-### `ProjectSession`
+  oxide-editor-core/
+    text buffer, selections, caret, decorations, editor commands
 
-Owns:
-- the active OxVba target path or loaded project context
-- project-backed document roster as presented to the shell
-- mapping between active OxIde documents and OxVba document identity
-- target/profile/policy state as presented to the user
-- the loaded direct OxVba host session for the active workspace
-- orchestration of semantic refreshes for project-backed documents
-
-Important boundary:
-- `ProjectSession` does not invent project semantics
-- it hosts and coordinates OxVba project truth
+  oxide-oxvba/
+    OxVba adapter over project, language-service, build/run, immediate, debug,
+    and capability-sensitive runtime paths
 
-### `DocumentSession`
+  oxide-bridge/
+    serde request/event DTOs where a host/UI boundary requires serialization
 
-Owns:
-- open document path binding
-- dirty state
-- save/reload/revert lifecycle
-- editor-facing source text
-- current file identity as OxIde presents it
+  oxide-ui-leptos/
+    GUI components, design system, panes, dialogs, editor surface integration
 
-Important boundary:
-- `DocumentSession` owns buffer lifecycle and file UX
-- `OxVba` owns project-backed semantic identity
+  oxide-guilab/
+    browser scenario catalogue and visual feedback harness
 
-### `EditorSurface`
+  oxide-host-browser/
+    browser/WASM entrypoint
 
-Owns:
-- editing behavior
-- cursor movement
-- viewport behavior
-- selection behavior
-- scroll behavior
-- text presentation
-- editor-local interactions
+  oxide-host-tauri/
+    standalone desktop entrypoint
 
-Important boundary:
-- `EditorSurface` should not own project semantics
-- `EditorSurface` should not call OxVba directly
+  oxide-tui-frankentui/
+    parked TUI implementation, feature-gated or otherwise isolated
+```
 
-### `OxVbaServices`
+Important: `oxide-bridge` should not become a dumping ground for duplicated upstream models. It should contain boundary DTOs only when direct authoritative types are not appropriate across the boundary.
 
-Owns the OxIde-side integration seam to OxVba.
+A dedicated `oxide-host-dnaonecalc` crate is not assumed initially. The likely cleaner path is shared components/contracts that DnaOneCalc consumes from its side, avoiding circular dependencies.
 
-Today that means:
-- direct `HostWorkspaceSession` integration for semantic/project-backed editor flows
-- existing build/run path where OxVba still exposes CLI-shaped execution seams
+## 6. Major Seams
 
-Over time that seam should become more typed, not more shell-shaped.
+### `oxide-domain`
 
-## Current Direct Host Integration
+Owns host-independent product vocabulary:
 
-The current architectural center of gravity is the direct host session from `oxvba_languageservice`.
+- IDE IDs and references,
+- view models that are genuinely OxIde-owned,
+- capability/profile projection if not owned upstream,
+- host-independent command descriptors,
+- UI-neutral status and availability concepts.
 
-The key API is:
-- `HostWorkspaceSession`
+It should stay pure and deterministic.
 
-Current intended flow:
+### `oxide-core`
 
-1. `ProjectSession` loads one `HostWorkspaceSession` for the active OxVba workspace.
-2. `ProjectSession` maps the active project-backed editor document to an OxVba `DocumentId`.
-3. `DocumentSession` provides the current editor text.
-4. `ProjectSession` pushes that text into the host session with `set_document_text(...)`.
-5. `OxIde` queries diagnostics, symbols, hover, completions, and related semantic data from the host session.
-6. `OxIdeShell` presents those results in editor-adjacent UX surfaces.
+Owns application behavior:
 
-This is the right direction because:
-- project truth stays in OxVba
-- semantic behavior stays in OxVba
-- OxIde stays responsible for host orchestration and UX
-- no CLI parsing is needed for language intelligence
-- no LSP detour is needed inside OxIde
+- project/session orchestration,
+- command registry and dispatch,
+- reducers/state transitions,
+- open document coordination,
+- active host profile selection,
+- layout-independent shell state,
+- coordination between editor, OxVba adapter, persistence, and UI.
 
-## Current Build/Run Position
+It should not depend on concrete Leptos widgets.
 
-Build/run is still a mixed state.
+### `oxide-editor-core`
 
-Current rule:
-- keep semantic/editor integration on the direct host session
-- allow build/run to use a typed OxIde-side service seam even while OxVba execution contracts continue to evolve
+Owns rendering-independent editor behavior:
 
-That means the architecture should tolerate:
-- direct host session for editing semantics
-- an execution seam that can adapt as OxVba exposes richer direct build/run contracts
+- text buffer model,
+- selection and caret model,
+- editor commands,
+- undo/redo,
+- decorations and overlay ranges,
+- diagnostics/completion/hover attachment points,
+- source snapshot production for OxVba.
 
-But it should not treat CLI-shaped integration as the architectural center.
+It should not own project semantics or call OxVba directly.
 
-## UX-Driven Architectural Constraints
+### `oxide-oxvba`
 
-Because `PRODUCT_DIRECTION.md` is authoritative, the architecture has to support:
+Owns OxIde-side integration with OxVba:
 
-- standalone IDE operation
-- non-modal default editing
-- stateful edit/run/debug workspace presentation
-- split-based multi-view composition rather than tab-centric assumptions
-- open buffers that may not currently be visible
-- multiple visible views onto the same buffer
-- unified action/command registry behind shortcuts, chords, mnemonics, palette entries, and command aliases
-- full mouse support without mouse dependency
-- console capability testing and setup guidance as a first-class product concern
+- workspace/project loading through authoritative OxVba APIs,
+- mapping OxIde document/session concepts to OxVba document identity,
+- semantic query orchestration,
+- build/run/immediate/debug session access,
+- COM capability reporting and native-runtime routing where applicable,
+- translation to OxIde-owned view models only where needed.
 
-Those are not just UX notes; they have architectural implications for:
-- focus routing
-- buffer/view modeling
-- action dispatch
-- layout persistence
-- session restore
+It should avoid duplicating OxVba-owned enums and contracts.
 
-## Shell Surface Model
+### `oxide-bridge`
 
-The shell should explicitly model a small number of persistent regions:
+Owns serializable request/event boundaries when needed:
 
-- explorer
-- editor area
-- inspector
-- lower utility surface
-- transient overlays
+- browser/native boundary packets,
+- host capability snapshots where serialization is required,
+- runtime and document events for UI-host separation,
+- DnaOneCalc/OxIde component boundary packets if direct Rust types are not viable.
 
-These are architectural regions, not just paint decisions.
+If a DTO is actually an OxVba public host contract, prefer a coordinated move to OxVba or a shared crate.
 
-That means the shell should own:
+### `oxide-ui-leptos`
 
-- which region is visible
-- which region has focus
-- which content mode a region is showing
-- how width and height pressure collapse or remap regions
+Owns GUI presentation:
 
-## Inspector Model
+- design tokens,
+- layout primitives,
+- IDE shell composition,
+- editor component rendering,
+- project spine,
+- context dock,
+- activity surfaces,
+- dialogs/overlays,
+- command palette,
+- accessibility and focus surfaces.
 
-The inspector should be modeful rather than treated as a generic side bucket.
+It should depend on view models and commands, not on OxVba directly.
 
-Expected inspector modes include:
+### Host crates
 
-- summary
-- diagnostics
-- symbols
-- hover / documentation
-- run status
+Host crates own startup, packaging, and platform integration only:
 
-This keeps semantic-rich editing and execution-rich states inside the same shell
-grammar rather than spawning unrelated ad hoc panels.
+- `oxide-host-browser` boots browser/WASM mode,
+- `oxide-host-tauri` boots standalone desktop mode,
+- host-specific native services are exposed through typed capability-aware seams.
 
-## Lower Utility Surface Model
+Product behavior should not live first in host wrappers.
 
-The lower utility surface should have explicit architectural standing.
+### `oxide-guilab`
 
-It is the natural home for:
+Owns fast visual and interaction feedback for GUI scenarios:
 
-- problems
-- output
-- immediate
-- references
-- build log
+- deterministic scenario catalogue,
+- browser-rendered review surfaces,
+- snapshot/a11y/DOM text checks,
+- successor to the TUI UX lab for active GUI work.
 
-This should be modeled as a region with its own content mode, focus behavior,
-and persistence rather than a last-minute appendage.
+## 7. Capability Profile Architecture
 
-## Overlay Model
+Capability profiles are first-class architecture.
 
-Overlays should be few, explicit, and policy-driven.
+They should answer:
 
-The command palette is the primary overlay class.
+- what platform is running,
+- whether the runtime is WASM or native,
+- whether filesystem access is available,
+- whether OxVba semantic services are available,
+- whether OxVba execution is available,
+- whether COM reference discovery is available,
+- whether COM runtime invocation is available,
+- what persistence mode is available,
+- what host owns retained evidence or artifact handoff.
 
-Architecturally, overlays need:
+Conceptual shape:
 
-- placement rules
-- focus capture and release rules
-- keyboard routing rules
-- width-adaptation rules
+```rust
+HostCapabilityProfile {
+    host_kind,
+    platform,
+    runtime_location,
+    filesystem_access,
+    oxvba_semantics,
+    oxvba_execution,
+    com_reference_discovery,
+    com_runtime_invocation,
+    persistence_mode,
+}
+```
 
-This should not be left to individual widgets.
+The actual type should be shared or upstreamed if the concept belongs in OxVba, DnaOneCalc, Foundation, or another DNA Calc crate.
 
-## Width Adaptation
+## 8. Windows COM Architecture
 
-The shell should adapt by region policy, not by local widget improvisation.
+Pure browser/WASM cannot call Windows COM.
 
-At narrower sizes, the system should prefer:
+COM-capable execution requires a native Windows runtime layer. The intended architecture is:
 
-- collapsing inspector content into the lower utility surface
-- reducing chrome before reducing structure
-- keeping the project-aware shell legible
+```text
+Leptos / GUI surface
+  owns editor UI, panes, commands, presentation
 
-That implies a layout-policy owner in the shell/runtime layer.
+Native Windows host service
+  owns COM-capable OxVba runtime/session
+  owns COM apartment/threading policy
+  owns registry/type-library discovery
+  owns actual COM calls
 
-## Buffer / View / Layout Model
+OxVba
+  owns project, language, runtime, immediate/debug semantics
+```
 
-The architecture should preserve a three-part model:
+The native Windows service should be deliberately owned and tested. It should not be an incidental async callback from UI code.
 
-- buffers
-- views
-- layouts
+Likely responsibilities:
 
-Meaning:
-- a buffer may be open without being visible
-- a view presents one buffer
-- multiple views may present the same buffer
-- a layout composes the currently visible views and tool surfaces
+- initialize and own COM apartment policy,
+- discover registered and file-backed type libraries,
+- create COM objects,
+- marshal calls/results/errors,
+- enforce trust/capability policy,
+- emit typed runtime events back to the GUI.
 
-This matters because OxIde is intentionally not adopting a tab-first shell model.
+If OxVba already owns or should own this service, OxIde should create a handoff rather than duplicating it.
 
-Undo/redo implications:
-- undo history should attach to buffers, not views
-- multiple views onto the same buffer must observe the same edit history
-- layout operations should not be part of text undo/redo
+## 9. Host Protocol / Bridge Architecture
 
-## Action Model
+A typed request/event protocol should be designed early because the same IDE surface must operate across host modes.
 
-The command system should be unified architecturally.
+Likely packet families:
 
-One action namespace should back:
-- keybindings
-- keyboard chords
-- mnemonic menu-like sequences
-- command palette entries
-- command aliases
+```text
+IdeRequest / IdeEvent
+ProjectRequest / ProjectEvent
+DocumentRequest / DocumentEvent
+RuntimeRequest / RuntimeEvent
+ImmediateRequest / ImmediateEvent
+DebugRequest / DebugEvent
+CapabilitySnapshot
+DiagnosticPacket
+CompletionPacket
+RunPacket
+```
 
-This should be reflected in the architecture rather than bolted on as parallel systems.
+Rules:
 
-## What To Avoid
+1. use direct Rust APIs when UI and service live in the same process/crate boundary,
+2. use serializable DTOs only at real serialization boundaries,
+3. avoid DTOs that duplicate authoritative OxVba types long-term,
+4. version the host protocol once external host consumption requires stability,
+5. make capability and disabled-reason reporting part of the protocol from the start.
 
-Avoid:
-- inventing an OxIde-owned project model
-- inventing an OxIde-owned semantic layer
-- sending editor semantic behavior through LSP
-- parsing CLI output for diagnostics or semantic queries
-- burying document lifecycle inside the editor widget
-- making the editor widget the owner of project/session state
+## 10. DnaOneCalc Integration Architecture
 
-## Immediate Architectural Priorities
+DnaOneCalc is the first exemplar host, but OxIde should not become a DnaOneCalc submodule by accident.
 
-The current priority areas are:
+Integration proof ladder:
 
-- keep tightening the direct `HostWorkspaceSession` integration
-- expand project-management surfaces on top of OxVba-owned helpers
-- improve semantic editing surfaces during active editing
-- keep the buffer/view/layout model aligned with the product direction
-- make persistent shell-region ownership and mode routing explicit
-- make undo/redo ownership explicit in the editor and buffer architecture
-- prepare for typed direct build/run contracts when OxVba exposes them
-- support session restore and persistent shell state where OxIde should own it
+1. artifact/runtime proof,
+2. embedded editor proof,
+3. shared component proof.
 
-## Verification
+The dependency direction should be chosen to avoid cycles. Likely pattern:
 
-See [`docs/BEADS.md`](docs/BEADS.md) for the verification method.
-This file is for architecture only; the when / why / what closes of
-verification live in the bead definition.
+```text
+shared OxIde editor/session/UI components
+  consumed by OxIde standalone
+  consumed by DnaOneCalc host surface where appropriate
 
-## Relationship To Other Docs
+OxVba authoritative APIs/types
+  consumed by both through clean adapter layers
+```
 
-- `PRODUCT_DIRECTION.md` — product direction, UX model, scope, design
-  intent.
-- `ARCHITECTURE.md` — seam boundaries and implementation direction
-  (this file).
-- `docs/BEADS.md` — working method (worksets, beads, closure).
-- `docs/WORKSET_REGISTER.md` — ordered workset sequence.
-- `docs/DESIGN_TUI.md` — current detailed TUI shell specification.
-- `docs/uxpass/` — addendum UX authority produced by W035; to be
-  reconciled back into `PRODUCT_DIRECTION.md` and
-  `docs/DESIGN_TUI.md` via `docs/uxpass/60_reconciliation.md`.
-- `docs/TESTING_WTD.md` — mechanical reference for the `wtd`
-  harness.
-- `README.md` — entry point and doc map.
+DnaOneCalc-specific product behavior remains in DnaOneCalc. OxIde-specific IDE behavior remains in OxIde.
+
+See [`docs/DNA_CALC_HOST_INTEGRATION.md`](docs/DNA_CALC_HOST_INTEGRATION.md).
+
+## 11. Persistence Architecture
+
+Persistence must be capability-aware.
+
+Do not preserve the current APPDATA-only assumption as an architectural rule.
+
+Host profiles may include:
+
+- browser local/session storage,
+- browser file picker / user-granted handles,
+- desktop filesystem access,
+- DnaOneCalc workspace persistence,
+- retained evidence bundles,
+- read-only/demo scenarios.
+
+OxIde should distinguish:
+
+- project source persistence,
+- IDE session restore,
+- host capability persistence,
+- retained run/debug evidence,
+- user preferences/keybindings.
+
+## 12. Testing Architecture
+
+Testing must be created early, not after the GUI grows.
+
+Primary layers:
+
+1. pure Rust unit tests,
+2. OxVba contract tests,
+3. WASM/browser tests,
+4. browser visual/scenario tests,
+5. host capability matrix tests,
+6. DnaOneCalc integration smoke tests.
+
+Existing WTD tests remain parked TUI tests and should not be the GUI default loop.
+
+See [`docs/GUI_TEST_STRATEGY.md`](docs/GUI_TEST_STRATEGY.md).
+
+## 13. Current Codebase Policy
+
+The existing TUI codebase is valuable but not the GUI foundation.
+
+Policy:
+
+```text
+rewrite behavior deliberately in GUI-native architecture
+reuse existing code only when it is pure and not terminal-shaped
+preserve TUI code as parked lineage
+```
+
+Known posture:
+
+- `src/shell/view.rs`: park only,
+- `src/shell/model.rs`: rewrite from behavior,
+- `src/shell/state.rs`: rewrite from behavior,
+- `src/shell/session.rs`: rewrite/extract cautiously,
+- `src/shell/oxvba.rs`: rewrite into `oxide-oxvba`,
+- `src/shell/project_actions.rs`: rewrite into services/adapters,
+- `src/shell/uxlab/*`: mine for scenario-lab patterns.
+
+See [`docs/GUI_PIVOT_CODEBASE_REVIEW.md`](docs/GUI_PIVOT_CODEBASE_REVIEW.md).
+
+## 14. Accessibility And Command Architecture
+
+The GUI architecture must retain keyboard-first discipline.
+
+Required architectural support:
+
+- command registry with stable IDs,
+- keybinding contexts,
+- command palette,
+- visible disabled reasons,
+- focus graph and focus restoration,
+- screen-reader labels and semantic roles,
+- high-contrast token support,
+- no-mouse critical path support,
+- platform shortcut remapping.
+
+Command availability should be computed from state and capability, not scattered through widgets.
+
+## 15. First Vertical Implementation Path
+
+After W200 foundation work, implementation should proceed through vertical slices:
+
+1. fixture project opens in GUI,
+2. editable module and diagnostics,
+3. save/reload/session restore,
+4. capability-aware run/output,
+5. DnaOneCalc embedded IDE/runtime proof,
+6. Windows COM capability proof,
+7. run/debug/immediate GUI surfaces,
+8. polish/accessibility/packaging.
+
+Each workset should produce runnable or reviewable evidence.
+
+## 16. Live Architecture Docs
+
+Supporting live docs:
+
+- [`docs/GUI_DIRECTION.md`](docs/GUI_DIRECTION.md)
+- [`docs/DNA_CALC_HOST_INTEGRATION.md`](docs/DNA_CALC_HOST_INTEGRATION.md)
+- [`docs/GUI_PIVOT_CODEBASE_REVIEW.md`](docs/GUI_PIVOT_CODEBASE_REVIEW.md)
+- [`docs/GUI_TEST_STRATEGY.md`](docs/GUI_TEST_STRATEGY.md)
+- [`docs/EDITOR_SUBSTRATE_RESEARCH.md`](docs/EDITOR_SUBSTRATE_RESEARCH.md)
+- [`docs/THIRD_PARTY_RESEARCH_AND_LICENSES.md`](docs/THIRD_PARTY_RESEARCH_AND_LICENSES.md)
+- [`docs/TUI_PARKING_PLAN.md`](docs/TUI_PARKING_PLAN.md)
+- [`docs/worksets/W200_gui_pivot_foundation.md`](docs/worksets/W200_gui_pivot_foundation.md)
+
+## 17. Non-Goals
+
+Current non-goals:
+
+- full GUI implementation in W200,
+- arbitrary third-party embedded-host support,
+- generic editor platform architecture,
+- internal LSP indirection,
+- copying restrictive-license editor code,
+- mutating the current TUI code into the GUI product,
+- deleting the parked TUI lineage.
