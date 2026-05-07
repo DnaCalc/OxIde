@@ -17,7 +17,7 @@ The result should be a repo that clearly says:
 
 - [`PRODUCT_DIRECTION.md`](../../PRODUCT_DIRECTION.md) — active product direction after W200-B02 reconciliation.
 - [`ARCHITECTURE.md`](../../ARCHITECTURE.md) — active architecture direction after W200-B02 reconciliation.
-- [`GUI_DIRECTION.md`](../GUI_DIRECTION.md), [`DNA_CALC_HOST_INTEGRATION.md`](../DNA_CALC_HOST_INTEGRATION.md), [`GUI_PIVOT_CODEBASE_REVIEW.md`](../GUI_PIVOT_CODEBASE_REVIEW.md), and [`GUI_TEST_STRATEGY.md`](../GUI_TEST_STRATEGY.md) — live split planning docs.
+- [`GUI_DIRECTION.md`](../GUI_DIRECTION.md), [`DNA_CALC_HOST_INTEGRATION.md`](../DNA_CALC_HOST_INTEGRATION.md), [`GUI_PIVOT_CODEBASE_REVIEW.md`](../GUI_PIVOT_CODEBASE_REVIEW.md), [`GUI_WORKSPACE_LAYOUT.md`](../GUI_WORKSPACE_LAYOUT.md), [`GUI_FIXTURES_AND_LAB.md`](../GUI_FIXTURES_AND_LAB.md), and [`GUI_TEST_STRATEGY.md`](../GUI_TEST_STRATEGY.md) — live split planning docs.
 - Existing TUI lineage `W010` through `W110` — retained as parked design/prototype evidence.
 - OxVba direct host/session surfaces — semantic/project/runtime truth remains in OxVba.
 - DnaOneCalc architecture — first exemplar DNA Calc host for embedded IDE consumption.
@@ -90,18 +90,18 @@ W200 defines the intended test layers:
 **Infrastructure.**
 
 - **Goal.** The repo is ready for GUI crate work without requiring future beads to untangle the TUI default crate first.
-- **Design.** Convert or prepare Cargo workspace layout; isolate current TUI under a parked crate/path; keep tests available; avoid deletion.
-- **Tests.** `cargo test` for unaffected default tests; any parked TUI checks remain opt-in.
-- **Evidence.** Build/test output and directory listing.
+- **Design.** Add [`GUI_WORKSPACE_LAYOUT.md`](../GUI_WORKSPACE_LAYOUT.md) as the live layout preparation plan; defer code movement to later explicit beads; keep tests available; avoid deletion.
+- **Tests.** `cargo test` for unaffected default tests; read-through that layout docs preserve TUI parking and greenfield bias.
+- **Evidence.** Build/test output and doc reference checks.
 
 ### W200-B04 — GUI fixture and lab seed
 
 **Infrastructure.**
 
 - **Goal.** The first GUI worksets have deterministic fixtures and a planned scenario-lab surface.
-- **Design.** Identify or add fixture projects and seed an `oxide-guilab` plan/scaffold.
-- **Tests.** Fixture discovery/unit smoke.
-- **Evidence.** Fixture list and test output.
+- **Design.** Add [`GUI_FIXTURES_AND_LAB.md`](../GUI_FIXTURES_AND_LAB.md) to identify fixture projects, future fixture ladder, and `oxide-guilab` scenario ladder. No GUI implementation code in this bead.
+- **Tests.** Shell checks for existing fixture files named in the doc; read-through for scenario ladder and capability cases.
+- **Evidence.** Fixture list and doc reference checks.
 
 ## Out-of-scope
 

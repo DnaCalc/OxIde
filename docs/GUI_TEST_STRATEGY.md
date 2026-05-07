@@ -7,6 +7,8 @@ Date: 2026-05-07
 
 This note defines the initial testing posture for the GUI pivot.
 
+The fixture and GUI lab seed plan is [`GUI_FIXTURES_AND_LAB.md`](GUI_FIXTURES_AND_LAB.md).
+
 ## Test Layers
 
 1. Pure Rust unit tests

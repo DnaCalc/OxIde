@@ -390,7 +390,7 @@ Known posture:
 - `src/shell/project_actions.rs`: rewrite into services/adapters,
 - `src/shell/uxlab/*`: mine for scenario-lab patterns.
 
-See [`docs/GUI_PIVOT_CODEBASE_REVIEW.md`](docs/GUI_PIVOT_CODEBASE_REVIEW.md).
+See [`docs/GUI_PIVOT_CODEBASE_REVIEW.md`](docs/GUI_PIVOT_CODEBASE_REVIEW.md) and [`docs/GUI_WORKSPACE_LAYOUT.md`](docs/GUI_WORKSPACE_LAYOUT.md).
 
 ## 14. Accessibility And Command Architecture
 
