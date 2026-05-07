@@ -8,4 +8,5 @@ publish = false
 # stubs over local OxIde crates while still avoiding a Tauri dependency.
 [dependencies]
 oxide-core = { path = "../../../crates/oxide-core" }
+oxide-host-bridge = { path = "../../../crates/oxide-host-bridge" }
 oxide-oxvba = { path = "../../../crates/oxide-oxvba" }

@@ -1,9 +1,15 @@
 use std::path::{Path, PathBuf};
 
 use oxide_core::{
-    open_lifecycle_from_persistence, save_lifecycle_to_persistence, GuiSessionSnapshot,
-    NativeFilesystemDocumentPersistence, NativeFilesystemSessionPersistence, PersistenceError,
+    open_lifecycle_from_persistence, save_lifecycle_to_persistence, DebugServicePacket,
+    GuiSessionSnapshot, GuiShellDiagnosticSummary, GuiShellModuleSummary, GuiShellPacket,
+    ImmediateServicePacket, NativeFilesystemDocumentPersistence,
+    NativeFilesystemSessionPersistence, PersistenceError, RuntimeServicePacket,
     SessionCapabilityProfile,
+};
+use oxide_host_bridge::{
+    command_availability_for_statuses, host_bridge_command_catalog, BrowserReviewFixtureHost,
+    HostBridgeCommandAvailability, HostCapabilityApi,
 };
 use oxide_oxvba::{load_project_open_spine, ProjectOpenSpineError};
 
@@ -167,6 +173,99 @@ impl DnaOxideSessionCommandPacket {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DnaOxideUnavailableCommandPacket {
+    pub command_name: &'static str,
+    pub host_bridge_command: &'static str,
+    pub bucket: DnaOxideCommandBucket,
+    pub enabled: bool,
+    pub disabled_reason: String,
+    pub evidence: Option<&'static str>,
+    pub no_claims: DnaOxideNoClaimFlags,
+}
+
+impl DnaOxideUnavailableCommandPacket {
+    pub fn bucket_label(&self) -> &'static str {
+        self.bucket.label()
+    }
+
+    pub fn no_claims_all_false(&self) -> bool {
+        self.no_claims.all_runtime_claims_false()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DnaOxideRuntimeCommandPacket {
+    pub command_name: &'static str,
+    pub host_bridge_command: &'static str,
+    pub bucket: DnaOxideCommandBucket,
+    pub enabled: bool,
+    pub disabled_reason: String,
+    pub packet: RuntimeServicePacket,
+    pub no_claims: DnaOxideNoClaimFlags,
+}
+
+impl DnaOxideRuntimeCommandPacket {
+    pub fn bucket_label(&self) -> &'static str {
+        self.bucket.label()
+    }
+
+    pub fn no_claims_all_false(&self) -> bool {
+        self.no_claims.all_runtime_claims_false()
+            && !self.packet.real_execution_claimed
+            && !self.packet.native_runtime_claimed
+            && !self.packet.com_runtime_claimed
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DnaOxideImmediateCommandPacket {
+    pub command_name: &'static str,
+    pub host_bridge_command: &'static str,
+    pub bucket: DnaOxideCommandBucket,
+    pub enabled: bool,
+    pub disabled_reason: String,
+    pub packet: ImmediateServicePacket,
+    pub no_claims: DnaOxideNoClaimFlags,
+}
+
+impl DnaOxideImmediateCommandPacket {
+    pub fn bucket_label(&self) -> &'static str {
+        self.bucket.label()
+    }
+
+    pub fn no_claims_all_false(&self) -> bool {
+        self.no_claims.all_runtime_claims_false()
+            && !self.packet.fake_responses
+            && !self.packet.native_runtime_claimed
+            && !self.packet.com_runtime_claimed
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DnaOxideDebugCommandPacket {
+    pub command_name: &'static str,
+    pub host_bridge_command: &'static str,
+    pub bucket: DnaOxideCommandBucket,
+    pub enabled: bool,
+    pub disabled_reason: String,
+    pub packet: DebugServicePacket,
+    pub no_claims: DnaOxideNoClaimFlags,
+}
+
+impl DnaOxideDebugCommandPacket {
+    pub fn bucket_label(&self) -> &'static str {
+        self.bucket.label()
+    }
+
+    pub fn no_claims_all_false(&self) -> bool {
+        self.no_claims.all_runtime_claims_false()
+            && !self.packet.fake_debug_data
+            && !self.packet.native_runtime_claimed
+            && !self.packet.com_runtime_claimed
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DnaOxideCommandError {
     ProjectOpen { path: String, message: String },
     MissingActiveModule { path: String },
@@ -321,6 +420,199 @@ pub fn dna_oxide_load_session_snapshot(
     })
 }
 
+pub fn dna_oxide_get_host_capabilities(
+    project_path: impl AsRef<Path>,
+) -> Result<Vec<HostBridgeCommandAvailability>, DnaOxideCommandError> {
+    let shell = shell_packet_for_project(project_path.as_ref())?;
+    let host = BrowserReviewFixtureHost::new(shell);
+    Ok(command_availability_for_statuses(
+        &host_bridge_command_catalog(),
+        &host.capability_statuses(),
+    ))
+}
+
+pub fn dna_oxide_get_compile_options() -> DnaOxideUnavailableCommandPacket {
+    pending_packet(
+        "dna_oxide_get_compile_options",
+        "compile.options",
+        "project properties / compile options DTOs pending OxIde adoption",
+    )
+}
+
+pub fn dna_oxide_apply_compile_options() -> DnaOxideUnavailableCommandPacket {
+    pending_packet(
+        "dna_oxide_apply_compile_options",
+        "compile.options",
+        "compile option mutation DTOs pending OxIde adoption",
+    )
+}
+
+pub fn dna_oxide_build_check() -> DnaOxideUnavailableCommandPacket {
+    fixture_packet(
+        "dna_oxide_build_check",
+        "compile.check",
+        "ThinSliceHello fixture covers EmbeddedBuildRunHost::build_workspace; DnaOxIde adapter test pending",
+        Some("EmbeddedBuildRunHost::build_workspace"),
+    )
+}
+
+pub fn dna_oxide_get_references() -> DnaOxideUnavailableCommandPacket {
+    fixture_packet(
+        "dna_oxide_get_references",
+        "references.show",
+        "ThinSliceHello fixture covers ComSelectionService reference state; DnaOxIde adapter test pending",
+        Some("ComSelectionService::inspect_workspace_project_state"),
+    )
+}
+
+pub fn dna_oxide_find_com_candidates() -> DnaOxideUnavailableCommandPacket {
+    fixture_packet(
+        "dna_oxide_find_com_candidates",
+        "references.com.search",
+        "ComSelectionService subset and capability_profile are fixture-evidenced; COM runtime invocation remains unclaimed",
+        Some("ComSelectionService::capability_profile"),
+    )
+}
+
+pub fn dna_oxide_apply_reference_plan() -> DnaOxideUnavailableCommandPacket {
+    pending_packet(
+        "dna_oxide_apply_reference_plan",
+        "references.com.search",
+        "reference plan application DTO/adoption pending",
+    )
+}
+
+pub fn dna_oxide_run_project(
+    project_path: impl AsRef<Path>,
+) -> Result<DnaOxideRuntimeCommandPacket, DnaOxideCommandError> {
+    runtime_command_packet(
+        "dna_oxide_run_project",
+        "runtime.run",
+        DnaOxideCommandBucket::OxVbaFixtureEvidenced,
+        "ThinSliceHello fixture covers EmbeddedBuildRunHost::run_project and stable runtime IDs; DnaOxIde adapter test pending",
+        project_path.as_ref(),
+    )
+}
+
+pub fn dna_oxide_stop_runtime() -> DnaOxideUnavailableCommandPacket {
+    pending_packet(
+        "dna_oxide_stop_runtime",
+        "runtime.stop",
+        "stop/cancel command availability pending OxIde adoption",
+    )
+}
+
+pub fn dna_oxide_reset_runtime() -> DnaOxideUnavailableCommandPacket {
+    pending_packet(
+        "dna_oxide_reset_runtime",
+        "runtime.stop",
+        "runtime reset command availability pending OxIde adoption",
+    )
+}
+
+pub fn dna_oxide_evaluate_immediate(
+    expression: impl Into<String>,
+) -> DnaOxideImmediateCommandPacket {
+    DnaOxideImmediateCommandPacket {
+        command_name: "dna_oxide_evaluate_immediate",
+        host_bridge_command: "runtime.immediate",
+        bucket: DnaOxideCommandBucket::OxVbaFixtureEvidenced,
+        enabled: false,
+        disabled_reason: String::from(
+            "ThinSliceHello fixture covers EmbeddedRunSession::into_immediate_session and ImmediateSession evaluation; DnaOxIde adapter test pending",
+        ),
+        packet: ImmediateServicePacket::native_service_missing(Some(expression.into())),
+        no_claims: DnaOxideNoClaimFlags::all_false(),
+    }
+}
+
+pub fn dna_oxide_debug_attach() -> DnaOxideDebugCommandPacket {
+    debug_command_packet(
+        "dna_oxide_debug_attach",
+        "runtime.debug",
+        DnaOxideCommandBucket::OxVbaFixtureEvidenced,
+        "ThinSliceHello fixture covers EmbeddedRunSession::into_debug_session; DnaOxIde adapter test pending",
+    )
+}
+
+pub fn dna_oxide_debug_continue() -> DnaOxideDebugCommandPacket {
+    debug_command_packet(
+        "dna_oxide_debug_continue",
+        "debug.continue",
+        DnaOxideCommandBucket::OxVbaAvailableSubset,
+        "DebugSession continue subset exists; DnaOxIde adapter test pending",
+    )
+}
+
+pub fn dna_oxide_debug_step_into() -> DnaOxideDebugCommandPacket {
+    debug_command_packet(
+        "dna_oxide_debug_step_into",
+        "debug.step_into",
+        DnaOxideCommandBucket::OxVbaAvailableSubset,
+        "DebugSession step subset exists; DnaOxIde adapter test pending",
+    )
+}
+
+pub fn dna_oxide_debug_step_over() -> DnaOxideDebugCommandPacket {
+    debug_command_packet(
+        "dna_oxide_debug_step_over",
+        "debug.step_over",
+        DnaOxideCommandBucket::OxVbaAvailableSubset,
+        "DebugSession step subset exists; DnaOxIde adapter test pending",
+    )
+}
+
+pub fn dna_oxide_debug_step_out() -> DnaOxideDebugCommandPacket {
+    debug_command_packet(
+        "dna_oxide_debug_step_out",
+        "debug.step_out",
+        DnaOxideCommandBucket::OxVbaAvailableSubset,
+        "DebugSession step subset exists; DnaOxIde adapter test pending",
+    )
+}
+
+pub fn dna_oxide_debug_stop() -> DnaOxideUnavailableCommandPacket {
+    pending_packet(
+        "dna_oxide_debug_stop",
+        "runtime.stop",
+        "debug stop/cleanup command availability pending OxIde adoption",
+    )
+}
+
+pub fn dna_oxide_watch_upsert() -> DnaOxideDebugCommandPacket {
+    debug_command_packet(
+        "dna_oxide_watch_upsert",
+        "watch.upsert",
+        DnaOxideCommandBucket::OxVbaFixtureEvidenced,
+        "ThinSliceHello fixture covers DebugSession::add_watch and evaluate_watches; DnaOxIde adapter test pending",
+    )
+}
+
+pub fn dna_oxide_watch_remove() -> DnaOxideUnavailableCommandPacket {
+    pending_packet(
+        "dna_oxide_watch_remove",
+        "watch.upsert",
+        "watch remove DTO/adoption pending",
+    )
+}
+
+pub fn dna_oxide_breakpoint_set() -> DnaOxideDebugCommandPacket {
+    debug_command_packet(
+        "dna_oxide_breakpoint_set",
+        "breakpoint.set",
+        DnaOxideCommandBucket::OxVbaFixtureEvidenced,
+        "ThinSliceHello fixture covers DebugSession::set_source_breakpoint; DnaOxIde adapter test pending",
+    )
+}
+
+pub fn dna_oxide_breakpoint_clear() -> DnaOxideUnavailableCommandPacket {
+    pending_packet(
+        "dna_oxide_breakpoint_clear",
+        "breakpoint.set",
+        "breakpoint clear/unbind DTO/adoption pending",
+    )
+}
+
 struct OpenedProjectModule {
     project_name: String,
     workspace_path: String,
@@ -378,6 +670,111 @@ fn packet_from_parts(
         provider_label: "native-filesystem",
         no_claims: DnaOxideNoClaimFlags::all_false(),
     }
+}
+
+fn pending_packet(
+    command_name: &'static str,
+    host_bridge_command: &'static str,
+    disabled_reason: impl Into<String>,
+) -> DnaOxideUnavailableCommandPacket {
+    DnaOxideUnavailableCommandPacket {
+        command_name,
+        host_bridge_command,
+        bucket: DnaOxideCommandBucket::PendingOxVbaHardening,
+        enabled: false,
+        disabled_reason: disabled_reason.into(),
+        evidence: None,
+        no_claims: DnaOxideNoClaimFlags::all_false(),
+    }
+}
+
+fn fixture_packet(
+    command_name: &'static str,
+    host_bridge_command: &'static str,
+    disabled_reason: impl Into<String>,
+    evidence: Option<&'static str>,
+) -> DnaOxideUnavailableCommandPacket {
+    DnaOxideUnavailableCommandPacket {
+        command_name,
+        host_bridge_command,
+        bucket: DnaOxideCommandBucket::OxVbaFixtureEvidenced,
+        enabled: false,
+        disabled_reason: disabled_reason.into(),
+        evidence,
+        no_claims: DnaOxideNoClaimFlags::all_false(),
+    }
+}
+
+fn runtime_command_packet(
+    command_name: &'static str,
+    host_bridge_command: &'static str,
+    bucket: DnaOxideCommandBucket,
+    disabled_reason: impl Into<String>,
+    project_path: &Path,
+) -> Result<DnaOxideRuntimeCommandPacket, DnaOxideCommandError> {
+    let opened = load_project(project_path)?;
+    Ok(DnaOxideRuntimeCommandPacket {
+        command_name,
+        host_bridge_command,
+        bucket,
+        enabled: false,
+        disabled_reason: disabled_reason.into(),
+        packet: RuntimeServicePacket::native_service_missing(
+            opened.workspace_path,
+            opened.project_name,
+            module_stem(&opened.active_module),
+            "Main",
+        ),
+        no_claims: DnaOxideNoClaimFlags::all_false(),
+    })
+}
+
+fn debug_command_packet(
+    command_name: &'static str,
+    host_bridge_command: &'static str,
+    bucket: DnaOxideCommandBucket,
+    disabled_reason: impl Into<String>,
+) -> DnaOxideDebugCommandPacket {
+    DnaOxideDebugCommandPacket {
+        command_name,
+        host_bridge_command,
+        bucket,
+        enabled: false,
+        disabled_reason: disabled_reason.into(),
+        packet: DebugServicePacket::native_service_missing(),
+        no_claims: DnaOxideNoClaimFlags::all_false(),
+    }
+}
+
+fn shell_packet_for_project(project_path: &Path) -> Result<GuiShellPacket, DnaOxideCommandError> {
+    let view = load_project_open_spine(project_path)
+        .map_err(|error| project_error(project_path, error))?;
+    let modules = view
+        .modules
+        .iter()
+        .map(|module| GuiShellModuleSummary::new(&module.display_name, module.is_active))
+        .collect::<Vec<_>>();
+    Ok(GuiShellPacket::browser_safe_baseline(
+        project_path.display().to_string(),
+        view.project_name,
+        modules,
+        view.active_source.module_display_name.clone(),
+        module_stem(&view.active_source.module_display_name),
+        view.active_source.source_text,
+        vec![GuiShellDiagnosticSummary::new(
+            "info",
+            "DnaOxIde host capability command uses W343 host bridge fixture state",
+            "DnaOxIde W344",
+        )],
+    ))
+}
+
+fn module_stem(display_name: &str) -> String {
+    display_name
+        .strip_suffix(".bas")
+        .or_else(|| display_name.strip_suffix(".cls"))
+        .unwrap_or(display_name)
+        .to_string()
 }
 
 fn load_project(project_path: &Path) -> Result<OpenedProjectModule, DnaOxideCommandError> {
@@ -547,6 +944,147 @@ mod tests {
         assert_eq!(loaded.command_name, "dna_oxide_load_session_snapshot");
         assert_eq!(loaded.snapshot, saved.snapshot);
         assert!(loaded.no_claims_all_false());
+    }
+
+    #[test]
+    fn host_capability_command_projects_w343_availability_without_claims() {
+        let fixture = copy_thin_slice_fixture("host-capabilities");
+        let project = fixture.join("ThinSliceHello.basproj");
+
+        let availability = dna_oxide_get_host_capabilities(&project).expect("host capabilities");
+        assert_eq!(availability.len(), 26);
+        assert!(availability
+            .iter()
+            .all(|command| command.no_claim_flags_false()));
+        assert!(availability
+            .iter()
+            .any(|command| command.stable_id == "project.open" && command.enabled));
+        assert!(availability
+            .iter()
+            .any(|command| command.stable_id == "runtime.run"
+                && command.state.label() == "oxvba-fixture-evidenced"
+                && !command.enabled));
+        assert!(availability
+            .iter()
+            .any(|command| command.stable_id == "compile.options"
+                && command.state.label() == "pending-oxvba-hardening"
+                && !command.enabled));
+    }
+
+    #[test]
+    fn unavailable_compile_reference_and_com_commands_are_labeled_without_claims() {
+        let compile = dna_oxide_get_compile_options();
+        assert_eq!(compile.command_name, "dna_oxide_get_compile_options");
+        assert_eq!(compile.bucket_label(), "pending-oxvba-hardening");
+        assert!(!compile.enabled);
+        assert!(compile.no_claims_all_false());
+        let apply_compile = dna_oxide_apply_compile_options();
+        assert_eq!(
+            apply_compile.command_name,
+            "dna_oxide_apply_compile_options"
+        );
+        assert_eq!(apply_compile.bucket_label(), "pending-oxvba-hardening");
+        assert!(apply_compile.no_claims_all_false());
+
+        let build = dna_oxide_build_check();
+        assert_eq!(build.command_name, "dna_oxide_build_check");
+        assert_eq!(build.bucket_label(), "oxvba-fixture-evidenced");
+        assert_eq!(
+            build.evidence,
+            Some("EmbeddedBuildRunHost::build_workspace")
+        );
+        assert!(build
+            .disabled_reason
+            .contains("DnaOxIde adapter test pending"));
+        assert!(build.no_claims_all_false());
+
+        let references = dna_oxide_get_references();
+        assert_eq!(references.bucket_label(), "oxvba-fixture-evidenced");
+        assert_eq!(
+            references.evidence,
+            Some("ComSelectionService::inspect_workspace_project_state")
+        );
+        assert!(references.no_claims_all_false());
+
+        let com = dna_oxide_find_com_candidates();
+        assert_eq!(com.command_name, "dna_oxide_find_com_candidates");
+        assert_eq!(com.bucket_label(), "oxvba-fixture-evidenced");
+        assert_eq!(
+            com.evidence,
+            Some("ComSelectionService::capability_profile")
+        );
+        assert!(com
+            .disabled_reason
+            .contains("COM runtime invocation remains unclaimed"));
+        assert!(com.no_claims_all_false());
+
+        let apply = dna_oxide_apply_reference_plan();
+        assert_eq!(apply.bucket_label(), "pending-oxvba-hardening");
+        assert!(apply.no_claims_all_false());
+    }
+
+    #[test]
+    fn runtime_immediate_and_debug_commands_return_empty_native_missing_packets() {
+        let fixture = copy_thin_slice_fixture("runtime-debug-unavailable");
+        let project = fixture.join("ThinSliceHello.basproj");
+
+        let run = dna_oxide_run_project(&project).expect("run command packet");
+        assert_eq!(run.command_name, "dna_oxide_run_project");
+        assert_eq!(run.bucket_label(), "oxvba-fixture-evidenced");
+        assert!(!run.enabled);
+        assert_eq!(run.packet.provider_label(), "native-service-missing");
+        assert!(run.no_claims_all_false());
+
+        let stop = dna_oxide_stop_runtime();
+        assert_eq!(stop.bucket_label(), "pending-oxvba-hardening");
+        assert!(stop.no_claims_all_false());
+        let reset = dna_oxide_reset_runtime();
+        assert_eq!(reset.bucket_label(), "pending-oxvba-hardening");
+        assert!(reset.no_claims_all_false());
+
+        let immediate = dna_oxide_evaluate_immediate("?answer");
+        assert_eq!(immediate.command_name, "dna_oxide_evaluate_immediate");
+        assert_eq!(immediate.bucket_label(), "oxvba-fixture-evidenced");
+        assert_eq!(immediate.packet.provider_label(), "native-service-missing");
+        assert_eq!(immediate.packet.responses.len(), 0);
+        assert!(!immediate.packet.fake_responses);
+        assert!(immediate.no_claims_all_false());
+
+        for debug in [
+            dna_oxide_debug_attach(),
+            dna_oxide_debug_continue(),
+            dna_oxide_debug_step_into(),
+            dna_oxide_debug_step_over(),
+            dna_oxide_debug_step_out(),
+            dna_oxide_watch_upsert(),
+            dna_oxide_breakpoint_set(),
+        ] {
+            assert!(matches!(
+                debug.bucket_label(),
+                "oxvba-fixture-evidenced" | "oxvba-available-subset"
+            ));
+            assert!(!debug.enabled);
+            assert_eq!(debug.packet.provider_label(), "native-service-missing");
+            assert_eq!(debug.packet.callstack.len(), 0);
+            assert_eq!(debug.packet.locals.len(), 0);
+            assert_eq!(debug.packet.watches.len(), 0);
+            assert_eq!(debug.packet.breakpoints.len(), 0);
+            assert!(!debug.packet.fake_debug_data);
+            assert!(debug.no_claims_all_false());
+        }
+
+        assert_eq!(
+            dna_oxide_debug_stop().bucket_label(),
+            "pending-oxvba-hardening"
+        );
+        assert_eq!(
+            dna_oxide_watch_remove().bucket_label(),
+            "pending-oxvba-hardening"
+        );
+        assert_eq!(
+            dna_oxide_breakpoint_clear().bucket_label(),
+            "pending-oxvba-hardening"
+        );
     }
 
     #[test]

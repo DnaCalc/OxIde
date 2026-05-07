@@ -251,6 +251,7 @@ name = "dna-oxide-tauri-scaffold"
 version = "0.0.0-scaffold"
 dependencies = [
  "oxide-core",
+ "oxide-host-bridge",
  "oxide-oxvba",
 ]
 
@@ -448,6 +449,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
+name = "oxide-bridge"
+version = "0.1.0"
+dependencies = [
+ "oxide-core",
+ "serde",
+]
+
+[[package]]
 name = "oxide-core"
 version = "0.1.0"
 dependencies = [
@@ -461,6 +470,14 @@ name = "oxide-domain"
 version = "0.1.0"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "oxide-host-bridge"
+version = "0.1.0"
+dependencies = [
+ "oxide-bridge",
+ "oxide-core",
 ]
 
 [[package]]
