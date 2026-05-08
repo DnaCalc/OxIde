@@ -52,13 +52,52 @@ function mountInstrumentedApp(root, targetWindow = globalThis.window) {
   root.dataset.nativeRuntime = String(DNA_OXIDE_FRONTEND_SCAFFOLD.claims.nativeRuntime);
   root.dataset.comRuntime = String(DNA_OXIDE_FRONTEND_SCAFFOLD.claims.comRuntime);
   root.dataset.hostUiProofMode = app.instrumentation.proofMode;
-  root.innerHTML = app.renderApp();
+
+  const render = (focusSelector = null) => {
+    root.innerHTML = app.renderApp();
+    wireInstrumentedAppDom(root, app, render);
+    if (focusSelector) {
+      root.querySelector(focusSelector)?.focus();
+    }
+  };
+
+  render();
 
   if (targetWindow) {
     installDnaOxIdeTestDriver(targetWindow, app);
   }
 
   return app;
+}
+
+function wireInstrumentedAppDom(root, app, render) {
+  const editor = root.querySelector('[data-testid="source-editor"]');
+  editor?.addEventListener("focus", () => {
+    app.injectInteraction({ type: "focusEditor", via: "dom-focus" });
+  });
+  editor?.addEventListener("input", (event) => {
+    app.injectInteraction({
+      type: "replaceSource",
+      text: event.currentTarget.value,
+      via: "dom-input"
+    });
+    render('[data-testid="source-editor"]');
+  });
+
+  root.querySelector('[data-testid="focus-editor-command"]')?.addEventListener("click", () => {
+    app.runCommand("focus-editor", { via: "dom-click" });
+    render('[data-testid="source-editor"]');
+  });
+
+  root.querySelector('[data-testid="save-active-module-command"]')?.addEventListener("click", () => {
+    app.runCommand("save-active-module", { via: "dom-click" });
+    render();
+  });
+
+  root.querySelector('[data-testid="reload-active-module-command"]')?.addEventListener("click", () => {
+    app.runCommand("reload-active-module", { via: "dom-click" });
+    render();
+  });
 }
 
 export function verifyFrontendScaffold() {
