@@ -26,8 +26,9 @@ W352 should:
 4. wire at least one UI command through the WebView into linked native Rust code in the Tauri app;
 5. keep save/reload over temp project copies in the native Rust command layer, not Playwright-injected browser services;
 6. automate or inspect the WebView through a documented driver;
-7. capture visual, DOM-like, command, and event artifacts;
-8. keep runtime/debug/Immediate/COM claims false until the later native adapter work proves them.
+7. capture visual, DOM-like, command, event, performance, and size artifacts;
+8. keep runtime/debug/Immediate/COM claims false until the later native adapter work proves them;
+9. establish desktop-host performance and footprint baselines from the start so the WebView app remains svelte, strong, and zippy rather than sluggish or bloated.
 
 Default native backend meaning:
 
@@ -101,20 +102,24 @@ Design:
   - Capture before/after snapshot and event log.
   - If only partial automation is possible, label the limitation precisely.
   - Do not substitute browser-only Playwright host services for desktop native command evidence.
+  - Capture initial performance/footprint metrics for the release desktop app: executable size, bundle/dist size, cold-start-to-first-observable-UI timing, native command round-trip latency for the host probe, and process memory after idle stabilization.
 
 Tests:
   - WebView inspection/injection smoke.
   - Native command result remains visible in the inspected state.
   - Anti-overclaim scan.
+  - Performance/size smoke with explicit numbers recorded under `target/`.
 
 Evidence:
   - `target/w352-b02-webview-automation.txt`.
+  - `target/w352-b02-performance-size-baseline.txt`.
 
 Closure:
   - [ ] WebView state is observable.
   - [ ] At least one interaction is injectable or limitation is documented.
   - [ ] Artifacts are written under `target/`.
   - [ ] Evidence comes from the desktop host, not a static HTML snapshot.
+  - [ ] Performance/size baseline is recorded with concrete values and any concerning regression risk called out.
 
 ### W352-B03 — Tauri edit/save/reload through native Rust commands
 
@@ -150,10 +155,12 @@ Design:
   - Run W352 checks.
   - Confirm at least one UI->Tauri->linked Rust command path.
   - Update downstream handoffs to identify desktop-host evidence separately from browser DOM/W350 harness evidence.
+  - Carry forward the W352-B02 performance/size baseline as the starting budget surface for later desktop adapter work.
 
 Tests:
   - W352 regression checks.
   - Final no-claim scan.
+  - Final performance/size smoke compared against the W352-B02 baseline.
 
 Evidence:
   - `target/w352-acceptance.txt`.
@@ -164,6 +171,7 @@ Closure:
   - [ ] Evidence distinguishes WebView/native command path from browser DOM harness.
   - [ ] W355 native compile/build adapter work is unblocked.
   - [ ] No fake capability has landed.
+  - [ ] Desktop app footprint and responsiveness remain visible in evidence, with follow-up beads filed for regressions.
 
 ## Out-of-scope
 

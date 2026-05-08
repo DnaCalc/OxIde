@@ -44,8 +44,9 @@ The Tauri/WebView lane should prove:
 6. automation can capture DOM-like state from inside the WebView;
 7. automation can inject at least one interaction or document the precise limitation;
 8. command/event logs are captured;
-9. artifacts distinguish desktop-host evidence from W350 browser harness evidence;
-10. runtime/debug/Immediate/COM claims remain false until later adapter work proves them.
+9. performance and footprint numbers are captured from the start so the desktop app stays svelte, strong, and zippy rather than sluggish or bloated;
+10. artifacts distinguish desktop-host evidence from W350 browser harness evidence;
+11. runtime/debug/Immediate/COM claims remain false until later adapter work proves them.
 
 ## Default Native Backend Meaning
 
@@ -89,6 +90,7 @@ Decision:
 - Prefer a supported WebView automation route if available.
 - If direct WebView automation is not available, document the bounded alternate and what it cannot claim.
 - Do not replace native command evidence with browser-only injected services.
+- Record the initial desktop performance/size baseline: release executable size, dist/bundle size, cold-start-to-first-observable-UI timing, native host-probe round-trip latency, and idle process memory.
 
 ### W352-B03 — Tauri edit/save/reload through native Rust commands
 
@@ -101,6 +103,7 @@ Decision:
 - Accept only when desktop host execution is repeatable and artifacts are sufficient for debugging.
 - Confirm UI -> linked native Rust command evidence.
 - Preserve all no-claim boundaries.
+- Carry the W352-B02 performance/size baseline into downstream desktop adapter work and file follow-up beads for any sluggishness, bloat, or startup/interaction regressions.
 
 ## Relationship To W350
 

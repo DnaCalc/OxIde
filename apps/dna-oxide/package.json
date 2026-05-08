@@ -26,6 +26,7 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "tauri-command-spine:check": "node ./scripts/verify-tauri-command-spine.mjs",
+    "webview-automation:check": "node ./scripts/verify-webview-automation.mjs",
     "compile-panels:check": "node ./scripts/verify-compile-panels.mjs",
     "reference-panels:check": "node ./scripts/verify-reference-panels.mjs",
     "placeholder-commands:check": "node ./scripts/verify-placeholder-commands.mjs"
