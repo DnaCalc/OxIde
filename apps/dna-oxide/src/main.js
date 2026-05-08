@@ -24,6 +24,23 @@ export const DNA_OXIDE_FRONTEND_SCAFFOLD = Object.freeze({
   })
 });
 
+function createTauriDesktopHostServices(targetWindow = globalThis.window) {
+  const tauriGlobal = targetWindow?.["__" + "TAURI__"];
+  const callNative = tauriGlobal?.core?.invoke;
+  if (typeof callNative !== "function") {
+    return null;
+  }
+
+  return Object.freeze({
+    provider: "tauri-linked-native-rust",
+    desktopHostCapabilitiesProbe(payload = {}) {
+      return callNative("dna_oxide_desktop_host_capabilities_probe", {
+        projectPath: payload.projectPath ?? null
+      });
+    }
+  });
+}
+
 function renderScaffoldBanner(root) {
   if (!root) {
     return;
@@ -48,7 +65,7 @@ function mountInstrumentedApp(root, targetWindow = globalThis.window) {
   const bootstrap = targetWindow?.__DNA_OXIDE_BOOTSTRAP__ ?? {};
   const app = createInstrumentedDnaOxIdeApp({
     ...bootstrap,
-    hostServices: targetWindow?.__DNA_OXIDE_HOST_SERVICES__ ?? null
+    hostServices: targetWindow?.__DNA_OXIDE_HOST_SERVICES__ ?? createTauriDesktopHostServices(targetWindow)
   });
   root.dataset.frontendScaffold = "mounted";
   root.dataset.sharedUiImplementedHere = "false";
@@ -102,6 +119,11 @@ function wireInstrumentedAppDom(root, app, render) {
     await app.runHostCommand("reload-active-module", { via: "dom-click" });
     render();
   });
+
+  root.querySelector('[data-testid="desktop-host-probe-command"]')?.addEventListener("click", async () => {
+    await app.runHostCommand("desktop-host-capabilities-probe", { via: "dom-click" });
+    render();
+  });
 }
 
 export function verifyFrontendScaffold() {
@@ -116,7 +138,7 @@ export function verifyFrontendScaffold() {
     && verifyInstrumentationContract();
 }
 
-export { mountInstrumentedApp, renderScaffoldBanner };
+export { createTauriDesktopHostServices, mountInstrumentedApp, renderScaffoldBanner };
 
 if (typeof document !== "undefined") {
   mountInstrumentedApp(document.getElementById("dna-oxide-root"));

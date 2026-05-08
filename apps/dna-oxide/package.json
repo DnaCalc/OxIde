@@ -21,11 +21,20 @@
     "live-save-reload:check": "node ./scripts/verify-live-save-reload.mjs",
     "live-edit:check": "node ./scripts/verify-live-edit-feedback-loop.mjs",
     "w350:acceptance": "node ./scripts/verify-w350-acceptance.mjs",
+    "tauri:dev-server": "node ./scripts/static-tauri-dev-server.mjs",
+    "tauri:dist": "node ./scripts/prepare-tauri-dist.mjs",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri-command-spine:check": "node ./scripts/verify-tauri-command-spine.mjs",
     "compile-panels:check": "node ./scripts/verify-compile-panels.mjs",
     "reference-panels:check": "node ./scripts/verify-reference-panels.mjs",
     "placeholder-commands:check": "node ./scripts/verify-placeholder-commands.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "^1.59.1"
+    "@playwright/test": "^1.59.1",
+    "@tauri-apps/cli": "^2.11.1"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.0"
   }
 }

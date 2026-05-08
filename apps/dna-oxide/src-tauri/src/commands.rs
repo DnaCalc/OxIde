@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use serde::Serialize;
+
 use oxide_core::{
     open_lifecycle_from_persistence, save_lifecycle_to_persistence, DebugServicePacket,
     GuiSessionSnapshot, GuiShellDiagnosticSummary, GuiShellModuleSummary, GuiShellPacket,
@@ -13,7 +15,8 @@ use oxide_host_bridge::{
 };
 use oxide_oxvba::{load_project_open_spine, ProjectOpenSpineError};
 
-pub const COMMAND_REGISTRATION_KIND: &str = "w344-rust-callable-tauri-ready";
+pub const COMMAND_REGISTRATION_KIND: &str = "w352-tauri-linked-native-command-spine";
+pub const LEGACY_W344_COMMAND_REGISTRATION_KIND: &str = "w344-rust-callable-tauri-ready";
 
 pub const PROVEN_OXIDE_COMMAND_PLACEHOLDERS: &[&str] = &[
     "dna_oxide_get_host_capabilities",
@@ -431,6 +434,74 @@ pub fn dna_oxide_get_host_capabilities(
     ))
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DesktopHostCommandSpinePacket {
+    pub command_name: &'static str,
+    pub command_spine: &'static str,
+    pub app_name: &'static str,
+    pub product_name: &'static str,
+    pub linked_native_rust: bool,
+    pub project_path: String,
+    pub availability_count: usize,
+    pub enabled_count: usize,
+    pub disabled_count: usize,
+    pub sample_enabled_command: Option<String>,
+    pub sample_disabled_command: Option<String>,
+    pub real_execution_claimed: bool,
+    pub native_runtime_claimed: bool,
+    pub com_runtime_claimed: bool,
+    pub fake_responses: bool,
+    pub fake_debug_data: bool,
+}
+
+impl DesktopHostCommandSpinePacket {
+    pub fn no_claims_all_false(&self) -> bool {
+        !self.real_execution_claimed
+            && !self.native_runtime_claimed
+            && !self.com_runtime_claimed
+            && !self.fake_responses
+            && !self.fake_debug_data
+    }
+}
+
+pub fn dna_oxide_desktop_host_capabilities_probe(
+    project_path: Option<impl AsRef<Path>>,
+) -> Result<DesktopHostCommandSpinePacket, DnaOxideCommandError> {
+    let project_path = match project_path {
+        Some(path) => path.as_ref().to_path_buf(),
+        None => default_thin_slice_project_path(),
+    };
+    let availability = dna_oxide_get_host_capabilities(&project_path)?;
+    let enabled_count = availability.iter().filter(|command| command.enabled).count();
+    let sample_enabled_command = availability
+        .iter()
+        .find(|command| command.enabled)
+        .map(|command| command.stable_id.clone());
+    let sample_disabled_command = availability
+        .iter()
+        .find(|command| !command.enabled)
+        .map(|command| command.stable_id.clone());
+
+    Ok(DesktopHostCommandSpinePacket {
+        command_name: "dna_oxide_desktop_host_capabilities_probe",
+        command_spine: "WebView UI -> Tauri invoke -> #[tauri::command] -> linked Rust command module -> typed packet",
+        app_name: "DnaOxIde",
+        product_name: "DNA OxIde",
+        linked_native_rust: true,
+        project_path: project_path.display().to_string(),
+        availability_count: availability.len(),
+        enabled_count,
+        disabled_count: availability.len().saturating_sub(enabled_count),
+        sample_enabled_command,
+        sample_disabled_command,
+        real_execution_claimed: false,
+        native_runtime_claimed: false,
+        com_runtime_claimed: false,
+        fake_responses: false,
+        fake_debug_data: false,
+    })
+}
+
 pub fn dna_oxide_get_compile_options() -> DnaOxideUnavailableCommandPacket {
     pending_packet(
         "dna_oxide_get_compile_options",
@@ -777,6 +848,30 @@ fn module_stem(display_name: &str) -> String {
         .to_string()
 }
 
+fn default_thin_slice_project_path() -> PathBuf {
+    let mut cursor = std::env::current_dir().unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")));
+    loop {
+        let candidate = cursor
+            .join("examples")
+            .join("thin-slice")
+            .join("ThinSliceHello.basproj");
+        if candidate.exists() {
+            return candidate;
+        }
+        if !cursor.pop() {
+            break;
+        }
+    }
+
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .join("..")
+        .join("examples")
+        .join("thin-slice")
+        .join("ThinSliceHello.basproj")
+}
+
 fn load_project(project_path: &Path) -> Result<OpenedProjectModule, DnaOxideCommandError> {
     let view = load_project_open_spine(project_path)
         .map_err(|error| project_error(project_path, error))?;
@@ -969,6 +1064,27 @@ mod tests {
             .any(|command| command.stable_id == "compile.options"
                 && command.state.label() == "pending-oxvba-hardening"
                 && !command.enabled));
+    }
+
+    #[test]
+    fn desktop_host_capabilities_probe_returns_typed_linked_rust_packet_without_claims() {
+        let fixture = copy_thin_slice_fixture("desktop-host-probe");
+        let project = fixture.join("ThinSliceHello.basproj");
+
+        let packet = dna_oxide_desktop_host_capabilities_probe(Some(&project))
+            .expect("desktop host capabilities probe");
+        assert_eq!(
+            packet.command_name,
+            "dna_oxide_desktop_host_capabilities_probe"
+        );
+        assert!(packet.linked_native_rust);
+        assert!(packet.command_spine.contains("Tauri invoke"));
+        assert_eq!(packet.product_name, "DNA OxIde");
+        assert_eq!(packet.availability_count, 26);
+        assert!(packet.enabled_count > 0);
+        assert!(packet.disabled_count > 0);
+        assert_eq!(packet.sample_enabled_command.as_deref(), Some("project.open"));
+        assert!(packet.no_claims_all_false());
     }
 
     #[test]

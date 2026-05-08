@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"DNA OxIde scaffold capability placeholder. W341 claims no real runtime, debug, Immediate, or COM service permissions.","local":true,"windows":["main"],"permissions":["core:default"]}}

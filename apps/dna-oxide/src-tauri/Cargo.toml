@@ -10,3 +10,9 @@ publish = false
 oxide-core = { path = "../../../crates/oxide-core" }
 oxide-host-bridge = { path = "../../../crates/oxide-host-bridge" }
 oxide-oxvba = { path = "../../../crates/oxide-oxvba" }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+tauri = { version = "2.11.1", features = [] }
+
+[build-dependencies]
+tauri-build = { version = "2.6.1", features = [] }

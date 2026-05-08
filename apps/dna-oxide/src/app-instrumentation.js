@@ -40,6 +40,7 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
     editorFocused: false,
     focusedSurface: "none",
     lastCommand: null,
+    lastNativeCommandResult: null,
     lifecycleStatus: "clean",
     tempProjectRoot: options.tempProjectRoot ?? "target/w350-temp-project-copy",
     hostServices: options.hostServices ?? null,
@@ -131,7 +132,9 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
       hostCommandBoundary: Object.freeze({
         saveActiveModuleAvailable: typeof state.hostServices?.saveActiveModule === "function",
         reloadActiveModuleAvailable: typeof state.hostServices?.reloadActiveModule === "function",
-        provider: state.hostServices ? "injected-browser-host-service" : "in-memory-browser-harness"
+        desktopHostCapabilitiesProbeAvailable: typeof state.hostServices?.desktopHostCapabilitiesProbe === "function",
+        provider: state.hostServices?.provider ?? (state.hostServices ? "injected-browser-host-service" : "in-memory-browser-harness"),
+        lastNativeCommandResult: state.lastNativeCommandResult
       }),
       noClaimFlags: { ...state.claims },
       instrumentation: { ...DNA_OXIDE_APP_INSTRUMENTATION }
@@ -207,6 +210,7 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
     <button type="button" data-testid="focus-editor-command" data-command="focus-editor">Focus editor</button>
     <button type="button" data-testid="save-active-module-command" data-command="save-active-module">Save</button>
     <button type="button" data-testid="reload-active-module-command" data-command="reload-active-module">Reload</button>
+    <button type="button" data-testid="desktop-host-probe-command" data-command="desktop-host-capabilities-probe">Native host probe</button>
   </nav>
   <section class="dnaoxide-layout" data-testid="app-layout">
     <aside class="panel" data-testid="project-panel" data-project-file="${escapeHtml(snap.projectFile)}">
@@ -226,6 +230,8 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
         <dt>Commands</dt><dd data-testid="command-count">${snap.commandLogLength}</dd>
         <dt>Focused surface</dt><dd data-testid="focused-surface">${escapeHtml(snap.focusedSurface)}</dd>
         <dt>Last command</dt><dd data-testid="last-command">${escapeHtml(snap.lastCommand ?? "none")}</dd>
+        <dt>Host provider</dt><dd data-testid="host-command-provider">${escapeHtml(snap.hostCommandBoundary.provider)}</dd>
+        <dt>Native probe</dt><dd data-testid="native-host-probe-result" data-linked-native-rust="${String(snap.hostCommandBoundary.lastNativeCommandResult?.linked_native_rust === true)}">${escapeHtml(snap.hostCommandBoundary.lastNativeCommandResult?.command_name ?? "not-run")}</dd>
       </dl>
     </aside>
   </section>
@@ -334,6 +340,28 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
           tempProjectRoot: sourceSnapshot().tempProjectRoot,
           sourceTextHash: sourceSnapshot().sourceTextHash,
           response
+        });
+        break;
+      }
+      case "desktop-host-capabilities-probe":
+      case "dna_oxide_desktop_host_capabilities_probe": {
+        if (typeof state.hostServices?.desktopHostCapabilitiesProbe !== "function") {
+          return runCommand(commandName, payload);
+        }
+        const response = await state.hostServices.desktopHostCapabilitiesProbe(payload);
+        state.lastNativeCommandResult = response;
+        pushEvent("desktop-host-capabilities-probed", {
+          commandName,
+          commandBoundary: "tauri-linked-native-rust",
+          linkedNativeRust: response?.linked_native_rust === true,
+          availabilityCount: response?.availability_count ?? null,
+          noClaimFlagsFalse: response
+            ? response.real_execution_claimed === false
+              && response.native_runtime_claimed === false
+              && response.com_runtime_claimed === false
+              && response.fake_responses === false
+              && response.fake_debug_data === false
+            : false
         });
         break;
       }

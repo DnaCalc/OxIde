@@ -1,12 +1,30 @@
 mod commands;
 mod services;
 
+#[tauri::command]
+fn dna_oxide_desktop_host_capabilities_probe(
+    project_path: Option<String>,
+) -> Result<commands::DesktopHostCommandSpinePacket, String> {
+    commands::dna_oxide_desktop_host_capabilities_probe(project_path.as_deref())
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn dna_oxide_get_host_capabilities_probe(
+    project_path: Option<String>,
+) -> Result<commands::DesktopHostCommandSpinePacket, String> {
+    commands::dna_oxide_desktop_host_capabilities_probe(project_path.as_deref())
+        .map_err(|error| error.to_string())
+}
+
 fn main() {
-    let boundary = services::scaffold_claim_boundary();
-    println!(
-        "{} ({}) {}",
-        boundary.product_name, boundary.app_name, boundary.scaffold_kind
-    );
+    tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            dna_oxide_desktop_host_capabilities_probe,
+            dna_oxide_get_host_capabilities_probe
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running DNA OxIde Tauri app");
 }
 
 #[cfg(test)]
@@ -25,7 +43,7 @@ mod tests {
     fn native_scaffold_exposes_rust_callable_command_boundary() {
         assert_eq!(
             commands::COMMAND_REGISTRATION_KIND,
-            "w344-rust-callable-tauri-ready"
+            "w352-tauri-linked-native-command-spine"
         );
         let commands = commands::all_command_placeholders();
         assert!(commands.len() >= 30);
