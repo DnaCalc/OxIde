@@ -1,7 +1,7 @@
 # Planning Reset — W349 to Live DnaOxIde App
 
 Date: 2026-05-07
-Status: `active_reset_applied`
+Status: `superseded_by_2026_05_08_target_stack_alignment`
 
 ## Why This Reset Exists
 
@@ -19,10 +19,10 @@ The next active GUI/DnaOxIde sequence is now:
    - command/event trace capture,
    - live source text editing,
    - dirty/save/reload over temp project copies.
-2. **W352 — DnaOxIde Tauri/WebView automation**
-   - planned desktop-host automation lane reusing W350 instrumentation once Tauri/WebView tooling is ready.
-3. **W355 — DnaOxIde compile/build adapter**
-   - OxVba-backed compile options, run targets, typed build/check status, request IDs, lifecycle events, and diagnostics.
+2. **W352 — DnaOxIde Tauri/WebView product host and automation**
+   - desktop product-host lane proving UI -> Tauri/WebView -> linked native Rust command flow.
+3. **W355 — OxVba compile/build adapter profiles**
+   - OxVba-backed browser/WASM compile/check profile and native desktop compile/build profile, with typed options, run targets, build/check status, request IDs, lifecycle events, and diagnostics.
 4. **W360 — DnaOxIde COM/reference adapter**
    - OxVba-backed reference roster, COM candidates, repair/reorder plans, capability profile, and runtime availability status.
 5. **W365 — DnaOxIde runtime/Immediate adapter**
@@ -42,7 +42,7 @@ W350 must put instrumentation in place before the live editing loop is accepted.
 - before/after snapshot capture for every injected interaction,
 - no-claim flags in every artifact.
 
-This instrumentation is what enables a fast feedback loop: automate the app, observe the effect, adjust, and rerun.
+This instrumentation enabled the W350 feedback loop. After the 2026-05-08 target-stack clarification, it is retained as a regression/review harness only. New product work must exercise real endpoint seams: DnaOneCalc browser WASM host integration, Tauri/WebView to linked native Rust commands, or OxVba adapters.
 
 ## Parked Legacy Beads
 
@@ -70,12 +70,13 @@ The reset does not authorize or claim:
 - sibling repo writes,
 - fake runtime/Immediate/debug/COM data.
 
-## Ready Bead After Reset
+## Superseding Target-Stack Alignment
 
-The intended next ready bead is:
+The active plan is now recorded in:
 
-```text
-W350-B00 — Live editable proof mode decision
-```
+- [`CHARTER.md`](../CHARTER.md),
+- [`PRODUCT_DIRECTION.md`](../PRODUCT_DIRECTION.md),
+- [`ARCHITECTURE.md`](../ARCHITECTURE.md),
+- [`docs/OXIDE_TARGET_STACK_SCENARIOS.md`](OXIDE_TARGET_STACK_SCENARIOS.md).
 
-It must choose the proof/driver stack and document the instrumentation contract before implementation proceeds.
+W350 is complete. The next product-path work is W352 Tauri/WebView product-host bootstrap, followed by W355 compile/build adapter profiles.

@@ -1,9 +1,9 @@
 # OxIde Architecture
 
 Status: `active_architecture_direction`
-Date: 2026-05-07
+Date: 2026-05-08
 
-This document is subordinate to [`PRODUCT_DIRECTION.md`](PRODUCT_DIRECTION.md). It records the implementation seams and ownership boundaries for the active Rust/WASM-capable GUI pivot.
+This document is subordinate to [`CHARTER.md`](CHARTER.md) and [`PRODUCT_DIRECTION.md`](PRODUCT_DIRECTION.md). It records the implementation seams and ownership boundaries for the active Rust/WASM-capable GUI pivot.
 
 ## 1. Architectural Position
 
@@ -13,11 +13,13 @@ The active architecture should optimize for:
 
 1. a shared Rust IDE core,
 2. a Rust/WASM-capable GUI surface,
-3. browser and desktop host shells,
+3. browser website and desktop host shells,
 4. embedded consumption by DNA Calc hosts such as `DnaOneCalc`,
-5. direct typed OxVba integration for project/language/runtime truth,
-6. explicit host capability profiles,
-7. greenfield GUI implementation rather than mutation of the current TUI codebase.
+5. a wasm-safe OxVba compiler/runtime profile for browser-hosted DnaOneCalc,
+6. a native OxVba compiler/runtime/debug/COM profile for Windows desktop hosts,
+7. direct typed OxVba integration for project/language/runtime truth,
+8. explicit host capability profiles,
+9. greenfield GUI implementation rather than mutation of the current TUI codebase.
 
 The parked FrankenTui implementation is retained as prototype/evidence lineage, not as the active architectural substrate. See [`docs/TUI_PARKING_PLAN.md`](docs/TUI_PARKING_PLAN.md).
 
@@ -56,14 +58,43 @@ See [`docs/HANDOFF_DNA_CALC_GUI_PIVOT_COORDINATION.md`](docs/HANDOFF_DNA_CALC_GU
 
 The preferred stack direction is:
 
-- Rust for application/domain/editor/session logic,
-- Leptos or a similar Rust/WASM-friendly UI framework for GUI surfaces,
-- browser/WASM host for browser-capable mode and scenario lab,
-- Tauri or equivalent local desktop host for standalone desktop operation,
-- native Windows host service where COM-capable OxVba execution is required,
-- OxVba direct Rust APIs and shared DTOs for project/language/runtime integration.
+- Rust for shared application/domain/editor/session/compiler-adapter logic;
+- Leptos or a similar Rust/WASM-friendly UI framework for shared GUI surfaces;
+- browser/WASM host support for the DnaOneCalc website scenario, including an OxVba wasm-safe compiler/runtime profile that can run supported code inside the browser-hosted DnaOneCalc app;
+- Tauri or equivalent local desktop host for standalone DnaOxIde and DnaOneCalc desktop operation;
+- linked native Rust command layers inside desktop hosts by default;
+- optional separate native service processes only when COM apartment policy, crash isolation, long-lived runtime isolation, or multi-host sharing requires them;
+- native Windows host capability where COM-capable OxVba execution is required;
+- OxVba direct Rust APIs and shared DTOs for project/language/compiler/runtime/debug/COM integration.
 
-This is a direction, not a dependency lock. Candidate dependencies must pass engineering, testing, and license review. See [`docs/EDITOR_SUBSTRATE_RESEARCH.md`](docs/EDITOR_SUBSTRATE_RESEARCH.md) and [`docs/THIRD_PARTY_RESEARCH_AND_LICENSES.md`](docs/THIRD_PARTY_RESEARCH_AND_LICENSES.md).
+This is a direction, not a dependency lock. Candidate dependencies must pass engineering, testing, and license review. See [`docs/EDITOR_SUBSTRATE_RESEARCH.md`](docs/EDITOR_SUBSTRATE_RESEARCH.md), [`docs/THIRD_PARTY_RESEARCH_AND_LICENSES.md`](docs/THIRD_PARTY_RESEARCH_AND_LICENSES.md), and [`docs/OXIDE_TARGET_STACK_SCENARIOS.md`](docs/OXIDE_TARGET_STACK_SCENARIOS.md).
+
+### Target Product Scenarios
+
+The same IDE surface must support:
+
+1. **DnaOneCalc website / browser WASM** — DnaOneCalc loads from a website, opens OxIde in the browser, compiles/checks through OxVba wasm-safe APIs, and runs/invokes supported functions inside the DnaOneCalc WASM host. Native-only features are unavailable with typed disabled reasons.
+2. **Standalone Windows DnaOxIde desktop** — DnaOxIde runs in a desktop shell with the same UI and a native Rust command layer linked into the app by default. That command layer can call OxIde/OxVba crates directly and expose native filesystem, runtime/debug, wrapped native execution, and Windows COM where supported.
+3. **DnaOneCalc Windows desktop host** — DnaOneCalc owns the desktop product shell, embeds/opens OxIde, and exposes native OxVba services to the shared IDE surface.
+
+### Meaning of Native Rust Backend
+
+In this architecture, "native Rust backend" for a Tauri app means the Rust side of the Tauri application crate by default:
+
+```text
+Tauri desktop app
+  ├─ WebView UI
+  └─ linked Rust app code
+      ├─ OxIde host commands
+      ├─ OxIde adapters
+      └─ OxVba crates / native services
+```
+
+It does not mean a separate process unless a workset explicitly chooses that for isolation or COM/runtime policy.
+
+### Product-Seam Rule
+
+Fast feedback remains valuable, but future work must exercise a real endpoint seam: shared Rust/WASM UI, DnaOneCalc browser WASM host integration, Tauri/WebView UI to linked native Rust command, native Rust to OxVba adapter, or real host capability reporting. Static HTML snapshots are review artifacts only and must not become a substitute implementation track.
 
 ## 5. Proposed Workspace Shape
 
@@ -81,8 +112,8 @@ crates/
     text buffer, selections, caret, decorations, editor commands
 
   oxide-oxvba/
-    OxVba adapter over project, language-service, build/run, immediate, debug,
-    and capability-sensitive runtime paths
+    OxVba adapter over project, language-service, wasm-safe compile/run,
+    native build/run, immediate, debug, COM, and capability-sensitive runtime paths
 
   oxide-bridge/
     serde request/event DTOs where a host/UI boundary requires serialization
@@ -94,10 +125,14 @@ crates/
     browser scenario catalogue and visual feedback harness
 
   oxide-host-browser/
-    browser/WASM entrypoint
+    browser/WASM entrypoint for the DnaOneCalc website-compatible profile
 
   oxide-host-tauri/
-    standalone desktop entrypoint
+    standalone desktop entrypoint with linked native Rust commands by default
+
+  oxide-host-dnaonecalc/
+    optional shared host-facing crate only if needed to avoid duplication across
+    DnaOneCalc browser and desktop embedding
 
   oxide-tui-frankentui/
     parked TUI implementation, feature-gated or otherwise isolated
@@ -156,11 +191,12 @@ Owns OxIde-side integration with OxVba:
 - workspace/project loading through authoritative OxVba APIs,
 - mapping OxIde document/session concepts to OxVba document identity,
 - semantic query orchestration,
-- build/run/immediate/debug session access,
+- wasm-safe compile/check/run invocation where OxVba exposes it,
+- native build/run/immediate/debug session access where the host exposes it,
 - COM capability reporting and native-runtime routing where applicable,
 - translation to OxIde-owned view models only where needed.
 
-It should avoid duplicating OxVba-owned enums and contracts.
+It should avoid duplicating OxVba-owned enums and contracts. If OxVba lacks a clean wasm-safe/native capability split, OxIde should record and coordinate that upstream work rather than replacing OxVba truth locally.
 
 ### `oxide-bridge`
 
@@ -194,9 +230,10 @@ It should depend on view models and commands, not on OxVba directly.
 
 Host crates own startup, packaging, and platform integration only:
 
-- `oxide-host-browser` boots browser/WASM mode,
-- `oxide-host-tauri` boots standalone desktop mode,
-- host-specific native services are exposed through typed capability-aware seams.
+- `oxide-host-browser` boots browser/WASM mode and must remain compatible with the DnaOneCalc website scenario,
+- `oxide-host-tauri` boots standalone desktop mode and exposes linked native Rust commands by default,
+- host-specific native services are exposed through typed capability-aware seams,
+- a separate native service process is an explicit workset decision, not the default meaning of backend.
 
 Product behavior should not live first in host wrappers.
 
@@ -231,7 +268,9 @@ Conceptual shape:
 HostCapabilityProfile {
     host_kind,
     platform,
-    runtime_location,
+    ui_runtime,                 // browser WASM, desktop WebView, native shell
+    oxvba_compiler_profile,     // wasm-safe, native, unavailable
+    oxvba_runtime_profile,      // wasm-safe, native, unavailable
     filesystem_access,
     oxvba_semantics,
     oxvba_execution,

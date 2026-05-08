@@ -2,21 +2,24 @@
 
 ## Ambition
 
-Connect DnaOxIde runtime and Immediate Window UX to OxVba direct Rust APIs after W350-W360 prove live editing, build/check, and reference/COM status.
+Connect the shared OxIde runtime and Immediate Window UX to OxVba direct Rust APIs after W350-W360 prove live editing, build/check, and reference/COM status.
 
-A user should be able to run a saved temp project copy, receive typed runtime session status, attach/open Immediate where supported, submit a typed Immediate request, and see OxVba-backed output without fake responses.
+A user should be able to run saved source according to the active host profile, receive typed runtime session status, attach/open Immediate where supported, submit a typed Immediate request, and see OxVba-backed output without fake responses. Browser/WASM runtime is in scope only through OxVba's wasm-safe runtime profile; native desktop runtime is in scope through linked native Rust host commands.
 
 ## Dependencies
 
 - W350 — live editable source app.
-- W355 — compile/build adapter.
+- W352 — Tauri/WebView native command spine for desktop evidence.
+- W355 — compile/build adapter profiles.
 - W360 — reference/COM adapter.
 - OxVba `EmbeddedBuildRunHost`, `EmbeddedRunSession`, runtime command status/events, `ImmediateSession`, and Immediate result DTOs.
 
 ## Design
 
-W365 should adopt OxVba runtime/Immediate DTOs through direct Rust adapters:
+W365 should adopt OxVba runtime/Immediate DTOs through direct Rust adapters and profile-aware host packets:
 
+- browser/WASM runtime handles or typed unavailable state from OxVba wasm-safe profile;
+- native desktop runtime session handles through Tauri/native Rust command spine;
 - run request IDs and runtime session IDs;
 - run lifecycle events and typed failure states;
 - runtime command availability;
@@ -54,8 +57,8 @@ Goal:
   DnaOxIde can start a runtime session for a saved temp project copy and return typed status/events.
 
 Design:
-  - Wire OxVba `EmbeddedBuildRunHost` and `EmbeddedRunSession` behind host commands.
-  - Preserve typed disabled/failed states.
+  - Wire OxVba wasm-safe runtime APIs or native `EmbeddedBuildRunHost`/`EmbeddedRunSession` behind host commands according to profile.
+  - Preserve typed disabled/failed states, especially native-only operations in browser/WASM.
   - Keep source-span/runtime-error gaps explicit.
 
 Tests:
@@ -98,8 +101,8 @@ Goal:
   The live DnaOxIde flow can edit, save, build/run, open Immediate, submit a request, and show typed output or typed unavailable state.
 
 Design:
-  - Extend W350 interaction harness.
-  - Assert runtime IDs/events and Immediate output tokens.
+  - Use the real hosted seam for the active profile: browser WASM host or Tauri/native command host.
+  - Assert runtime IDs/events and Immediate output tokens where available.
   - Keep COM/debug claims false.
 
 Tests:
@@ -137,4 +140,4 @@ Closure:
 
 - Full debug/watch/breakpoint UI.
 - COM runtime invocation.
-- Browser/WASM runtime execution claims.
+- Browser/WASM runtime claims beyond OxVba's wasm-safe profile.

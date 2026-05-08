@@ -109,6 +109,12 @@ W350 does not claim:
 
 ## Next Work
 
-W355 compile/build adapter work is unblocked after W350 acceptance. Keep W355 focused on OxIde-side adapter tests and do not convert W350 browser save/reload evidence into runtime/build/debug/COM claims.
+The 2026-05-08 target-stack clarification supersedes the idea that W350 browser evidence alone unblocks desktop adapter acceptance.
 
-W352 Tauri/WebView automation remains future desktop automation work and should reuse the W350 driver/artifact expectations where practical.
+W350 remains useful as a regression harness and source-editing/instrumentation proof, but future product work must exercise real endpoint seams:
+
+- W352: DnaOxIde Tauri/WebView product host with UI -> linked native Rust command evidence;
+- W355: OxVba compile/build adapter profiles, including browser/DnaOneCalc WASM where OxVba exposes wasm-safe APIs and desktop native through the W352 command spine;
+- W360/W365/W370: profile-aware native/wasm availability and OxVba-backed adapters.
+
+Do not convert W350 browser save/reload evidence into product claims for runtime/build/debug/COM, native desktop, or DnaOneCalc host embedding.

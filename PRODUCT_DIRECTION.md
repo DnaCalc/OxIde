@@ -1,18 +1,21 @@
 # OxIde Product Direction
 
 Status: `active_product_direction`
-Date: 2026-05-07
+Date: 2026-05-08
+
+This document implements the product commitments in [`CHARTER.md`](CHARTER.md).
 
 ## 1. Product Direction
 
 `OxIde` is the OxVba IDE for the DNA Calc program.
 
-The active direction is a Rust/WASM-capable GUI IDE surface that can:
+The active direction is a Rust/WASM-capable GUI IDE surface that supports three real product scenarios:
 
-1. run standalone as a cross-platform desktop IDE,
-2. run in browser/WASM-capable form where host capabilities allow,
-3. be embedded inside DNA Calc hosts, with `DnaOneCalc` as the first architectural exemplar,
-4. author, inspect, run, and debug OxVba projects without duplicating OxVba truth.
+1. **DnaOneCalc website / browser WASM host** — the DnaOneCalc app is loaded from a website into the client browser; it can open the OxIde interface, edit/load source, compile/check through an OxVba wasm-safe profile, and run/invoke supported compiled or interpreted functions directly inside the DnaOneCalc WASM host.
+2. **Standalone Windows DnaOxIde desktop** — the same IDE surface runs in a desktop shell, with native Rust OxVba compiler/runtime/debug/COM capabilities exposed by the desktop host.
+3. **DnaOneCalc Windows desktop host** — the DnaOneCalc desktop product shell embeds/opens OxIde and exposes native OxVba capabilities, including Windows COM where supported.
+
+Across all scenarios OxIde must author, inspect, run, and debug OxVba projects without duplicating OxVba truth. Browser/WASM support is a first-class product target, not an exhibition-only proof mode.
 
 The previous FrankenTui direction is parked, retained, and no longer the active product path. It remains valuable design evidence and possible future companion-TUI material. See [`docs/TUI_PARKING_PLAN.md`](docs/TUI_PARKING_PLAN.md).
 
@@ -41,7 +44,8 @@ The core product promise is:
 Open an OxVba project.
 Understand its modules, references, targets, diagnostics, and runtime capability.
 Edit source confidently.
-Run, inspect, debug, and use Immediate surfaces where the host can support them.
+Compile/check and run where the current host profile supports it.
+Use Immediate/debug/COM surfaces where the current host profile supports them.
 Carry the same IDE surface into DNA Calc hosts where that is the right product fit.
 ```
 
@@ -121,6 +125,8 @@ See [`docs/DNA_CALC_HOST_INTEGRATION.md`](docs/DNA_CALC_HOST_INTEGRATION.md).
 
 The DNA Calc repos are one coordinated product family. Human and agentic developers have product-level control over OxIde, OxVba, DnaOneCalc, and sibling repos.
 
+That includes directing OxVba changes when the clean product path requires a wasm-safe compiler/runtime profile, a native compiler/runtime profile, shared DTOs, or clearer host capability contracts. OxIde should capture those needs as handoffs or coordinated work rather than building permanent substitutes.
+
 That changes the design posture:
 
 1. prefer a clean cross-repo interface change over compatibility glue,
@@ -141,17 +147,18 @@ OxIde must be explicit about what the current host can do.
 
 The product supports multiple host profiles:
 
-1. browser/WASM-only profile,
-2. DNA Calc host browser profile,
-3. standalone desktop profile,
+1. browser website / DnaOneCalc WASM host profile,
+2. standalone DnaOxIde desktop profile,
+3. DnaOneCalc Windows desktop embedded-host profile,
 4. Windows desktop native profile with COM capability where available,
 5. non-Windows desktop profile without Windows COM.
 
-Do not treat "OxVba in WASM" as a universal claim. The correct product model is:
+Do not treat "OxVba in WASM" as either impossible or universal. The correct product model is:
 
-- browser/WASM mode supports a WASM-safe OxVba capability profile,
-- desktop native mode can run native OxVba where packaged by the host,
-- Windows native mode can support COM through a native runtime layer,
+- browser/WASM mode supports a **wasm-safe OxVba compiler/runtime profile** that can compile/check and run/invoke supported functions inside the browser host;
+- browser/WASM mode must surface native-only capabilities as unavailable instead of faking them;
+- desktop native mode can run native OxVba where packaged by the host;
+- Windows native mode can support COM through a native runtime layer;
 - pure browser/WASM cannot directly call Windows COM.
 
 The UI should surface facts such as:

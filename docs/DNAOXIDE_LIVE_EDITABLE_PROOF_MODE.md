@@ -1,14 +1,14 @@
 # DNA OxIde Live Editable Proof Mode
 
-Status: `selected_w350_b00`
+Status: `w350_harness_retained_not_product_endpoint`
 Date: 2026-05-08
 Source workset: W350 — DnaOxIde Live Editable Source App
 
 ## Decision
 
-W350 will use **Option B: browser DOM + Playwright** as the primary live editable proof mode.
+W350 used **Option B: browser DOM + Playwright** as the primary live editable proof mode.
 
-A separate **Option C: Tauri/WebView automation** plan is recorded and tracked as future work. Tauri/WebView automation is important for the desktop product lane, but it should not block the first live edit/save/reload feedback loop because the local Tauri CLI/tooling is not currently installed.
+After the 2026-05-08 target-stack clarification, this is retained as a regression/review harness only. It must not be extended as a substitute product track. Desktop product work moves through W352 Tauri/WebView with linked native Rust commands; browser product work moves through the DnaOneCalc website/WASM host and OxVba wasm-safe compiler/runtime profile.
 
 ## Local Tool Evidence
 
@@ -142,11 +142,11 @@ If Playwright becomes unavailable or cannot drive the local app deterministicall
 
 Fallback use must be explicitly documented in W350 evidence and must not be described as browser event-loop or WebView automation.
 
-## Option C Plan Reference
+## Desktop Product Host Reference
 
-Tauri/WebView automation is planned separately in:
+Tauri/WebView product-host work is planned separately in:
 
 - [`DNAOXIDE_TAURI_WEBVIEW_AUTOMATION_PLAN.md`](DNAOXIDE_TAURI_WEBVIEW_AUTOMATION_PLAN.md),
 - `docs/worksets/W352_dnaoxide_tauri_webview_automation.md`.
 
-W352 should start after W350 proves the browser DOM feedback loop or when the user explicitly prioritizes desktop WebView automation.
+W352 is now the next desktop product-host lane. It must prove UI -> Tauri/WebView -> linked native Rust command flow rather than extending W350 browser-only host services.

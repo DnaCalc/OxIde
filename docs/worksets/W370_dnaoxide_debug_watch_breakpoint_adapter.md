@@ -2,23 +2,25 @@
 
 ## Ambition
 
-Connect DnaOxIde debug, watch, breakpoint, callstack, and locals panes to OxVba direct Rust APIs after W365 proves runtime and Immediate adapter flow.
+Connect the shared OxIde debug, watch, breakpoint, callstack, and locals panes to OxVba direct Rust APIs after W365 proves runtime and Immediate adapter flow.
 
-A user should be able to start/attach a debug session, see typed command availability, inspect callstack/locals where available, add/evaluate watches, set source breakpoints, and see bound/unresolved state without fake debug data.
+A user should be able to start/attach a debug session where the active host profile supports it, see typed command availability, inspect callstack/locals where available, add/evaluate watches, set source breakpoints, and see bound/unresolved state without fake debug data. Browser/WASM debug support must be OxVba-backed or typed unavailable; native Windows desktop debug can use linked native Rust services.
 
 ## Dependencies
 
 - W350 — live editable source app.
-- W355 — compile/build adapter.
+- W352 — Tauri/WebView native command spine for desktop evidence.
+- W355 — compile/build adapter profiles.
 - W360 — reference/COM adapter.
 - W365 — runtime/Immediate adapter.
 - OxVba `DebugSession`, debug command status, watch records/evaluations, breakpoint records/binding, pause/frame/local/source-span DTOs.
 
 ## Design
 
-W370 should adopt OxVba debug DTOs through direct Rust adapters:
+W370 should adopt OxVba debug DTOs through direct Rust adapters and profile-aware host packets:
 
-- debug session IDs and runtime correlation;
+- wasm-safe debug availability or typed unavailable state;
+- native debug session IDs and runtime correlation;
 - command availability for start/continue/step/stop;
 - pause state, callstack, frame IDs, locals;
 - watch registry and evaluation status;
@@ -55,8 +57,8 @@ Goal:
   DnaOxIde can create/attach a debug session and return typed command availability and pause state.
 
 Design:
-  - Wire OxVba `DebugSession` behind host commands.
-  - Preserve unavailable/disabled states for missing runtime/session.
+  - Wire OxVba debug APIs behind host commands according to active profile.
+  - Preserve unavailable/disabled states for browser/WASM gaps, missing runtime/session, or unsupported native capability.
 
 Tests:
   - Command tests for attach/start/continue/step disabled and available states.
@@ -97,7 +99,7 @@ Goal:
   The live DnaOxIde flow can run/debug, show debug panes, add a watch, set a breakpoint, and display typed OxVba-backed or typed unavailable data.
 
 Design:
-  - Extend W350/W365 live interaction harness.
+  - Use the real hosted seam for the active profile: browser WASM host if OxVba supports it, otherwise Tauri/native command host.
   - Assert callstack/locals/watch/breakpoint tokens by stable IDs or disabled reasons.
   - Preserve COM runtime claim boundary.
 
@@ -136,4 +138,4 @@ Closure:
 
 - COM runtime invocation.
 - Full source-span perfection beyond OxVba DTO coverage.
-- DnaOneCalc implementation.
+- DnaOneCalc implementation beyond shared packet/profile contracts.

@@ -2,8 +2,10 @@
 
 Ordered worksets for OxIde's current implementation sequence.
 
-The active direction is now the Rust/WASM-capable GUI pivot. The
-previous FrankenTui sequence is retained as parked TUI lineage rather
+The active direction is now the Rust/WASM-capable GUI pivot governed by
+[`CHARTER.md`](../CHARTER.md): one shared IDE surface across DnaOneCalc
+browser/WASM, DnaOxIde desktop, and DnaOneCalc desktop host scenarios.
+The previous FrankenTui sequence is retained as parked TUI lineage rather
 than removed.
 
 This file owns **workset truth**: which worksets exist, in what order,
@@ -96,15 +98,15 @@ sequence for the GUI pivot.
 23. `W348` — DnaOneCalc shared UI reuse path
 24. `W349` — DnaOxIde while-OxVba acceptance
 25. `W350` — DnaOxIde live editable source app
-26. `W352` — DnaOxIde Tauri/WebView automation
-27. `W355` — DnaOxIde compile/build adapter
+26. `W352` — DnaOxIde Tauri/WebView product host and automation
+27. `W355` — OxVba compile/build adapter profiles
 28. `W360` — DnaOxIde COM/reference adapter
 29. `W365` — DnaOxIde runtime/Immediate adapter
 30. `W370` — DnaOxIde debug/watch/breakpoint adapter
 
 `W341`-`W349` cover the OxIde-side continuation runway while OxVba executes its DNA OxIde full-scope host integration support workset. The runway proceeds with DnaOxIde scaffold, shared UI, host bridge, Tauri command boundaries, static host proof, interaction harness, compile/options/reference panels, and DnaOneCalc reuse path. OxVba feedback identifies available-subset direct Rust surfaces and a ThinSliceHello fixture-evidenced ladder for build/run/Immediate/debug/watch/breakpoint/COM capability seams.
 
-The planning reset after W349 makes `W350` the next active user capability: a live editable DnaOxIde source app over temp project copies, with visual/DOM-like instrumentation, command/event traces, and interaction injection in place before source editing lands. `W352` is the planned Tauri/WebView automation lane that reuses W350 instrumentation once desktop tooling is ready; it should not block the first browser DOM + Playwright feedback loop. `W355`/`W360`/`W365`/`W370` then connect OxVba direct Rust adapters for compile/build, COM/reference, runtime/Immediate, and debug/watch/breakpoint surfaces. These worksets should prefer subset-backed or fixture-evidenced adapter evidence where possible while keeping taxonomy/source-span/native-boundary/COM-runtime/full-host-UX claims gated on OxIde adapter tests and explicit sibling-repo authorization.
+After W350, browser DOM evidence is treated as a regression harness and review artifact, not the product substrate. `W352` is now the required Tauri/WebView desktop product-host lane: UI commands must reach linked native Rust in the Tauri app before desktop compile/runtime work is accepted. `W355` locks compile/build profiles for both the browser website/DnaOneCalc WASM scenario and native desktop scenarios; it must use OxVba wasm-safe or native APIs, or record named OxVba gaps. `W360`/`W365`/`W370` then connect OxVba direct Rust adapters for reference/COM, runtime/Immediate, and debug/watch/breakpoint surfaces with host-profile-specific availability. These worksets must exercise real endpoint seams and must not extend browser-only exhibition substitutes.
 
 ## Workset Specs
 
