@@ -102,6 +102,16 @@ export function createEditableSourceBoundary(options = {}) {
     return outcome("source-reloaded", metadata, beforeHash);
   }
 
+  function loadPersistedSource(text, metadata = {}) {
+    requireString(text, "loadPersistedSource text");
+    const beforeHash = stableSourceHash(state.workingSourceText);
+    state.persistedSourceText = text;
+    state.workingSourceText = text;
+    state.lastReloadedSourceText = text;
+    state.reloadedRevision += 1;
+    return outcome("source-loaded-from-persisted", metadata, beforeHash);
+  }
+
   function revertToPersisted(metadata = {}) {
     const beforeHash = stableSourceHash(state.workingSourceText);
     state.workingSourceText = state.persistedSourceText;
@@ -132,6 +142,7 @@ export function createEditableSourceBoundary(options = {}) {
     applyInputEvent,
     saveToPersisted,
     reloadFromPersisted,
+    loadPersistedSource,
     revertToPersisted
   });
 }
@@ -149,6 +160,9 @@ export function verifyEditableSourceBoundaryContract() {
   const afterDiverge = boundary.snapshot();
   const reload = boundary.reloadFromPersisted();
   const afterReload = boundary.snapshot();
+  boundary.replaceSource("second divergent text");
+  const load = boundary.loadPersistedSource(`${afterReload.sourceText}\n' loaded from temp file`);
+  const afterLoad = boundary.snapshot();
 
   return before.dirty === false
     && before.boundary.hostNeutral === true
@@ -165,6 +179,9 @@ export function verifyEditableSourceBoundaryContract() {
     && reload.kind === "source-reloaded"
     && afterReload.dirty === false
     && afterReload.sourceText === afterSave.persistedSourceText
+    && load.kind === "source-loaded-from-persisted"
+    && afterLoad.dirty === false
+    && afterLoad.sourceText.includes("loaded from temp file")
     && afterReload.noClaimFlags.realExecutionClaimed === false
     && afterReload.noClaimFlags.nativeRuntimeClaimed === false
     && afterReload.noClaimFlags.comRuntimeClaimed === false

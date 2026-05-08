@@ -42,6 +42,7 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
     lastCommand: null,
     lifecycleStatus: "clean",
     tempProjectRoot: options.tempProjectRoot ?? "target/w350-temp-project-copy",
+    hostServices: options.hostServices ?? null,
     eventLog: [],
     commandLog: [],
     sequence: 0,
@@ -127,6 +128,11 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
       eventLogLength: state.eventLog.length,
       lifecycleCommandStates: source.commandStates,
       editableSourceBoundary: source.boundary,
+      hostCommandBoundary: Object.freeze({
+        saveActiveModuleAvailable: typeof state.hostServices?.saveActiveModule === "function",
+        reloadActiveModuleAvailable: typeof state.hostServices?.reloadActiveModule === "function",
+        provider: state.hostServices ? "injected-browser-host-service" : "in-memory-browser-harness"
+      }),
       noClaimFlags: { ...state.claims },
       instrumentation: { ...DNA_OXIDE_APP_INSTRUMENTATION }
     });
@@ -274,6 +280,70 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
     return snapshot();
   }
 
+  async function runHostCommand(commandName, payload = {}) {
+    const command = pushCommand(commandName, { ...payload, commandBoundary: "host-service" });
+    switch (commandName) {
+      case "save-active-module":
+      case "dna_oxide_save_active_module": {
+        let response = null;
+        if (typeof state.hostServices?.saveActiveModule === "function") {
+          response = await state.hostServices.saveActiveModule({
+            projectName: sourceSnapshot().projectName,
+            projectFile: sourceSnapshot().projectFile,
+            activeModule: sourceSnapshot().activeModule,
+            tempProjectRoot: sourceSnapshot().tempProjectRoot,
+            sourceText: sourceSnapshot().sourceText,
+            sourceTextHash: sourceSnapshot().sourceTextHash,
+            requestKind: "save-active-module"
+          });
+        }
+        sourceBoundary.saveToPersisted({ commandName, response });
+        refreshLifecycleStatus();
+        pushEvent("source-saved-to-temp-copy", {
+          commandName,
+          commandBoundary: response ? "injected-browser-host-service" : "in-memory-browser-harness",
+          module: sourceSnapshot().activeModule,
+          tempProjectRoot: sourceSnapshot().tempProjectRoot,
+          sourceTextHash: sourceSnapshot().sourceTextHash,
+          response
+        });
+        break;
+      }
+      case "reload-active-module":
+      case "dna_oxide_reload_active_module": {
+        let response = null;
+        if (typeof state.hostServices?.reloadActiveModule === "function") {
+          response = await state.hostServices.reloadActiveModule({
+            projectName: sourceSnapshot().projectName,
+            projectFile: sourceSnapshot().projectFile,
+            activeModule: sourceSnapshot().activeModule,
+            tempProjectRoot: sourceSnapshot().tempProjectRoot,
+            requestKind: "reload-active-module"
+          });
+        }
+        if (response && typeof response.sourceText === "string") {
+          sourceBoundary.loadPersistedSource(response.sourceText, { commandName, response });
+        } else {
+          sourceBoundary.reloadFromPersisted({ commandName, response });
+        }
+        refreshLifecycleStatus();
+        pushEvent("source-reloaded-from-temp-copy", {
+          commandName,
+          commandBoundary: response ? "injected-browser-host-service" : "in-memory-browser-harness",
+          module: sourceSnapshot().activeModule,
+          tempProjectRoot: sourceSnapshot().tempProjectRoot,
+          sourceTextHash: sourceSnapshot().sourceTextHash,
+          response
+        });
+        break;
+      }
+      default:
+        return runCommand(commandName, payload);
+    }
+
+    return Object.freeze({ command, snapshot: snapshot() });
+  }
+
   function runCommand(commandName, payload = {}) {
     const command = pushCommand(commandName, payload);
     switch (commandName) {
@@ -324,7 +394,8 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
     renderApp,
     renderHostMarkup,
     injectInteraction,
-    runCommand
+    runCommand,
+    runHostCommand
   });
 }
 

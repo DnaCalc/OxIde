@@ -45,7 +45,11 @@ function mountInstrumentedApp(root, targetWindow = globalThis.window) {
     return null;
   }
 
-  const app = createInstrumentedDnaOxIdeApp();
+  const bootstrap = targetWindow?.__DNA_OXIDE_BOOTSTRAP__ ?? {};
+  const app = createInstrumentedDnaOxIdeApp({
+    ...bootstrap,
+    hostServices: targetWindow?.__DNA_OXIDE_HOST_SERVICES__ ?? null
+  });
   root.dataset.frontendScaffold = "mounted";
   root.dataset.sharedUiImplementedHere = "false";
   root.dataset.realExecution = String(DNA_OXIDE_FRONTEND_SCAFFOLD.claims.realExecution);
@@ -89,13 +93,13 @@ function wireInstrumentedAppDom(root, app, render) {
     render('[data-testid="source-editor"]');
   });
 
-  root.querySelector('[data-testid="save-active-module-command"]')?.addEventListener("click", () => {
-    app.runCommand("save-active-module", { via: "dom-click" });
+  root.querySelector('[data-testid="save-active-module-command"]')?.addEventListener("click", async () => {
+    await app.runHostCommand("save-active-module", { via: "dom-click" });
     render();
   });
 
-  root.querySelector('[data-testid="reload-active-module-command"]')?.addEventListener("click", () => {
-    app.runCommand("reload-active-module", { via: "dom-click" });
+  root.querySelector('[data-testid="reload-active-module-command"]')?.addEventListener("click", async () => {
+    await app.runHostCommand("reload-active-module", { via: "dom-click" });
     render();
   });
 }
