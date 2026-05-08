@@ -90,11 +90,13 @@ OxIde has UI surfaces, command stubs, host bridge states, and verification harne
 
 ## Recommended Next Step
 
-Start a new OxIde direct-adapter workset only if the OxVba direct APIs are stable enough to consume locally:
+The W349 planning reset makes **W350 DnaOxIde live editable source app** the next workset. W350 must add visual/DOM-like instrumentation, interaction injection, command/event tracing, and a live edit/save/reload loop over temp project copies before compile/runtime adapter work proceeds.
 
-1. compile/build adapter over project options, run targets, request/event/build result DTOs;
-2. COM/reference adapter over roster, candidate, repair/reorder, capability, and runtime-availability DTOs;
-3. runtime/Immediate adapter over runtime sessions and Immediate request/response DTOs;
-4. debug/watch/breakpoint adapter over debug session, command status, frame/local/watch/breakpoint/source mapping DTOs.
+After W350, start OxIde direct-adapter work only if the OxVba direct APIs are stable enough to consume locally:
+
+1. W355 compile/build adapter over project options, run targets, request/event/build result DTOs;
+2. W360 COM/reference adapter over roster, candidate, repair/reorder, capability, and runtime-availability DTOs;
+3. W365 runtime/Immediate adapter over runtime sessions and Immediate request/response DTOs;
+4. W370 debug/watch/breakpoint adapter over debug session, command status, frame/local/watch/breakpoint/source mapping DTOs.
 
 If adapter work is not authorized or not ready, continue DnaOxIde packaging/polish only and keep all runtime/debug/Immediate/COM claim flags false.

@@ -150,9 +150,11 @@ OxIde/DnaOxIde cannot yet claim:
 
 Required next work is a direct OxIde adapter workset over the OxVba direct Rust surfaces. The adapter tests must prove temp-project direct consumption before any claim flags are changed from false.
 
-## Recommended Next Workset
+## Recommended Next Worksets
 
-If OxVba direct APIs are considered stable enough for OxIde consumption, start a new OxIde workset for direct adapter adoption in this order:
+After the W349 planning reset, the next OxIde workset is **W350 DnaOxIde live editable source app**. W350 must establish visual/DOM-like app instrumentation, interaction injection, command/event traces, and a live edit/save/reload loop over temp project copies before adapter claims progress.
+
+If OxVba direct APIs are considered stable enough for OxIde consumption after W350, continue direct adapter adoption in this order:
 
 1. W355 compile/build adapter: project compile options + build/check request/event packets.
 2. W360 COM/reference adapter: reference roster + COM capability/profile packets with platform gates.

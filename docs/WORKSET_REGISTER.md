@@ -95,8 +95,15 @@ sequence for the GUI pivot.
 22. `W347` — compile options and reference UI placeholders/subset panels
 23. `W348` — DnaOneCalc shared UI reuse path
 24. `W349` — DnaOxIde while-OxVba acceptance
+25. `W350` — DnaOxIde live editable source app
+26. `W355` — DnaOxIde compile/build adapter
+27. `W360` — DnaOxIde COM/reference adapter
+28. `W365` — DnaOxIde runtime/Immediate adapter
+29. `W370` — DnaOxIde debug/watch/breakpoint adapter
 
-`W341`-`W349` cover the OxIde-side continuation runway while OxVba executes its DNA OxIde full-scope host integration support workset. The runway proceeds with DnaOxIde scaffold, shared UI, host bridge, Tauri command boundaries, live host proof, interaction harness, compile/options/reference panels, and DnaOneCalc reuse path. OxVba feedback identifies available-subset direct Rust surfaces and a ThinSliceHello fixture-evidenced ladder for build/run/Immediate/debug/watch/breakpoint/COM capability seams. These worksets should prefer subset-backed or fixture-evidenced adapter evidence where possible while keeping taxonomy/source-span/native-boundary/COM-runtime/full-host-UX claims gated on OxIde adapter tests and explicit sibling-repo authorization.
+`W341`-`W349` cover the OxIde-side continuation runway while OxVba executes its DNA OxIde full-scope host integration support workset. The runway proceeds with DnaOxIde scaffold, shared UI, host bridge, Tauri command boundaries, static host proof, interaction harness, compile/options/reference panels, and DnaOneCalc reuse path. OxVba feedback identifies available-subset direct Rust surfaces and a ThinSliceHello fixture-evidenced ladder for build/run/Immediate/debug/watch/breakpoint/COM capability seams.
+
+The planning reset after W349 makes `W350` the next active user capability: a live editable DnaOxIde source app over temp project copies, with visual/DOM-like instrumentation, command/event traces, and interaction injection in place before source editing lands. `W355`/`W360`/`W365`/`W370` then connect OxVba direct Rust adapters for compile/build, COM/reference, runtime/Immediate, and debug/watch/breakpoint surfaces. These worksets should prefer subset-backed or fixture-evidenced adapter evidence where possible while keeping taxonomy/source-span/native-boundary/COM-runtime/full-host-UX claims gated on OxIde adapter tests and explicit sibling-repo authorization.
 
 ## Workset Specs
 
@@ -141,6 +148,11 @@ sequence for the GUI pivot.
 - [W347_compile_options_reference_placeholders.md](worksets/W347_compile_options_reference_placeholders.md)
 - [W348_dnaonecalc_shared_ui_reuse_path.md](worksets/W348_dnaonecalc_shared_ui_reuse_path.md)
 - [W349_dnaoxide_while_oxvba_acceptance.md](worksets/W349_dnaoxide_while_oxvba_acceptance.md)
+- [W350_dnaoxide_live_editable_source_app.md](worksets/W350_dnaoxide_live_editable_source_app.md)
+- [W355_dnaoxide_compile_build_adapter.md](worksets/W355_dnaoxide_compile_build_adapter.md)
+- [W360_dnaoxide_com_reference_adapter.md](worksets/W360_dnaoxide_com_reference_adapter.md)
+- [W365_dnaoxide_runtime_immediate_adapter.md](worksets/W365_dnaoxide_runtime_immediate_adapter.md)
+- [W370_dnaoxide_debug_watch_breakpoint_adapter.md](worksets/W370_dnaoxide_debug_watch_breakpoint_adapter.md)
 
 ## Use Rule
 
