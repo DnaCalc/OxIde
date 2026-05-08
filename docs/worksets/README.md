@@ -52,6 +52,7 @@ Specs executors will touch next for the Rust/WASM-capable GUI pivot:
 - `W348_dnaonecalc_shared_ui_reuse_path.md`
 - `W349_dnaoxide_while_oxvba_acceptance.md`
 - `W350_dnaoxide_live_editable_source_app.md`
+- `W352_dnaoxide_tauri_webview_automation.md`
 - `W355_dnaoxide_compile_build_adapter.md`
 - `W360_dnaoxide_com_reference_adapter.md`
 - `W365_dnaoxide_runtime_immediate_adapter.md`
@@ -59,7 +60,7 @@ Specs executors will touch next for the Rust/WASM-capable GUI pivot:
 
 `W341`-`W349` cover the OxIde-side continuation runway while OxVba executes its DNA OxIde full-scope host integration support workset. OxVba feedback now identifies available-subset direct Rust surfaces plus a ThinSliceHello fixture-evidenced ladder for build/run/Immediate/debug/watch/breakpoint/COM capability seams.
 
-The planning reset after W349 makes `W350` the next active user capability: a live editable DnaOxIde source app over temp project copies, with visual/DOM-like instrumentation, command/event traces, and interaction injection in place before source editing lands. `W355`/`W360`/`W365`/`W370` then connect OxVba direct Rust adapters for compile/build, COM/reference, runtime/Immediate, and debug/watch/breakpoint surfaces. These worksets should prefer subset-backed or fixture-evidenced adapter evidence where possible while keeping taxonomy/source-span/native-boundary/COM-runtime/full-host-UX claims gated on OxIde adapter tests and explicit sibling-repo authorization.
+The planning reset after W349 makes `W350` the next active user capability: a live editable DnaOxIde source app over temp project copies, with visual/DOM-like instrumentation, command/event traces, and interaction injection in place before source editing lands. `W352` is the planned Tauri/WebView automation lane that reuses W350 instrumentation once desktop tooling is ready; it should not block the first browser DOM + Playwright feedback loop. `W355`/`W360`/`W365`/`W370` then connect OxVba direct Rust adapters for compile/build, COM/reference, runtime/Immediate, and debug/watch/breakpoint surfaces. These worksets should prefer subset-backed or fixture-evidenced adapter evidence where possible while keeping taxonomy/source-span/native-boundary/COM-runtime/full-host-UX claims gated on OxIde adapter tests and explicit sibling-repo authorization.
 
 ## Parked TUI Lineage
 

@@ -19,13 +19,15 @@ The next active GUI/DnaOxIde sequence is now:
    - command/event trace capture,
    - live source text editing,
    - dirty/save/reload over temp project copies.
-2. **W355 — DnaOxIde compile/build adapter**
+2. **W352 — DnaOxIde Tauri/WebView automation**
+   - planned desktop-host automation lane reusing W350 instrumentation once Tauri/WebView tooling is ready.
+3. **W355 — DnaOxIde compile/build adapter**
    - OxVba-backed compile options, run targets, typed build/check status, request IDs, lifecycle events, and diagnostics.
-3. **W360 — DnaOxIde COM/reference adapter**
+4. **W360 — DnaOxIde COM/reference adapter**
    - OxVba-backed reference roster, COM candidates, repair/reorder plans, capability profile, and runtime availability status.
-4. **W365 — DnaOxIde runtime/Immediate adapter**
+5. **W365 — DnaOxIde runtime/Immediate adapter**
    - OxVba-backed runtime sessions, runtime IDs/events, Immediate attach/session IDs, and typed Immediate responses.
-5. **W370 — DnaOxIde debug/watch/breakpoint adapter**
+6. **W370 — DnaOxIde debug/watch/breakpoint adapter**
    - OxVba-backed debug sessions, command states, callstack/locals, watch registry/evaluation, and breakpoint binding records.
 
 ## Instrumentation Requirement
