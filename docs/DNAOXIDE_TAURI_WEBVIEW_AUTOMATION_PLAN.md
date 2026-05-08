@@ -12,17 +12,25 @@ The goal is to run **DNA OxIde / DnaOxIde** in a real Tauri/WebView host, prove 
 
 ## Current Local Tool State
 
-Observed during W350-B00:
+Observed during W352-B00:
 
 ```text
-cargo/rustc: available
-node/npm: available
-Playwright CLI/package: available
+node: v25.2.0
+npm: 11.12.1
+cargo: 1.94.1
+rustc: 1.94.1
+installed Rust targets: wasm32-unknown-unknown, wasm32-wasip1, wasm32-wasip2, x86_64-pc-windows-msvc, x86_64-unknown-linux-gnu
 Tauri CLI: unavailable
+Tauri npm packages in apps/dna-oxide: unavailable
 Trunk: unavailable
+tauri-driver: unavailable
+Microsoft Edge WebView2 Runtime: present
+Microsoft Edge WebDriver: present at C:\\Programs\\EdgeDriver\\msedgedriver.exe
 ```
 
-Therefore W352-B00 must choose and document the Tauri/WebView installation/tooling path before desktop product work proceeds.
+Full transcript: `target/w352-b00-tool-transcript.txt`.
+
+W352-B00 decision details are recorded in [`DNAOXIDE_DESKTOP_HOST_COMMAND_SPINE.md`](DNAOXIDE_DESKTOP_HOST_COMMAND_SPINE.md).
 
 ## Target Product Capability
 
@@ -58,16 +66,21 @@ A separate native service process is not the default. It is only chosen by a lat
 
 ### W352-B00 — Desktop host toolchain and native command spine plan
 
-- Decide exact Tauri CLI and dependency installation path.
-- Keep installation explicit and reviewable.
-- Define the first UI -> Tauri -> linked Rust command spine.
-- Do not hide network/toolchain requirements.
+Decision:
+
+- Use Tauri v2.
+- Add `@tauri-apps/cli` as an app-local npm dev dependency in B01.
+- Add `@tauri-apps/api` as an app-local npm dependency in B01 for host-specific frontend invoke code.
+- Add `tauri`, `tauri-build`, `serde`, and `serde_json` to `apps/dna-oxide/src-tauri` in B01.
+- Use the existing JS/HTML frontend with an app-local static dev server first; do not introduce Trunk/Leptos conversion in W352.
+- First native command spine: WebView UI -> `@tauri-apps/api/core.invoke` -> `#[tauri::command]` -> `commands::dna_oxide_get_host_capabilities(...)` -> serializable `DesktopHostCommandSpinePacket`.
 
 ### W352-B01 — Tauri dev shell starts with native command spine
 
-- Add or enable the minimal Tauri dependency path.
+- Add or enable the minimal Tauri dependency path selected in B00.
+- Add a minimal static dev server and dist-copy script for the current JS/HTML frontend.
 - Launch DnaOxIde desktop shell.
-- Invoke a typed native Rust command from the UI/WebView.
+- Invoke `dna_oxide_desktop_host_capabilities_probe` from the UI/WebView.
 - Keep native runtime, COM runtime, and fake data claims false.
 
 ### W352-B02 — WebView automation bridge
