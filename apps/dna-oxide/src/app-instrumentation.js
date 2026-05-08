@@ -3,6 +3,11 @@ import {
   renderDnaOxIdeHostShell
 } from "./host-shell.js";
 import { createBrowserFixtureCommandClient, NO_CLAIM_FLAGS } from "./command-client.js";
+import {
+  createEditableSourceBoundary,
+  stableSourceHash,
+  verifyEditableSourceBoundaryContract
+} from "./editable-source-boundary.js";
 
 export const DNA_OXIDE_APP_INSTRUMENTATION = Object.freeze({
   version: "w350-v1",
@@ -31,8 +36,6 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
     projectName: options.projectName ?? "ThinSliceHello",
     projectFile: options.projectFile ?? "ThinSliceHello.basproj",
     activeModule: options.activeModule ?? "Module1.bas",
-    sourceText: options.sourceText ?? DEFAULT_SOURCE_TEXT,
-    persistedSourceText: options.persistedSourceText ?? options.sourceText ?? DEFAULT_SOURCE_TEXT,
     sourceProvenance: options.sourceProvenance ?? "w350-browser-dom-live-editable-source",
     editorFocused: false,
     focusedSurface: "none",
@@ -45,8 +48,22 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
     claims: { ...NO_CLAIM_FLAGS }
   };
 
+  const sourceBoundary = createEditableSourceBoundary({
+    projectName: state.projectName,
+    projectFile: state.projectFile,
+    activeModule: state.activeModule,
+    sourceText: options.sourceText ?? DEFAULT_SOURCE_TEXT,
+    persistedSourceText: options.persistedSourceText ?? options.sourceText ?? DEFAULT_SOURCE_TEXT,
+    sourceProvenance: state.sourceProvenance,
+    tempProjectRoot: state.tempProjectRoot
+  });
+
+  function sourceSnapshot() {
+    return sourceBoundary.snapshot();
+  }
+
   function dirty() {
-    return state.sourceText !== state.persistedSourceText;
+    return sourceSnapshot().dirty;
   }
 
   function refreshLifecycleStatus() {
@@ -60,7 +77,7 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
       kind,
       detail: { ...detail },
       dirty: dirty(),
-      sourceLength: state.sourceText.length
+      sourceLength: sourceSnapshot().sourceTextLength
     });
     state.eventLog.push(event);
     return event;
@@ -83,29 +100,33 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
 
   function snapshot() {
     refreshLifecycleStatus();
+    const source = sourceSnapshot();
     return Object.freeze({
       version: DNA_OXIDE_APP_INSTRUMENTATION.version,
       productName: state.productName,
       appName: state.appName,
       proofMode: state.proofMode,
-      projectName: state.projectName,
-      projectFile: state.projectFile,
-      activeModule: state.activeModule,
-      sourceText: state.sourceText,
-      sourceTextLength: state.sourceText.length,
-      sourceTextHash: stableTextHash(state.sourceText),
-      persistedSourceText: state.persistedSourceText,
-      persistedSourceTextLength: state.persistedSourceText.length,
-      persistedSourceTextHash: stableTextHash(state.persistedSourceText),
+      projectName: source.projectName,
+      projectFile: source.projectFile,
+      activeModule: source.activeModule,
+      sourceText: source.sourceText,
+      sourceTextLength: source.sourceTextLength,
+      sourceTextHash: source.sourceTextHash,
+      persistedSourceText: source.persistedSourceText,
+      persistedSourceTextLength: source.persistedSourceTextLength,
+      persistedSourceTextHash: source.persistedSourceTextHash,
+      lastReloadedSourceText: source.lastReloadedSourceText,
+      lastReloadedSourceTextHash: source.lastReloadedSourceTextHash,
       editorFocused: state.editorFocused,
       focusedSurface: state.focusedSurface,
-      dirty: dirty(),
+      dirty: source.dirty,
       lifecycleStatus: state.lifecycleStatus,
-      tempProjectRoot: state.tempProjectRoot,
+      tempProjectRoot: source.tempProjectRoot,
       lastCommand: state.lastCommand,
       commandLogLength: state.commandLog.length,
       eventLogLength: state.eventLog.length,
-      lifecycleCommandStates: lifecycleCommandStates(dirty()),
+      lifecycleCommandStates: source.commandStates,
+      editableSourceBoundary: source.boundary,
       noClaimFlags: { ...state.claims },
       instrumentation: { ...DNA_OXIDE_APP_INSTRUMENTATION }
     });
@@ -152,11 +173,11 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
 
   function renderHostMarkup() {
     const model = createDnaOxIdeHostShellModel(createBrowserFixtureCommandClient(), {
-      projectName: state.projectName,
-      projectFile: state.projectFile,
-      moduleName: state.activeModule,
-      sourceText: state.sourceText,
-      sourceProvenance: state.sourceProvenance,
+      projectName: sourceSnapshot().projectName,
+      projectFile: sourceSnapshot().projectFile,
+      moduleName: sourceSnapshot().activeModule,
+      sourceText: sourceSnapshot().sourceText,
+      sourceProvenance: sourceSnapshot().sourceProvenance,
       lifecycle: {
         dirty: dirty(),
         provider: "w350-browser-dom-instrumented",
@@ -224,24 +245,24 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
         if (typeof interaction.text !== "string") {
           throw new TypeError("replaceSource interaction requires text");
         }
-        state.sourceText = interaction.text;
+        sourceBoundary.replaceSource(interaction.text, { via: interaction.via ?? "test-driver" });
         refreshLifecycleStatus();
         pushEvent("source-replaced", {
           via: interaction.via ?? "test-driver",
           textLength: interaction.text.length,
-          textHash: stableTextHash(interaction.text)
+          textHash: stableSourceHash(interaction.text)
         });
         break;
       case "appendSource":
         if (typeof interaction.text !== "string") {
           throw new TypeError("appendSource interaction requires text");
         }
-        state.sourceText += interaction.text;
+        sourceBoundary.appendSource(interaction.text, { via: interaction.via ?? "test-driver" });
         refreshLifecycleStatus();
         pushEvent("source-appended", {
           via: interaction.via ?? "test-driver",
           textLength: interaction.text.length,
-          textHash: stableTextHash(interaction.text)
+          textHash: stableSourceHash(interaction.text)
         });
         break;
       case "command":
@@ -264,24 +285,24 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
         break;
       case "save-active-module":
       case "dna_oxide_save_active_module":
-        state.persistedSourceText = state.sourceText;
+        sourceBoundary.saveToPersisted({ commandName });
         refreshLifecycleStatus();
         pushEvent("source-saved-to-temp-copy", {
           commandName,
-          module: state.activeModule,
-          tempProjectRoot: state.tempProjectRoot,
-          sourceTextHash: stableTextHash(state.sourceText)
+          module: sourceSnapshot().activeModule,
+          tempProjectRoot: sourceSnapshot().tempProjectRoot,
+          sourceTextHash: sourceSnapshot().sourceTextHash
         });
         break;
       case "reload-active-module":
       case "dna_oxide_reload_active_module":
-        state.sourceText = state.persistedSourceText;
+        sourceBoundary.reloadFromPersisted({ commandName });
         refreshLifecycleStatus();
         pushEvent("source-reloaded-from-temp-copy", {
           commandName,
-          module: state.activeModule,
-          tempProjectRoot: state.tempProjectRoot,
-          sourceTextHash: stableTextHash(state.sourceText)
+          module: sourceSnapshot().activeModule,
+          tempProjectRoot: sourceSnapshot().tempProjectRoot,
+          sourceTextHash: sourceSnapshot().sourceTextHash
         });
         break;
       default:
@@ -321,6 +342,10 @@ export function installDnaOxIdeTestDriver(targetWindow, app = createInstrumented
 }
 
 export function verifyInstrumentationContract(app = createInstrumentedDnaOxIdeApp()) {
+  if (!verifyEditableSourceBoundaryContract()) {
+    return false;
+  }
+
   const before = app.snapshot();
   app.injectInteraction({ type: "focusEditor" });
   app.injectInteraction({ type: "appendSource", text: "\n' W350 instrumentation smoke" });
@@ -353,18 +378,6 @@ export function verifyInstrumentationContract(app = createInstrumentedDnaOxIdeAp
     && !containsForbiddenClaimToken(markup);
 }
 
-function lifecycleCommandStates(isDirty) {
-  return Object.freeze({
-    focusEditor: "enabled",
-    saveActiveModule: isDirty ? "enabled-dirty" : "enabled-clean-noop",
-    reloadActiveModule: "enabled-temp-copy",
-    runProject: "unavailable-no-runtime-claim",
-    debugAttach: "unavailable-no-debug-claim",
-    evaluateImmediate: "unavailable-no-immediate-claim",
-    findComCandidates: "unavailable-no-com-runtime-claim"
-  });
-}
-
 export function forbiddenClaimTokens() {
   const trueText = "tr" + "ue";
   return Object.freeze([
@@ -383,15 +396,6 @@ export function forbiddenClaimTokens() {
 
 export function containsForbiddenClaimToken(text) {
   return forbiddenClaimTokens().some((token) => String(text).includes(token));
-}
-
-function stableTextHash(text) {
-  let hash = 0x811c9dc5;
-  for (const char of String(text)) {
-    hash ^= char.charCodeAt(0);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return hash.toString(16).padStart(8, "0");
 }
 
 function escapeHtml(value) {
