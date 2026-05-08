@@ -1,0 +1,404 @@
+import {
+  createDnaOxIdeHostShellModel,
+  renderDnaOxIdeHostShell
+} from "./host-shell.js";
+import { createBrowserFixtureCommandClient, NO_CLAIM_FLAGS } from "./command-client.js";
+
+export const DNA_OXIDE_APP_INSTRUMENTATION = Object.freeze({
+  version: "w350-v1",
+  proofMode: "browser-dom-playwright-primary",
+  fallbackDriver: "bounded-dom-like-driver-if-playwright-library-unavailable",
+  visualArtifacts: true,
+  domLikeSnapshots: true,
+  commandLog: true,
+  eventLog: true,
+  interactionInjection: true,
+  tempProjectCopiesOnly: true,
+  liveTauriWebViewIpcDriven: false,
+  fullDomAccessibilityAuditClaimed: false,
+  claims: NO_CLAIM_FLAGS
+});
+
+export const W350_TEST_DRIVER_GLOBAL = "__DNA_OXIDE_TEST_DRIVER__";
+
+const DEFAULT_SOURCE_TEXT = `Attribute VB_Name = "Module1"\nOption Explicit\n\nPublic Sub Main()\n    Dim answer As Integer\n    answer = 40 + 2\n    Debug.Print answer\nEnd Sub\n`;
+
+export function createInstrumentedDnaOxIdeApp(options = {}) {
+  const state = {
+    productName: "DNA OxIde",
+    appName: "DnaOxIde",
+    proofMode: DNA_OXIDE_APP_INSTRUMENTATION.proofMode,
+    projectName: options.projectName ?? "ThinSliceHello",
+    projectFile: options.projectFile ?? "ThinSliceHello.basproj",
+    activeModule: options.activeModule ?? "Module1.bas",
+    sourceText: options.sourceText ?? DEFAULT_SOURCE_TEXT,
+    persistedSourceText: options.persistedSourceText ?? options.sourceText ?? DEFAULT_SOURCE_TEXT,
+    sourceProvenance: options.sourceProvenance ?? "w350-browser-dom-live-editable-source",
+    editorFocused: false,
+    focusedSurface: "none",
+    lastCommand: null,
+    lifecycleStatus: "clean",
+    tempProjectRoot: options.tempProjectRoot ?? "target/w350-temp-project-copy",
+    eventLog: [],
+    commandLog: [],
+    sequence: 0,
+    claims: { ...NO_CLAIM_FLAGS }
+  };
+
+  function dirty() {
+    return state.sourceText !== state.persistedSourceText;
+  }
+
+  function refreshLifecycleStatus() {
+    state.lifecycleStatus = dirty() ? "dirty" : "clean";
+    return state.lifecycleStatus;
+  }
+
+  function pushEvent(kind, detail = {}) {
+    const event = Object.freeze({
+      sequence: ++state.sequence,
+      kind,
+      detail: { ...detail },
+      dirty: dirty(),
+      sourceLength: state.sourceText.length
+    });
+    state.eventLog.push(event);
+    return event;
+  }
+
+  function pushCommand(commandName, detail = {}) {
+    const command = Object.freeze({
+      sequence: ++state.sequence,
+      commandName,
+      detail: { ...detail },
+      bucket: "proven-oxide-only-browser-dom-harness",
+      enabled: true,
+      dirtyBefore: dirty(),
+      claims: { ...NO_CLAIM_FLAGS }
+    });
+    state.commandLog.push(command);
+    state.lastCommand = commandName;
+    return command;
+  }
+
+  function snapshot() {
+    refreshLifecycleStatus();
+    return Object.freeze({
+      version: DNA_OXIDE_APP_INSTRUMENTATION.version,
+      productName: state.productName,
+      appName: state.appName,
+      proofMode: state.proofMode,
+      projectName: state.projectName,
+      projectFile: state.projectFile,
+      activeModule: state.activeModule,
+      sourceText: state.sourceText,
+      sourceTextLength: state.sourceText.length,
+      sourceTextHash: stableTextHash(state.sourceText),
+      persistedSourceText: state.persistedSourceText,
+      persistedSourceTextLength: state.persistedSourceText.length,
+      persistedSourceTextHash: stableTextHash(state.persistedSourceText),
+      editorFocused: state.editorFocused,
+      focusedSurface: state.focusedSurface,
+      dirty: dirty(),
+      lifecycleStatus: state.lifecycleStatus,
+      tempProjectRoot: state.tempProjectRoot,
+      lastCommand: state.lastCommand,
+      commandLogLength: state.commandLog.length,
+      eventLogLength: state.eventLog.length,
+      lifecycleCommandStates: lifecycleCommandStates(dirty()),
+      noClaimFlags: { ...state.claims },
+      instrumentation: { ...DNA_OXIDE_APP_INSTRUMENTATION }
+    });
+  }
+
+  function eventLog() {
+    return state.eventLog.map((event) => ({ ...event, detail: { ...event.detail } }));
+  }
+
+  function commandLog() {
+    return state.commandLog.map((command) => ({
+      ...command,
+      detail: { ...command.detail },
+      claims: { ...command.claims }
+    }));
+  }
+
+  function visualSnapshot() {
+    const snap = snapshot();
+    return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>DNA OxIde W350 visual snapshot</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1.5rem; background: #10141f; color: #edf2ff; }
+    .frame { border: 1px solid #4f6bff; border-radius: 12px; padding: 1rem; }
+    textarea { width: 100%; min-height: 14rem; background: #070a12; color: #e4ecff; border: 1px solid #31406b; }
+    .status { color: ${snap.dirty ? "#ffd166" : "#95d5b2"}; }
+    code { color: #9bf6ff; }
+  </style>
+</head>
+<body data-proof-mode="${escapeHtml(snap.proofMode)}" data-dirty="${String(snap.dirty)}" data-native-runtime="false" data-com-runtime="false" data-fake-responses="false" data-fake-debug-data="false">
+  <main class="frame" role="dnaoxide-w350-visual-snapshot">
+    <h1>${escapeHtml(snap.productName)}</h1>
+    <p><code>${escapeHtml(snap.projectName)}</code> / <code>${escapeHtml(snap.activeModule)}</code></p>
+    <p class="status">Lifecycle: ${escapeHtml(snap.lifecycleStatus)}</p>
+    <textarea readonly data-testid="source-editor-visual">${escapeHtml(snap.sourceText)}</textarea>
+    <p>Events: ${snap.eventLogLength}; Commands: ${snap.commandLogLength}; Last command: ${escapeHtml(snap.lastCommand ?? "none")}</p>
+  </main>
+</body>
+</html>`;
+  }
+
+  function renderHostMarkup() {
+    const model = createDnaOxIdeHostShellModel(createBrowserFixtureCommandClient(), {
+      projectName: state.projectName,
+      projectFile: state.projectFile,
+      moduleName: state.activeModule,
+      sourceText: state.sourceText,
+      sourceProvenance: state.sourceProvenance,
+      lifecycle: {
+        dirty: dirty(),
+        provider: "w350-browser-dom-instrumented",
+        proofPath: state.proofMode,
+        events: state.eventLog.map((event) => `${event.sequence}:${event.kind}`)
+      }
+    });
+
+    return renderDnaOxIdeHostShell(model);
+  }
+
+  function renderApp() {
+    const snap = snapshot();
+    return `<section role="dnaoxide-w350-app" data-testid="dnaoxide-w350-app" data-driver-version="${escapeHtml(snap.version)}" data-proof-mode="${escapeHtml(snap.proofMode)}" data-product="${escapeHtml(snap.productName)}" data-app="${escapeHtml(snap.appName)}" data-project="${escapeHtml(snap.projectName)}" data-module="${escapeHtml(snap.activeModule)}" data-dirty="${String(snap.dirty)}" data-editor-focused="${String(snap.editorFocused)}" data-last-command="${escapeHtml(snap.lastCommand ?? "")}" data-event-log-length="${snap.eventLogLength}" data-command-log-length="${snap.commandLogLength}" data-real-execution="false" data-native-runtime="false" data-com-runtime="false" data-fake-responses="false" data-fake-debug-data="false" data-live-tauri-webview-ipc="false" data-full-dom-accessibility-audit="false">
+  <header class="dnaoxide-app-header" data-testid="app-header">
+    <p class="eyebrow">DnaOxIde live editable browser proof</p>
+    <h1>${escapeHtml(snap.productName)}</h1>
+    <p data-testid="project-title">${escapeHtml(snap.projectName)} / ${escapeHtml(snap.activeModule)}</p>
+  </header>
+  <nav class="dnaoxide-toolbar" aria-label="DnaOxIde commands">
+    <button type="button" data-testid="focus-editor-command" data-command="focus-editor">Focus editor</button>
+    <button type="button" data-testid="save-active-module-command" data-command="save-active-module">Save</button>
+    <button type="button" data-testid="reload-active-module-command" data-command="reload-active-module">Reload</button>
+  </nav>
+  <section class="dnaoxide-layout" data-testid="app-layout">
+    <aside class="panel" data-testid="project-panel" data-project-file="${escapeHtml(snap.projectFile)}">
+      <h2>Project</h2>
+      <p>${escapeHtml(snap.projectFile)}</p>
+      <p>Temp project copy only: ${escapeHtml(snap.tempProjectRoot)}</p>
+    </aside>
+    <main class="panel editor-panel" data-testid="editor-panel" data-module="${escapeHtml(snap.activeModule)}">
+      <h2>Source</h2>
+      <textarea data-testid="source-editor" data-role="source-editor" spellcheck="false" aria-label="Source editor for ${escapeHtml(snap.activeModule)}">${escapeHtml(snap.sourceText)}</textarea>
+      <p data-testid="dirty-indicator" data-dirty="${String(snap.dirty)}">${snap.dirty ? "Dirty" : "Clean"}</p>
+    </main>
+    <aside class="panel" data-testid="instrumentation-panel">
+      <h2>Instrumentation</h2>
+      <dl>
+        <dt>Events</dt><dd data-testid="event-count">${snap.eventLogLength}</dd>
+        <dt>Commands</dt><dd data-testid="command-count">${snap.commandLogLength}</dd>
+        <dt>Focused surface</dt><dd data-testid="focused-surface">${escapeHtml(snap.focusedSurface)}</dd>
+        <dt>Last command</dt><dd data-testid="last-command">${escapeHtml(snap.lastCommand ?? "none")}</dd>
+      </dl>
+    </aside>
+  </section>
+  <details class="panel" data-testid="host-shell-details">
+    <summary>Host shell compatibility markup</summary>
+    ${renderHostMarkup()}
+  </details>
+</section>`;
+  }
+
+  function injectInteraction(interaction) {
+    if (!interaction || typeof interaction !== "object") {
+      throw new TypeError("injectInteraction requires an interaction object");
+    }
+
+    switch (interaction.type) {
+      case "focusEditor":
+        state.editorFocused = true;
+        state.focusedSurface = "source-editor";
+        pushEvent("editor-focused", { via: interaction.via ?? "test-driver" });
+        break;
+      case "replaceSource":
+        if (typeof interaction.text !== "string") {
+          throw new TypeError("replaceSource interaction requires text");
+        }
+        state.sourceText = interaction.text;
+        refreshLifecycleStatus();
+        pushEvent("source-replaced", {
+          via: interaction.via ?? "test-driver",
+          textLength: interaction.text.length,
+          textHash: stableTextHash(interaction.text)
+        });
+        break;
+      case "appendSource":
+        if (typeof interaction.text !== "string") {
+          throw new TypeError("appendSource interaction requires text");
+        }
+        state.sourceText += interaction.text;
+        refreshLifecycleStatus();
+        pushEvent("source-appended", {
+          via: interaction.via ?? "test-driver",
+          textLength: interaction.text.length,
+          textHash: stableTextHash(interaction.text)
+        });
+        break;
+      case "command":
+        return runCommand(interaction.commandName, interaction.payload ?? {});
+      default:
+        throw new Error(`Unsupported W350 interaction type: ${interaction.type}`);
+    }
+
+    return snapshot();
+  }
+
+  function runCommand(commandName, payload = {}) {
+    const command = pushCommand(commandName, payload);
+    switch (commandName) {
+      case "focus-editor":
+      case "dna_oxide_focus_editor":
+        state.editorFocused = true;
+        state.focusedSurface = "source-editor";
+        pushEvent("command-focused-editor", { commandName });
+        break;
+      case "save-active-module":
+      case "dna_oxide_save_active_module":
+        state.persistedSourceText = state.sourceText;
+        refreshLifecycleStatus();
+        pushEvent("source-saved-to-temp-copy", {
+          commandName,
+          module: state.activeModule,
+          tempProjectRoot: state.tempProjectRoot,
+          sourceTextHash: stableTextHash(state.sourceText)
+        });
+        break;
+      case "reload-active-module":
+      case "dna_oxide_reload_active_module":
+        state.sourceText = state.persistedSourceText;
+        refreshLifecycleStatus();
+        pushEvent("source-reloaded-from-temp-copy", {
+          commandName,
+          module: state.activeModule,
+          tempProjectRoot: state.tempProjectRoot,
+          sourceTextHash: stableTextHash(state.sourceText)
+        });
+        break;
+      default:
+        pushEvent("command-recorded-no-native-dispatch", { commandName });
+        break;
+    }
+
+    return Object.freeze({ command, snapshot: snapshot() });
+  }
+
+  pushEvent("instrumented-app-created", { proofMode: state.proofMode });
+
+  return Object.freeze({
+    instrumentation: DNA_OXIDE_APP_INSTRUMENTATION,
+    snapshot,
+    eventLog,
+    commandLog,
+    visualSnapshot,
+    renderApp,
+    renderHostMarkup,
+    injectInteraction,
+    runCommand
+  });
+}
+
+export function installDnaOxIdeTestDriver(targetWindow, app = createInstrumentedDnaOxIdeApp()) {
+  if (!targetWindow || typeof targetWindow !== "object") {
+    throw new TypeError("installDnaOxIdeTestDriver requires a window-like object");
+  }
+  Object.defineProperty(targetWindow, W350_TEST_DRIVER_GLOBAL, {
+    value: app,
+    enumerable: false,
+    configurable: true,
+    writable: false
+  });
+  return app;
+}
+
+export function verifyInstrumentationContract(app = createInstrumentedDnaOxIdeApp()) {
+  const before = app.snapshot();
+  app.injectInteraction({ type: "focusEditor" });
+  app.injectInteraction({ type: "appendSource", text: "\n' W350 instrumentation smoke" });
+  const afterEdit = app.snapshot();
+  app.runCommand("save-active-module");
+  const afterSave = app.snapshot();
+  const markup = app.renderApp();
+  const visual = app.visualSnapshot();
+  const eventKinds = app.eventLog().map((event) => event.kind);
+  const commandNames = app.commandLog().map((command) => command.commandName);
+
+  return before.dirty === false
+    && before.proofMode === "browser-dom-playwright-primary"
+    && afterEdit.dirty === true
+    && afterEdit.editorFocused === true
+    && afterSave.dirty === false
+    && afterSave.persistedSourceText.includes("W350 instrumentation smoke")
+    && eventKinds.includes("editor-focused")
+    && eventKinds.includes("source-appended")
+    && eventKinds.includes("source-saved-to-temp-copy")
+    && commandNames.includes("save-active-module")
+    && markup.includes('data-testid="source-editor"')
+    && markup.includes('data-testid="dirty-indicator"')
+    && markup.includes('data-real-execution="false"')
+    && markup.includes('data-native-runtime="false"')
+    && markup.includes('data-com-runtime="false"')
+    && markup.includes('data-fake-responses="false"')
+    && markup.includes('data-fake-debug-data="false"')
+    && visual.includes('role="dnaoxide-w350-visual-snapshot"')
+    && !containsForbiddenClaimToken(markup);
+}
+
+function lifecycleCommandStates(isDirty) {
+  return Object.freeze({
+    focusEditor: "enabled",
+    saveActiveModule: isDirty ? "enabled-dirty" : "enabled-clean-noop",
+    reloadActiveModule: "enabled-temp-copy",
+    runProject: "unavailable-no-runtime-claim",
+    debugAttach: "unavailable-no-debug-claim",
+    evaluateImmediate: "unavailable-no-immediate-claim",
+    findComCandidates: "unavailable-no-com-runtime-claim"
+  });
+}
+
+export function forbiddenClaimTokens() {
+  const trueText = "tr" + "ue";
+  return Object.freeze([
+    `data-real-execution="${trueText}"`,
+    `data-native-runtime="${trueText}"`,
+    `data-com-runtime="${trueText}"`,
+    `data-fake-responses="${trueText}"`,
+    `data-fake-debug-data="${trueText}"`,
+    `realExecutionClaimed":${trueText}`,
+    `nativeRuntimeClaimed":${trueText}`,
+    `comRuntimeClaimed":${trueText}`,
+    `fakeResponses":${trueText}`,
+    `fakeDebugData":${trueText}`
+  ]);
+}
+
+export function containsForbiddenClaimToken(text) {
+  return forbiddenClaimTokens().some((token) => String(text).includes(token));
+}
+
+function stableTextHash(text) {
+  let hash = 0x811c9dc5;
+  for (const char of String(text)) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}

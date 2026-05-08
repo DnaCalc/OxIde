@@ -4,6 +4,11 @@ import {
 } from "./host-shell.js";
 
 import { createBrowserFixtureCommandClient } from "./command-client.js";
+import {
+  createInstrumentedDnaOxIdeApp,
+  installDnaOxIdeTestDriver,
+  verifyInstrumentationContract
+} from "./app-instrumentation.js";
 
 export const DNA_OXIDE_FRONTEND_SCAFFOLD = Object.freeze({
   productName: "DNA OxIde",
@@ -35,6 +40,27 @@ function renderScaffoldBanner(root) {
   root.innerHTML = renderDnaOxIdeHostShell(model);
 }
 
+function mountInstrumentedApp(root, targetWindow = globalThis.window) {
+  if (!root) {
+    return null;
+  }
+
+  const app = createInstrumentedDnaOxIdeApp();
+  root.dataset.frontendScaffold = "mounted";
+  root.dataset.sharedUiImplementedHere = "false";
+  root.dataset.realExecution = String(DNA_OXIDE_FRONTEND_SCAFFOLD.claims.realExecution);
+  root.dataset.nativeRuntime = String(DNA_OXIDE_FRONTEND_SCAFFOLD.claims.nativeRuntime);
+  root.dataset.comRuntime = String(DNA_OXIDE_FRONTEND_SCAFFOLD.claims.comRuntime);
+  root.dataset.hostUiProofMode = app.instrumentation.proofMode;
+  root.innerHTML = app.renderApp();
+
+  if (targetWindow) {
+    installDnaOxIdeTestDriver(targetWindow, app);
+  }
+
+  return app;
+}
+
 export function verifyFrontendScaffold() {
   const { productName, appName, claims } = DNA_OXIDE_FRONTEND_SCAFFOLD;
   return productName === "DNA OxIde"
@@ -43,11 +69,14 @@ export function verifyFrontendScaffold() {
     && claims.nativeRuntime === false
     && claims.comRuntime === false
     && claims.fakeImmediateResponses === false
-    && claims.fakeDebugData === false;
+    && claims.fakeDebugData === false
+    && verifyInstrumentationContract();
 }
 
+export { mountInstrumentedApp, renderScaffoldBanner };
+
 if (typeof document !== "undefined") {
-  renderScaffoldBanner(document.getElementById("dna-oxide-root"));
+  mountInstrumentedApp(document.getElementById("dna-oxide-root"));
 }
 
 if (typeof process !== "undefined" && process.argv.includes("--verify-scaffold")) {
