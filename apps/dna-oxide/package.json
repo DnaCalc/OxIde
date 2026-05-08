@@ -19,6 +19,7 @@
     "editable-source-boundary:check": "node ./scripts/verify-editable-source-boundary.mjs",
     "live-host-mount:check": "node ./scripts/verify-live-host-mount.mjs",
     "live-save-reload:check": "node ./scripts/verify-live-save-reload.mjs",
+    "live-edit:check": "node ./scripts/verify-live-edit-feedback-loop.mjs",
     "compile-panels:check": "node ./scripts/verify-compile-panels.mjs",
     "reference-panels:check": "node ./scripts/verify-reference-panels.mjs",
     "placeholder-commands:check": "node ./scripts/verify-placeholder-commands.mjs"
