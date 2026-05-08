@@ -31,12 +31,41 @@ function createTauriDesktopHostServices(targetWindow = globalThis.window) {
     return null;
   }
 
+  const normalizeModulePacket = (packet) => packet
+    ? {
+        ...packet,
+        commandName: packet.command_name,
+        hostBridgeCommand: packet.host_bridge_command,
+        bucketLabel: packet.bucket,
+        projectName: packet.project_name,
+        workspacePath: packet.workspace_path,
+        activeModule: packet.active_module,
+        modulePath: packet.module_path,
+        sourceText: packet.source_text,
+        providerLabel: packet.provider_label,
+        noClaims: packet.no_claims
+      }
+    : packet;
+
   return Object.freeze({
     provider: "tauri-linked-native-rust",
     desktopHostCapabilitiesProbe(payload = {}) {
       return callNative("dna_oxide_desktop_host_capabilities_probe", {
         projectPath: payload.projectPath ?? null
       });
+    },
+    async saveActiveModule(payload = {}) {
+      const packet = await callNative("dna_oxide_save_active_module", {
+        projectPath: payload.projectPath ?? null,
+        newSource: payload.sourceText ?? ""
+      });
+      return normalizeModulePacket(packet);
+    },
+    async reloadActiveModule(payload = {}) {
+      const packet = await callNative("dna_oxide_reload_active_module", {
+        projectPath: payload.projectPath ?? null
+      });
+      return normalizeModulePacket(packet);
     }
   });
 }

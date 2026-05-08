@@ -75,7 +75,7 @@ pub fn all_command_placeholders() -> Vec<&'static str> {
         .collect()
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum DnaOxideCommandBucket {
     ProvenOxideOnly,
     OxVbaAvailableSubset,
@@ -98,7 +98,7 @@ impl DnaOxideCommandBucket {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct DnaOxideNoClaimFlags {
     pub real_execution_claimed: bool,
     pub native_runtime_claimed: bool,
@@ -127,7 +127,7 @@ impl DnaOxideNoClaimFlags {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DnaOxideModuleCommandPacket {
     pub command_name: &'static str,
     pub host_bridge_command: &'static str,
@@ -342,6 +342,10 @@ pub fn dna_oxide_reload_active_module(
         project_path.as_ref(),
         None,
     )
+}
+
+pub fn dna_oxide_default_tauri_project_path() -> Result<PathBuf, DnaOxideCommandError> {
+    ensure_default_tauri_temp_project_copy()
 }
 
 pub fn dna_oxide_revert_active_module(
@@ -849,14 +853,43 @@ fn module_stem(display_name: &str) -> String {
 }
 
 fn default_thin_slice_project_path() -> PathBuf {
+    repo_root()
+        .join("examples")
+        .join("thin-slice")
+        .join("ThinSliceHello.basproj")
+}
+
+fn ensure_default_tauri_temp_project_copy() -> Result<PathBuf, DnaOxideCommandError> {
+    let root = repo_root();
+    let source_dir = root.join("examples").join("thin-slice");
+    let dest_dir = root.join("target").join("w352-tauri-native-temp-project-copy");
+    std::fs::create_dir_all(&dest_dir).map_err(|error| command_error(PersistenceError::Io {
+        operation: oxide_core::PersistenceOperation::Save,
+        path: dest_dir.display().to_string(),
+        message: error.to_string(),
+    }))?;
+
+    for file_name in ["ThinSliceHello.basproj", "Module1.bas"] {
+        let dest = dest_dir.join(file_name);
+        if !dest.exists() {
+            std::fs::copy(source_dir.join(file_name), &dest).map_err(|error| {
+                command_error(PersistenceError::Io {
+                    operation: oxide_core::PersistenceOperation::Save,
+                    path: dest.display().to_string(),
+                    message: error.to_string(),
+                })
+            })?;
+        }
+    }
+
+    Ok(dest_dir.join("ThinSliceHello.basproj"))
+}
+
+fn repo_root() -> PathBuf {
     let mut cursor = std::env::current_dir().unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")));
     loop {
-        let candidate = cursor
-            .join("examples")
-            .join("thin-slice")
-            .join("ThinSliceHello.basproj");
-        if candidate.exists() {
-            return candidate;
+        if cursor.join("examples").join("thin-slice").exists() {
+            return cursor;
         }
         if !cursor.pop() {
             break;
@@ -867,9 +900,6 @@ fn default_thin_slice_project_path() -> PathBuf {
         .join("..")
         .join("..")
         .join("..")
-        .join("examples")
-        .join("thin-slice")
-        .join("ThinSliceHello.basproj")
 }
 
 fn load_project(project_path: &Path) -> Result<OpenedProjectModule, DnaOxideCommandError> {
