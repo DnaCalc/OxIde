@@ -18,47 +18,48 @@ A user should be able to edit source, save according to host policy, request com
 - W349 — OxVba integration readiness report.
 - [`CHARTER.md`](../../CHARTER.md).
 - [`docs/OXIDE_TARGET_STACK_SCENARIOS.md`](../OXIDE_TARGET_STACK_SCENARIOS.md).
-- OxVba direct host surfaces for wasm-safe compile/check, native compile/build, compile options, run targets, request IDs, command status, lifecycle events, and diagnostics.
+- Current OxVba compile/build-related surfaces as they exist when each bead runs. The OxVba/OxIde seam is intentionally agile at this stage: use what exists, adapt thinly on the OxIde side where reasonable, and request OxVba changes only when the current surface blocks an honest product path.
 
 ## Design
 
-W355 should adopt OxVba-owned compile/build DTOs through a thin OxIde adapter. It must distinguish host profiles rather than pretending all hosts have the same abilities.
+W355 should connect OxIde to the current OxVba compile/build shape without treating the seam as frozen. It must distinguish host profiles rather than pretending all hosts have the same abilities, but it should avoid contract-lock ceremony. The rule is: use OxVba as it is, keep OxIde wrappers thin and honest, adapt on either side as learning arrives, and record requested OxVba changes only when needed.
 
 Profile expectations:
 
 - **browser/DnaOneCalc WASM profile** — compile/check through OxVba wasm-safe APIs and, where OxVba supports it, produce an invokable browser runtime artifact/interpreter handle for DnaOneCalc. Native-only build outputs are typed unavailable.
 - **DnaOxIde desktop profile** — UI command reaches Tauri native Rust, then linked OxIde/OxVba crates perform compile/build/check over temp or selected project copies.
-- **DnaOneCalc desktop profile** — same shared UI/packet contract, with DnaOneCalc desktop host policy exposing native OxVba services.
+- **DnaOneCalc desktop profile** — same shared UI/packet shape where practical, with DnaOneCalc desktop host policy exposing native OxVba services.
 
-The adapter must not define authoritative `.basproj`, language, compile, runtime, or diagnostic semantics locally. Missing OxVba capabilities should create explicit handoffs or typed unavailable states, not fake build output.
+The adapter must not define authoritative `.basproj`, language, compile, runtime, or diagnostic semantics locally. Missing OxVba capabilities should create explicit handoffs or typed unavailable states, not fake build output. Profiles, commands, and packet fields should be documented enough to guide implementation, but they are working integration notes rather than a locked cross-repo contract.
 
 ## Beads
 
-### W355-B00 — Compile/build adapter contract lock
+### W355-B00 — Compile/build adapter profile and command map
 
 Goal:
-  Lock the OxVba compile/build DTOs, host capability profiles, and OxIde packet shape before implementation.
+  Establish the current compile/build integration map: host profiles, command IDs, likely OxVba surfaces to call, thin OxIde packet boundaries, and honest unavailable states, without freezing the OxVba/OxIde seam as a fixed contract.
 
 Design:
-  - Name OxVba-owned DTOs for wasm-safe compile/check, native build/check, options, run targets, requests, status, events, diagnostics, and browser-runtime invocation handles where available.
-  - Define OxIde wrapper packets only at real UI/host serialization boundaries.
-  - Define browser/WASM, DnaOxIde desktop, and DnaOneCalc desktop command paths.
-  - Keep local wrappers clearly non-authoritative.
-  - Record any required OxVba upstream changes as handoffs.
+  - Inspect current OxVba compile/build/check/options/run-target surfaces available to OxIde.
+  - Define working browser/WASM, DnaOxIde desktop, and DnaOneCalc desktop profiles.
+  - Define command IDs and UI-visible packet fields needed for the first implementation pass.
+  - Keep local wrappers clearly non-authoritative and adaptable.
+  - Record OxVba requests only for real gaps encountered, not speculative contract completion.
+  - Preserve no CLI/LSP fallback and no fake build output.
 
 Tests:
-  - Documentation grep for DTO names, host profiles, command IDs, no CLI/LSP fallback, no fake build output, and no native-only claim in browser/WASM mode.
+  - Documentation grep for host profiles, command IDs, current OxVba surfaces or named gaps, no CLI/LSP fallback, no fake build output, and no native-only claim in browser/WASM mode.
 
 Evidence:
-  - `docs/DNAOXIDE_COMPILE_BUILD_ADAPTER_CONTRACT.md`.
-  - `target/w355-b00-compile-build-contract.txt`.
+  - `docs/DNAOXIDE_COMPILE_BUILD_ADAPTER_PROFILE_MAP.md`.
+  - `target/w355-b00-compile-build-profile-map.txt`.
 
 Closure:
-  - [ ] OxVba-owned DTOs are named.
-  - [ ] Browser/WASM and native desktop profiles are explicit.
-  - [ ] OxIde wrapper boundaries are clear.
-  - [ ] Required OxVba work is listed rather than duplicated locally.
-  - [ ] No runtime/debug/COM claims are introduced.
+  - [x] Browser/WASM and native desktop profiles are explicit.
+  - [x] First-pass command IDs and packet fields are documented.
+  - [x] Current OxVba surfaces or named gaps are recorded.
+  - [x] OxIde wrappers remain thin, non-authoritative, and adaptable.
+  - [x] No runtime/debug/COM claims are introduced.
 
 ### W355-B01 — Browser/WASM compile/check adapter path
 
@@ -81,9 +82,9 @@ Evidence:
   - Optional OxVba handoff if the wasm-safe seam is missing.
 
 Closure:
-  - [ ] Browser/WASM compile/check path is adapter-backed or explicitly blocked by a named OxVba gap.
-  - [ ] Browser profile has typed unavailable states for native-only outputs.
-  - [ ] No fake build/runtime data is shown.
+  - [x] Browser/WASM compile/check path is adapter-backed or explicitly blocked by a named OxVba gap.
+  - [x] Browser profile has typed unavailable states for native-only outputs.
+  - [x] No fake build/runtime data is shown.
 
 ### W355-B02 — Desktop native compile/build command adapter
 
@@ -102,13 +103,13 @@ Tests:
   - Fixture mutation guard.
 
 Evidence:
-  - `target/w355-b02-desktop-command-adapter.txt`.
+  - `target/w355-b02-desktop-native-compile-build-adapter.txt`.
 
 Closure:
-  - [ ] Compile options are adapter-backed in the desktop profile.
-  - [ ] Build/check command returns typed status or typed unavailable.
-  - [ ] UI->Tauri->Rust->OxVba path is evidenced.
-  - [ ] No checked-in fixture mutation occurs.
+  - [x] Compile options are adapter-backed or honestly unavailable in the desktop profile.
+  - [x] Build/check command returns typed status or typed unavailable.
+  - [x] UI->Tauri->Rust->OxVba path is evidenced.
+  - [x] No checked-in fixture mutation occurs.
 
 ### W355-B03 — Compile/build UI adoption and hosted interaction proof
 
@@ -135,12 +136,12 @@ Evidence:
   - `target/w355-b03-ui-and-interaction.txt`.
 
 Closure:
-  - [ ] UI shows adapter-backed compile/build status by profile.
-  - [ ] Request/event identity is visible.
-  - [ ] Unavailable states remain honest.
-  - [ ] Shared UI remains host-neutral.
-  - [ ] Edit-save-compile flow is driven through a real host seam.
-  - [ ] Output is OxVba-backed or typed unavailable.
+  - [x] UI shows adapter-backed compile/build status by profile.
+  - [x] Request/event identity is visible.
+  - [x] Unavailable states remain honest.
+  - [x] Shared UI remains host-neutral.
+  - [x] Edit-save-compile flow is driven through a real host seam.
+  - [x] Output is OxVba-backed or typed unavailable.
 
 ### W355-B04 — W355 acceptance
 

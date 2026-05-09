@@ -23,7 +23,7 @@ The facade separates every service into one of four evidence states:
 | `HostProjectApi` | open/list/inspect workspace/project/module roster | `proven-oxide-only` for fixture packets; `oxvba-available-subset` for `HostWorkspaceSession` / `inspect_workspace_target` | OxVba project truth; OxIde host orchestration |
 | `HostDocumentApi` | load/save/reload active documents and sessions | `proven-oxide-only` for W320 filesystem/session persistence | OxIde host policy for persistence; OxVba document identity |
 | `HostLanguageApi` | diagnostics, hover, symbols, definition, references | `oxvba-available-subset` through `HostWorkspaceSession` and language-service direct APIs | OxVba |
-| `HostCompileApi` | compile options, build/check, run target selection | build/check is `oxvba-fixture-evidenced`; compile options/run targets are `pending-oxvba-hardening` | OxVba |
+| `HostCompileApi` | compile options, build/check, run target selection | W355 desktop-native compile options and build/check are `oxvba-available-subset` through linked Tauri Rust; browser/WASM compile remains typed unavailable; run targets remain pending | OxVba |
 | `HostReferenceApi` | active references, COM candidates, reference plans | COM selection and capability profile are `oxvba-fixture-evidenced`; reorder/native boundary adoption is pending | OxVba |
 | `HostRuntimeApi` | run/reset/invoke/stop lifecycle | run/session creation and runtime IDs are `oxvba-fixture-evidenced`; event/source-span/command availability adoption is pending | OxVba |
 | `HostImmediateApi` | Immediate request/response against active runtime | attach/evaluation over overlay source is `oxvba-fixture-evidenced`; host UX/taxonomy adoption is pending | OxVba |
@@ -44,8 +44,8 @@ The facade separates every service into one of four evidence states:
 | `language.hover` | `HostLanguageApi` | `oxvba-available-subset` | direct language service |
 | `language.definition` | `HostLanguageApi` | `oxvba-available-subset` | direct language service |
 | `language.references` | `HostLanguageApi` | `oxvba-available-subset` | direct language service |
-| `compile.options` | `HostCompileApi` | `pending-oxvba-hardening` | project properties/compile options DTOs pending |
-| `compile.check` | `HostCompileApi` | `oxvba-fixture-evidenced` | overlay build through `EmbeddedBuildRunHost::build_workspace` has ThinSliceHello evidence |
+| `compile.options` | `HostCompileApi` | `oxvba-available-subset` / browser typed unavailable | W355 desktop-native path surfaces `LoadedProject` profile fields through Tauri/native Rust; browser/WASM waits for wasm-safe OxVba seam |
+| `compile.check` | `HostCompileApi` | `oxvba-available-subset` / browser typed unavailable | W355 desktop-native path calls `load_basproj` + `compile_project`; wrapper/runtime outputs remain unavailable |
 | `references.show` | `HostReferenceApi` | `oxvba-fixture-evidenced` | broken COM reference state and capability profile have ThinSliceHello evidence |
 | `references.com.search` | `HostReferenceApi` | `oxvba-available-subset` / `oxvba-fixture-evidenced` | `ComSelectionService` subset plus capability-profile evidence; native boundary adoption pending |
 | `runtime.run` | `HostRuntimeApi` | `oxvba-fixture-evidenced` | runtime session creation and stable runtime IDs have ThinSliceHello evidence; OxIde adapter tests still pending |

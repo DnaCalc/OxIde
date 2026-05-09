@@ -13,7 +13,11 @@ use oxide_host_bridge::{
     command_availability_for_statuses, host_bridge_command_catalog, BrowserReviewFixtureHost,
     HostBridgeCommandAvailability, HostCapabilityApi,
 };
-use oxide_oxvba::{load_project_open_spine, ProjectOpenSpineError};
+use oxide_oxvba::{
+    compile_build_check, compile_options_profile, CompileBuildAdapterError,
+    CompileBuildCheckView, CompileDiagnostic, CompileOptionsProfileView, CompiledProjectSummary,
+    ProjectOpenSpineError, load_project_open_spine,
+};
 
 pub const COMMAND_REGISTRATION_KIND: &str = "w352-tauri-linked-native-command-spine";
 pub const LEGACY_W344_COMMAND_REGISTRATION_KIND: &str = "w344-rust-callable-tauri-ready";
@@ -37,6 +41,8 @@ pub const OXVBA_AVAILABLE_SUBSET_COMMAND_PLACEHOLDERS: &[&str] = &[
     "dna_oxide_language_hover",
     "dna_oxide_language_definition",
     "dna_oxide_language_references",
+    "dna_oxide_get_compile_options",
+    "dna_oxide_build_check",
     "dna_oxide_debug_continue",
     "dna_oxide_debug_step_into",
     "dna_oxide_debug_step_over",
@@ -44,7 +50,6 @@ pub const OXVBA_AVAILABLE_SUBSET_COMMAND_PLACEHOLDERS: &[&str] = &[
 ];
 
 pub const OXVBA_FIXTURE_EVIDENCED_COMMAND_PLACEHOLDERS: &[&str] = &[
-    "dna_oxide_build_check",
     "dna_oxide_get_references",
     "dna_oxide_find_com_candidates",
     "dna_oxide_run_project",
@@ -55,7 +60,6 @@ pub const OXVBA_FIXTURE_EVIDENCED_COMMAND_PLACEHOLDERS: &[&str] = &[
 ];
 
 pub const PENDING_OXVBA_COMMAND_PLACEHOLDERS: &[&str] = &[
-    "dna_oxide_get_compile_options",
     "dna_oxide_apply_compile_options",
     "dna_oxide_apply_reference_plan",
     "dna_oxide_stop_runtime",
@@ -186,6 +190,93 @@ pub struct DnaOxideUnavailableCommandPacket {
     pub no_claims: DnaOxideNoClaimFlags,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DnaOxideCompileDiagnosticPacket {
+    pub phase: String,
+    pub code: String,
+    pub message: String,
+    pub source: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DnaOxideCompiledSummaryPacket {
+    pub instruction_count: usize,
+    pub slot_count: usize,
+    pub user_slot_count: usize,
+    pub procedure_count: usize,
+    pub host_export_count: usize,
+    pub reference_visible_export_count: usize,
+    pub event_binding_count: usize,
+    pub dynamic_object_count: usize,
+    pub com_withevents_route_count: usize,
+    pub rewritten_source_length: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DnaOxideCompileOptionsPacket {
+    pub command_name: &'static str,
+    pub host_bridge_command: &'static str,
+    pub bucket: DnaOxideCommandBucket,
+    pub enabled: bool,
+    pub profile_id: &'static str,
+    pub provider_label: &'static str,
+    pub project_path: String,
+    pub project_name: String,
+    pub output_type: String,
+    pub build_target: String,
+    pub runtime_flavor: String,
+    pub entry_point: Option<String>,
+    pub default_runtime_profile: Option<String>,
+    pub default_policy_preset: Option<String>,
+    pub default_root_object: String,
+    pub module_count: usize,
+    pub reference_count: usize,
+    pub referenced_project_count: usize,
+    pub native_export_count: usize,
+    pub type_library_catalog_count: usize,
+    pub unavailable_options: Vec<String>,
+    pub no_claims: DnaOxideNoClaimFlags,
+}
+
+impl DnaOxideCompileOptionsPacket {
+    pub fn bucket_label(&self) -> &'static str {
+        self.bucket.label()
+    }
+
+    pub fn no_claims_all_false(&self) -> bool {
+        self.no_claims.all_runtime_claims_false()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DnaOxideBuildCheckPacket {
+    pub command_name: &'static str,
+    pub host_bridge_command: &'static str,
+    pub bucket: DnaOxideCommandBucket,
+    pub enabled: bool,
+    pub profile_id: &'static str,
+    pub provider_label: &'static str,
+    pub status: String,
+    pub project_path: String,
+    pub project_name: String,
+    pub diagnostics: Vec<DnaOxideCompileDiagnosticPacket>,
+    pub compiled_summary: Option<DnaOxideCompiledSummaryPacket>,
+    pub loaded_summary: DnaOxideCompileOptionsPacket,
+    pub unavailable_outputs: Vec<&'static str>,
+    pub disabled_reason: Option<String>,
+    pub no_claims: DnaOxideNoClaimFlags,
+}
+
+impl DnaOxideBuildCheckPacket {
+    pub fn bucket_label(&self) -> &'static str {
+        self.bucket.label()
+    }
+
+    pub fn no_claims_all_false(&self) -> bool {
+        self.no_claims.all_runtime_claims_false()
+    }
+}
+
 impl DnaOxideUnavailableCommandPacket {
     pub fn bucket_label(&self) -> &'static str {
         self.bucket.label()
@@ -273,6 +364,7 @@ pub enum DnaOxideCommandError {
     ProjectOpen { path: String, message: String },
     MissingActiveModule { path: String },
     Persistence { message: String },
+    CompileBuild { path: String, message: String },
 }
 
 impl std::fmt::Display for DnaOxideCommandError {
@@ -281,6 +373,7 @@ impl std::fmt::Display for DnaOxideCommandError {
             Self::ProjectOpen { path, message } => write!(f, "open project {path}: {message}"),
             Self::MissingActiveModule { path } => write!(f, "project {path} has no active module"),
             Self::Persistence { message } => write!(f, "persistence command failed: {message}"),
+            Self::CompileBuild { path, message } => write!(f, "compile/build adapter {path}: {message}"),
         }
     }
 }
@@ -506,12 +599,15 @@ pub fn dna_oxide_desktop_host_capabilities_probe(
     })
 }
 
-pub fn dna_oxide_get_compile_options() -> DnaOxideUnavailableCommandPacket {
-    pending_packet(
+pub fn dna_oxide_get_compile_options(
+    project_path: impl AsRef<Path>,
+) -> Result<DnaOxideCompileOptionsPacket, DnaOxideCommandError> {
+    let view = compile_options_profile(project_path.as_ref())
+        .map_err(|error| compile_build_error(project_path.as_ref(), error))?;
+    Ok(compile_options_packet_from_view(
         "dna_oxide_get_compile_options",
-        "compile.options",
-        "project properties / compile options DTOs pending OxIde adoption",
-    )
+        view,
+    ))
 }
 
 pub fn dna_oxide_apply_compile_options() -> DnaOxideUnavailableCommandPacket {
@@ -522,13 +618,12 @@ pub fn dna_oxide_apply_compile_options() -> DnaOxideUnavailableCommandPacket {
     )
 }
 
-pub fn dna_oxide_build_check() -> DnaOxideUnavailableCommandPacket {
-    fixture_packet(
-        "dna_oxide_build_check",
-        "compile.check",
-        "ThinSliceHello fixture covers EmbeddedBuildRunHost::build_workspace; DnaOxIde adapter test pending",
-        Some("EmbeddedBuildRunHost::build_workspace"),
-    )
+pub fn dna_oxide_build_check(
+    project_path: impl AsRef<Path>,
+) -> Result<DnaOxideBuildCheckPacket, DnaOxideCommandError> {
+    let view = compile_build_check(project_path.as_ref())
+        .map_err(|error| compile_build_error(project_path.as_ref(), error))?;
+    Ok(build_check_packet_from_view(view))
 }
 
 pub fn dna_oxide_get_references() -> DnaOxideUnavailableCommandPacket {
@@ -780,6 +875,101 @@ fn fixture_packet(
     }
 }
 
+fn compile_options_packet_from_view(
+    command_name: &'static str,
+    view: CompileOptionsProfileView,
+) -> DnaOxideCompileOptionsPacket {
+    DnaOxideCompileOptionsPacket {
+        command_name,
+        host_bridge_command: "compile.options",
+        bucket: DnaOxideCommandBucket::OxVbaAvailableSubset,
+        enabled: true,
+        profile_id: "dnaoxide-desktop-tauri-native",
+        provider_label: "oxvba-current-api",
+        project_path: view.project_path,
+        project_name: view.project_name,
+        output_type: view.output_type,
+        build_target: view.build_target,
+        runtime_flavor: view.runtime_flavor,
+        entry_point: view.entry_point,
+        default_runtime_profile: view.default_runtime_profile,
+        default_policy_preset: view.default_policy_preset,
+        default_root_object: view.default_root_object,
+        module_count: view.module_count,
+        reference_count: view.reference_count,
+        referenced_project_count: view.referenced_project_count,
+        native_export_count: view.native_export_count,
+        type_library_catalog_count: view.type_library_catalog_count,
+        unavailable_options: view.unavailable_options,
+        no_claims: DnaOxideNoClaimFlags::all_false(),
+    }
+}
+
+fn build_check_packet_from_view(view: CompileBuildCheckView) -> DnaOxideBuildCheckPacket {
+    let status = view.command_status.label().to_string();
+    let enabled = view.compiled_summary.is_some() && view.diagnostics.is_empty();
+    DnaOxideBuildCheckPacket {
+        command_name: "dna_oxide_build_check",
+        host_bridge_command: "compile.check",
+        bucket: DnaOxideCommandBucket::OxVbaAvailableSubset,
+        enabled,
+        profile_id: "dnaoxide-desktop-tauri-native",
+        provider_label: "oxvba-current-api",
+        status,
+        project_path: view.project_path,
+        project_name: view.project_name,
+        diagnostics: view
+            .diagnostics
+            .into_iter()
+            .map(compile_diagnostic_packet_from_view)
+            .collect(),
+        compiled_summary: view.compiled_summary.map(compiled_summary_packet_from_view),
+        loaded_summary: compile_options_packet_from_view(
+            "dna_oxide_get_compile_options",
+            view.loaded_summary,
+        ),
+        unavailable_outputs: vec![
+            "native-wrapper-exe",
+            "native-wrapper-library",
+            "com-server",
+            "com-exe",
+            "runtime-run",
+            "debug-session",
+            "immediate-window",
+        ],
+        disabled_reason: None,
+        no_claims: DnaOxideNoClaimFlags::all_false(),
+    }
+}
+
+fn compile_diagnostic_packet_from_view(
+    diagnostic: CompileDiagnostic,
+) -> DnaOxideCompileDiagnosticPacket {
+    DnaOxideCompileDiagnosticPacket {
+        phase: diagnostic.phase,
+        code: diagnostic.code,
+        message: diagnostic.message,
+        source: diagnostic.source,
+    }
+}
+
+fn compiled_summary_packet_from_view(
+    summary: CompiledProjectSummary,
+) -> DnaOxideCompiledSummaryPacket {
+    DnaOxideCompiledSummaryPacket {
+        instruction_count: summary.instruction_count,
+        slot_count: summary.slot_count,
+        user_slot_count: summary.user_slot_count,
+        procedure_count: summary.procedure_count,
+        host_export_count: summary.host_export_count,
+        reference_visible_export_count: summary.reference_visible_export_count,
+        event_binding_count: summary.event_binding_count,
+        dynamic_object_count: summary.dynamic_object_count,
+        com_withevents_route_count: summary.com_withevents_route_count,
+        rewritten_source_length: summary.rewritten_source_length,
+    }
+}
+
 fn runtime_command_packet(
     command_name: &'static str,
     host_bridge_command: &'static str,
@@ -927,6 +1117,13 @@ fn load_project(project_path: &Path) -> Result<OpenedProjectModule, DnaOxideComm
 
 fn project_error(project_path: &Path, error: ProjectOpenSpineError) -> DnaOxideCommandError {
     DnaOxideCommandError::ProjectOpen {
+        path: project_path.display().to_string(),
+        message: error.to_string(),
+    }
+}
+
+fn compile_build_error(project_path: &Path, error: CompileBuildAdapterError) -> DnaOxideCommandError {
+    DnaOxideCommandError::CompileBuild {
         path: project_path.display().to_string(),
         message: error.to_string(),
     }
@@ -1118,12 +1315,33 @@ mod tests {
     }
 
     #[test]
-    fn unavailable_compile_reference_and_com_commands_are_labeled_without_claims() {
-        let compile = dna_oxide_get_compile_options();
+    fn desktop_compile_options_and_build_check_use_oxvba_adapter_without_runtime_claims() {
+        let fixture = copy_thin_slice_fixture("compile-build-adapter");
+        let project = fixture.join("ThinSliceHello.basproj");
+
+        let compile = dna_oxide_get_compile_options(&project).expect("compile options");
         assert_eq!(compile.command_name, "dna_oxide_get_compile_options");
-        assert_eq!(compile.bucket_label(), "pending-oxvba-hardening");
-        assert!(!compile.enabled);
+        assert_eq!(compile.host_bridge_command, "compile.options");
+        assert_eq!(compile.profile_id, "dnaoxide-desktop-tauri-native");
+        assert_eq!(compile.provider_label, "oxvba-current-api");
+        assert_eq!(compile.bucket_label(), "oxvba-available-subset");
+        assert!(compile.enabled);
+        assert_eq!(compile.project_name, "ThinSliceHello");
+        assert_eq!(compile.output_type, "Exe");
+        assert_eq!(compile.build_target, "Bundle");
         assert!(compile.no_claims_all_false());
+
+        let build = dna_oxide_build_check(&project).expect("build check");
+        assert_eq!(build.command_name, "dna_oxide_build_check");
+        assert_eq!(build.host_bridge_command, "compile.check");
+        assert_eq!(build.bucket_label(), "oxvba-available-subset");
+        assert_eq!(build.status, "succeeded");
+        assert!(build.enabled);
+        assert!(build.diagnostics.is_empty());
+        assert!(build.compiled_summary.is_some());
+        assert!(build.unavailable_outputs.contains(&"runtime-run"));
+        assert!(build.no_claims_all_false());
+
         let apply_compile = dna_oxide_apply_compile_options();
         assert_eq!(
             apply_compile.command_name,
@@ -1131,18 +1349,6 @@ mod tests {
         );
         assert_eq!(apply_compile.bucket_label(), "pending-oxvba-hardening");
         assert!(apply_compile.no_claims_all_false());
-
-        let build = dna_oxide_build_check();
-        assert_eq!(build.command_name, "dna_oxide_build_check");
-        assert_eq!(build.bucket_label(), "oxvba-fixture-evidenced");
-        assert_eq!(
-            build.evidence,
-            Some("EmbeddedBuildRunHost::build_workspace")
-        );
-        assert!(build
-            .disabled_reason
-            .contains("DnaOxIde adapter test pending"));
-        assert!(build.no_claims_all_false());
 
         let references = dna_oxide_get_references();
         assert_eq!(references.bucket_label(), "oxvba-fixture-evidenced");

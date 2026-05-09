@@ -10,10 +10,11 @@ use oxide_domain::{
     ActiveSourceSummary, DiagnosticRow, EditedDocumentDiagnosticsView, HostCapabilitySummary,
     OxideDomainRole, ProjectModuleSummary, ProjectOpenSpineView,
 };
+use oxvba_compiler::compile_project;
 use oxvba_languageservice::{
     DiagnosticSeverity, DocumentId, HostSessionError, HostWorkspaceSession,
 };
-use oxvba_project::inspect_workspace_target;
+use oxvba_project::{inspect_workspace_target, load_basproj};
 
 /// Compile-time marker for the OxVba adapter crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -100,6 +101,174 @@ pub fn load_project_open_spine(
         capability: HostCapabilitySummary::browser_safe_default(),
     })
 }
+
+pub fn compile_build_check(
+    workspace_path: impl AsRef<Path>,
+) -> Result<CompileBuildCheckView, CompileBuildAdapterError> {
+    let workspace_path = workspace_path.as_ref();
+    let loaded = load_basproj(workspace_path).map_err(|source| CompileBuildAdapterError::LoadProject {
+        path: workspace_path.to_path_buf(),
+        message: source.to_string(),
+    })?;
+    let project_name = loaded.manifest.project_name.clone();
+    let loaded_summary = compile_options_profile_from_loaded(workspace_path, &loaded);
+
+    match compile_project(&loaded.manifest) {
+        Ok(compiled) => Ok(CompileBuildCheckView {
+            command_status: CompileCommandStatus::Succeeded,
+            project_path: workspace_path.display().to_string(),
+            project_name,
+            diagnostics: Vec::new(),
+            compiled_summary: Some(CompiledProjectSummary {
+                instruction_count: compiled.bytecode.instructions.len(),
+                slot_count: compiled.bytecode.slot_count,
+                user_slot_count: compiled.bytecode.user_slot_count,
+                procedure_count: compiled.procedure_runtime_metadata.len(),
+                host_export_count: compiled.host_exports.len(),
+                reference_visible_export_count: compiled.reference_visible_exports.len(),
+                event_binding_count: compiled.event_dispatch_bindings.len(),
+                dynamic_object_count: compiled.project_dynamic_objects.len(),
+                com_withevents_route_count: compiled.project_com_withevents_routes.len(),
+                rewritten_source_length: compiled.rewritten_source.len(),
+            }),
+            loaded_summary,
+        }),
+        Err(source) => Ok(CompileBuildCheckView {
+            command_status: CompileCommandStatus::Failed,
+            project_path: workspace_path.display().to_string(),
+            project_name,
+            diagnostics: vec![CompileDiagnostic {
+                phase: String::from("compile"),
+                code: source.code().to_string(),
+                message: source.to_string(),
+                source: String::from("oxvba_compiler::compile_project"),
+            }],
+            compiled_summary: None,
+            loaded_summary,
+        }),
+    }
+}
+
+pub fn compile_options_profile(
+    workspace_path: impl AsRef<Path>,
+) -> Result<CompileOptionsProfileView, CompileBuildAdapterError> {
+    let workspace_path = workspace_path.as_ref();
+    let loaded = load_basproj(workspace_path).map_err(|source| CompileBuildAdapterError::LoadProject {
+        path: workspace_path.to_path_buf(),
+        message: source.to_string(),
+    })?;
+    Ok(compile_options_profile_from_loaded(workspace_path, &loaded))
+}
+
+fn compile_options_profile_from_loaded(
+    workspace_path: &Path,
+    loaded: &oxvba_project::LoadedProject,
+) -> CompileOptionsProfileView {
+    CompileOptionsProfileView {
+        project_path: workspace_path.display().to_string(),
+        project_name: loaded.manifest.project_name.clone(),
+        output_type: format!("{:?}", loaded.output_type),
+        build_target: format!("{:?}", loaded.build_target),
+        runtime_flavor: format!("{:?}", loaded.runtime_flavor),
+        entry_point: loaded.entry_point.clone(),
+        default_runtime_profile: loaded.default_runtime_profile.clone(),
+        default_policy_preset: loaded.default_policy_preset.clone(),
+        default_root_object: loaded.default_root_object.clone(),
+        module_count: loaded.manifest.modules.len(),
+        reference_count: loaded.manifest.references.len(),
+        referenced_project_count: loaded.manifest.reference_projects.len(),
+        native_export_count: loaded.native_exports.len(),
+        type_library_catalog_count: loaded.type_library_catalog.len(),
+        unavailable_options: vec![
+            String::from("native-wrapper-output-path"),
+            String::from("native-process-build-status"),
+            String::from("com-runtime-invocation"),
+        ],
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CompileCommandStatus {
+    Succeeded,
+    Failed,
+}
+
+impl CompileCommandStatus {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Succeeded => "succeeded",
+            Self::Failed => "failed",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompileBuildCheckView {
+    pub command_status: CompileCommandStatus,
+    pub project_path: String,
+    pub project_name: String,
+    pub diagnostics: Vec<CompileDiagnostic>,
+    pub compiled_summary: Option<CompiledProjectSummary>,
+    pub loaded_summary: CompileOptionsProfileView,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompileDiagnostic {
+    pub phase: String,
+    pub code: String,
+    pub message: String,
+    pub source: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompiledProjectSummary {
+    pub instruction_count: usize,
+    pub slot_count: usize,
+    pub user_slot_count: usize,
+    pub procedure_count: usize,
+    pub host_export_count: usize,
+    pub reference_visible_export_count: usize,
+    pub event_binding_count: usize,
+    pub dynamic_object_count: usize,
+    pub com_withevents_route_count: usize,
+    pub rewritten_source_length: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompileOptionsProfileView {
+    pub project_path: String,
+    pub project_name: String,
+    pub output_type: String,
+    pub build_target: String,
+    pub runtime_flavor: String,
+    pub entry_point: Option<String>,
+    pub default_runtime_profile: Option<String>,
+    pub default_policy_preset: Option<String>,
+    pub default_root_object: String,
+    pub module_count: usize,
+    pub reference_count: usize,
+    pub referenced_project_count: usize,
+    pub native_export_count: usize,
+    pub type_library_catalog_count: usize,
+    pub unavailable_options: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CompileBuildAdapterError {
+    LoadProject { path: PathBuf, message: String },
+}
+
+impl std::fmt::Display for CompileBuildAdapterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::LoadProject { path, message } => {
+                write!(f, "load OxVba compile project {}: {message}", path.display())
+            }
+        }
+    }
+}
+
+impl std::error::Error for CompileBuildAdapterError {}
 
 pub fn load_edited_document_diagnostics(
     workspace_path: impl AsRef<Path>,
@@ -307,6 +476,33 @@ mod tests {
         assert!(view.capability.oxvba_semantics_available);
         assert!(!view.capability.oxvba_execution_available);
         assert!(!view.capability.com_runtime_available);
+    }
+
+    #[test]
+    fn compile_options_profile_reports_current_oxvba_project_fields() {
+        let view = compile_options_profile(thin_slice_fixture()).expect("compile options profile");
+
+        assert_eq!(view.project_name, "ThinSliceHello");
+        assert_eq!(view.output_type, "Exe");
+        assert_eq!(view.build_target, "Bundle");
+        assert_eq!(view.runtime_flavor, "Lite");
+        assert!(view.module_count >= 1);
+        assert!(view
+            .unavailable_options
+            .iter()
+            .any(|option| option == "native-process-build-status"));
+    }
+
+    #[test]
+    fn compile_build_check_uses_oxvba_compile_project() {
+        let view = compile_build_check(thin_slice_fixture()).expect("compile build check");
+
+        assert_eq!(view.project_name, "ThinSliceHello");
+        assert_eq!(view.command_status.label(), "succeeded");
+        assert!(view.diagnostics.is_empty());
+        let summary = view.compiled_summary.expect("compiled summary");
+        assert!(summary.instruction_count > 0);
+        assert!(summary.procedure_count > 0);
     }
 
     #[test]

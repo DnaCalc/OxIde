@@ -39,9 +39,9 @@ No command may synthesize fake runtime, Immediate, debug, watch, breakpoint, or 
 | `dna_oxide_language_hover` | `language.hover` | `HostLanguageApi` | `oxvba-available-subset` | Disabled/subset-labeled until direct adapter is wired. |
 | `dna_oxide_language_definition` | `language.definition` | `HostLanguageApi` | `oxvba-available-subset` | Disabled/subset-labeled until direct adapter is wired. |
 | `dna_oxide_language_references` | `language.references` | `HostLanguageApi` | `oxvba-available-subset` | Disabled/subset-labeled until direct adapter is wired. |
-| `dna_oxide_get_compile_options` | `compile.options` | `HostCompileApi` | `pending-oxvba-hardening` | Return typed unavailable/pending state. |
+| `dna_oxide_get_compile_options` | `compile.options` | `HostCompileApi` | `oxvba-available-subset` | W355-B02 desktop-native path returns `LoadedProject` profile fields through linked Tauri Rust; browser remains typed unavailable. |
 | `dna_oxide_apply_compile_options` | `compile.options` | `HostCompileApi` | `pending-oxvba-hardening` | Return typed unavailable/pending state. |
-| `dna_oxide_build_check` | `compile.check` | `HostCompileApi` | `oxvba-fixture-evidenced` | Disabled/fixture-labeled until DnaOxIde adapter test proves `EmbeddedBuildRunHost::build_workspace`. |
+| `dna_oxide_build_check` | `compile.check` | `HostCompileApi` | `oxvba-available-subset` | W355-B02 desktop-native path calls `load_basproj` + `compile_project`; wrapper/native runtime outputs remain typed unavailable. |
 | `dna_oxide_get_references` | `references.show` | `HostReferenceApi` | `oxvba-fixture-evidenced` | Disabled/fixture-labeled until DnaOxIde adapter test proves reference state consumption. |
 | `dna_oxide_find_com_candidates` | `references.com.search` | `HostReferenceApi` | `oxvba-available-subset` / `oxvba-fixture-evidenced` | Disabled/fixture-labeled; COM runtime invocation remains unclaimed. |
 | `dna_oxide_apply_reference_plan` | `references.com.search` | `HostReferenceApi` | `pending-oxvba-hardening` | Return typed unavailable/pending state until plan DTO/adoption is proven. |

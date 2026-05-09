@@ -52,6 +52,18 @@ export const NO_CLAIM_FLAGS = Object.freeze({
   fakeDebugData: false
 });
 
+export const BROWSER_WASM_COMPILE_PROFILE = Object.freeze({
+  profileId: "browser-wasm-dnaonecalc",
+  providerLabel: "oxvba-current-api",
+  target: "wasm32-unknown-unknown",
+  adapterBacked: false,
+  nativeFilesystemRequired: false,
+  nativeProcessRequired: false,
+  comRuntimeRequired: false,
+  missingOxvbaSeam: "oxvba-compiler currently pulls oxvba-com native registry/dlopen surfaces when checked for wasm32-unknown-unknown; no WebHostCommand::CompileCheck seam was observed",
+  evidenceCommand: "cargo check -p oxvba-compiler --target wasm32-unknown-unknown"
+});
+
 const PROVEN_COMMANDS = new Set([
   DNA_OXIDE_COMMANDS.getHostCapabilities,
   DNA_OXIDE_COMMANDS.openProjectPath,
@@ -143,6 +155,12 @@ export function createBrowserFixtureCommandClient() {
     tauriImportedHere: false,
     sharedUiCoupledToTauri: false,
     invoke(commandName, payload = {}) {
+      if (commandName === DNA_OXIDE_COMMANDS.buildCheck) {
+        return Promise.resolve(browserWasmCompileCheckUnavailableResponse(payload));
+      }
+      if (commandName === DNA_OXIDE_COMMANDS.getCompileOptions) {
+        return Promise.resolve(browserWasmCompileOptionsUnavailableResponse(payload));
+      }
       return Promise.resolve(unavailableFixtureResponse(commandName, payload));
     },
     commandNames() {
@@ -164,6 +182,57 @@ export function unavailableFixtureResponse(commandName, payload = {}) {
     disabledReason: bucket === COMMAND_CLIENT_BUCKETS.provenOxideOnly
       ? null
       : `${commandName} is ${bucket}; browser fixture does not execute native services`,
+    payloadEchoed: Object.keys(payload).sort(),
+    claims: { ...NO_CLAIM_FLAGS }
+  });
+}
+
+export function browserWasmCompileCheckUnavailableResponse(payload = {}) {
+  return Object.freeze({
+    commandName: DNA_OXIDE_COMMANDS.buildCheck,
+    hostBridgeCommand: "compile.check",
+    bucket: COMMAND_CLIENT_BUCKETS.unavailableNoClaim,
+    enabled: false,
+    profileId: BROWSER_WASM_COMPILE_PROFILE.profileId,
+    providerLabel: BROWSER_WASM_COMPILE_PROFILE.providerLabel,
+    status: "unavailable",
+    diagnostics: [],
+    compiledSummary: null,
+    disabledReason: BROWSER_WASM_COMPILE_PROFILE.missingOxvbaSeam,
+    unavailableOutputs: [
+      "native-wrapper-exe",
+      "native-wrapper-library",
+      "com-server",
+      "com-exe",
+      "native-process-build"
+    ],
+    wasmProbe: { ...BROWSER_WASM_COMPILE_PROFILE },
+    payloadEchoed: Object.keys(payload).sort(),
+    claims: { ...NO_CLAIM_FLAGS }
+  });
+}
+
+export function browserWasmCompileOptionsUnavailableResponse(payload = {}) {
+  return Object.freeze({
+    commandName: DNA_OXIDE_COMMANDS.getCompileOptions,
+    hostBridgeCommand: "compile.options",
+    bucket: COMMAND_CLIENT_BUCKETS.unavailableNoClaim,
+    enabled: false,
+    profileId: BROWSER_WASM_COMPILE_PROFILE.profileId,
+    providerLabel: BROWSER_WASM_COMPILE_PROFILE.providerLabel,
+    status: "unavailable",
+    disabledReason: "browser/WASM compile options require a wasm-safe OxVba project/load and compile profile seam; current proof is blocked before a browser-safe options packet can be populated",
+    unavailableOptions: [
+      "output_type",
+      "build_target",
+      "runtime_flavor",
+      "entry_point",
+      "default_runtime_profile",
+      "default_policy_preset",
+      "default_root_object",
+      "native-wrapper-output"
+    ],
+    wasmProbe: { ...BROWSER_WASM_COMPILE_PROFILE },
     payloadEchoed: Object.keys(payload).sort(),
     claims: { ...NO_CLAIM_FLAGS }
   });

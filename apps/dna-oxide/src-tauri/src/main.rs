@@ -41,13 +41,37 @@ fn dna_oxide_reload_active_module(
     commands::dna_oxide_reload_active_module(project_path).map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+fn dna_oxide_get_compile_options(
+    project_path: Option<String>,
+) -> Result<commands::DnaOxideCompileOptionsPacket, String> {
+    let project_path = match project_path {
+        Some(path) => std::path::PathBuf::from(path),
+        None => commands::dna_oxide_default_tauri_project_path().map_err(|error| error.to_string())?,
+    };
+    commands::dna_oxide_get_compile_options(project_path).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn dna_oxide_build_check(
+    project_path: Option<String>,
+) -> Result<commands::DnaOxideBuildCheckPacket, String> {
+    let project_path = match project_path {
+        Some(path) => std::path::PathBuf::from(path),
+        None => commands::dna_oxide_default_tauri_project_path().map_err(|error| error.to_string())?,
+    };
+    commands::dna_oxide_build_check(project_path).map_err(|error| error.to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             dna_oxide_desktop_host_capabilities_probe,
             dna_oxide_get_host_capabilities_probe,
             dna_oxide_save_active_module,
-            dna_oxide_reload_active_module
+            dna_oxide_reload_active_module,
+            dna_oxide_get_compile_options,
+            dna_oxide_build_check
         ])
         .run(tauri::generate_context!())
         .expect("error while running DNA OxIde Tauri app");

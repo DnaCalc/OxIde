@@ -28,7 +28,9 @@
     "tauri-command-spine:check": "node ./scripts/verify-tauri-command-spine.mjs",
     "webview-automation:check": "node ./scripts/verify-webview-automation.mjs",
     "tauri-edit-save-reload:check": "node ./scripts/verify-tauri-edit-save-reload.mjs",
+    "tauri-edit-save-compile:check": "node ./scripts/verify-tauri-edit-save-compile.mjs",
     "compile-panels:check": "node ./scripts/verify-compile-panels.mjs",
+    "compile-build-ui:check": "node ./scripts/verify-compile-build-ui.mjs",
     "reference-panels:check": "node ./scripts/verify-reference-panels.mjs",
     "placeholder-commands:check": "node ./scripts/verify-placeholder-commands.mjs"
   },

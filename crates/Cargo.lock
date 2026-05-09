@@ -620,6 +620,7 @@ name = "oxide-oxvba"
 version = "0.1.0"
 dependencies = [
  "oxide-domain",
+ "oxvba-compiler",
  "oxvba-languageservice",
  "oxvba-project",
 ]

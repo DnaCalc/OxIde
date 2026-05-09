@@ -1,6 +1,8 @@
 import {
   COMMAND_CLIENT_BUCKETS,
   DNA_OXIDE_COMMANDS,
+  BROWSER_WASM_COMPILE_PROFILE,
+  browserWasmCompileCheckUnavailableResponse,
   createBrowserFixtureCommandClient,
   createDnaOxIdeCommandClient,
   unavailableFixtureResponse,
@@ -39,6 +41,27 @@ if (runtime.bucket !== COMMAND_CLIENT_BUCKETS.oxvbaFixtureEvidenced || runtime.e
 const compile = unavailableFixtureResponse(DNA_OXIDE_COMMANDS.getCompileOptions);
 if (compile.bucket !== COMMAND_CLIENT_BUCKETS.pendingOxvbaHardening || compile.claims.fakeDebugData !== false) {
   console.error("DNA OxIde browser fixture did not preserve pending/no-claim compile state");
+  process.exit(1);
+}
+
+const browserCompileCheck = await browserClient.invoke(DNA_OXIDE_COMMANDS.buildCheck, { sourceText: "Sub Main()\nEnd Sub" });
+if (browserCompileCheck.hostBridgeCommand !== "compile.check"
+  || browserCompileCheck.profileId !== BROWSER_WASM_COMPILE_PROFILE.profileId
+  || browserCompileCheck.status !== "unavailable"
+  || browserCompileCheck.wasmProbe.adapterBacked !== false
+  || browserCompileCheck.wasmProbe.nativeFilesystemRequired !== false
+  || browserCompileCheck.wasmProbe.nativeProcessRequired !== false
+  || browserCompileCheck.wasmProbe.comRuntimeRequired !== false
+  || !browserCompileCheck.disabledReason.includes("wasm32-unknown-unknown")
+  || !browserCompileCheck.disabledReason.includes("oxvba-com")
+  || browserCompileCheck.claims.fakeResponses !== false) {
+  console.error("DNA OxIde browser fixture did not return the typed WASM compile/check unavailable packet");
+  process.exit(1);
+}
+
+const directBrowserCompileCheck = browserWasmCompileCheckUnavailableResponse({ projectPath: "browser-memory" });
+if (!directBrowserCompileCheck.unavailableOutputs.includes("native-process-build")) {
+  console.error("DNA OxIde browser WASM compile/check packet did not mark native-only outputs unavailable");
   process.exit(1);
 }
 

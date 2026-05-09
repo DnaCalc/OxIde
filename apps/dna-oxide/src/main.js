@@ -47,6 +47,35 @@ function createTauriDesktopHostServices(targetWindow = globalThis.window) {
       }
     : packet;
 
+  const normalizeCompilePacket = (packet) => packet
+    ? {
+        ...packet,
+        commandName: packet.command_name,
+        hostBridgeCommand: packet.host_bridge_command,
+        bucketLabel: packet.bucket,
+        profileId: packet.profile_id,
+        providerLabel: packet.provider_label,
+        projectPath: packet.project_path,
+        projectName: packet.project_name,
+        outputType: packet.output_type,
+        buildTarget: packet.build_target,
+        runtimeFlavor: packet.runtime_flavor,
+        entryPoint: packet.entry_point,
+        defaultRuntimeProfile: packet.default_runtime_profile,
+        defaultPolicyPreset: packet.default_policy_preset,
+        defaultRootObject: packet.default_root_object,
+        moduleCount: packet.module_count,
+        referenceCount: packet.reference_count,
+        referencedProjectCount: packet.referenced_project_count,
+        nativeExportCount: packet.native_export_count,
+        typeLibraryCatalogCount: packet.type_library_catalog_count,
+        unavailableOptions: packet.unavailable_options,
+        compiledSummary: packet.compiled_summary,
+        unavailableOutputs: packet.unavailable_outputs,
+        noClaims: packet.no_claims
+      }
+    : packet;
+
   return Object.freeze({
     provider: "tauri-linked-native-rust",
     desktopHostCapabilitiesProbe(payload = {}) {
@@ -66,6 +95,18 @@ function createTauriDesktopHostServices(targetWindow = globalThis.window) {
         projectPath: payload.projectPath ?? null
       });
       return normalizeModulePacket(packet);
+    },
+    async getCompileOptions(payload = {}) {
+      const packet = await callNative("dna_oxide_get_compile_options", {
+        projectPath: payload.projectPath ?? null
+      });
+      return normalizeCompilePacket(packet);
+    },
+    async buildCheck(payload = {}) {
+      const packet = await callNative("dna_oxide_build_check", {
+        projectPath: payload.projectPath ?? null
+      });
+      return normalizeCompilePacket(packet);
     }
   });
 }
@@ -151,6 +192,16 @@ function wireInstrumentedAppDom(root, app, render) {
 
   root.querySelector('[data-testid="desktop-host-probe-command"]')?.addEventListener("click", async () => {
     await app.runHostCommand("desktop-host-capabilities-probe", { via: "dom-click" });
+    render();
+  });
+
+  root.querySelector('[data-testid="compile-options-command"]')?.addEventListener("click", async () => {
+    await app.runHostCommand("compile-options", { via: "dom-click" });
+    render();
+  });
+
+  root.querySelector('[data-testid="build-check-command"]')?.addEventListener("click", async () => {
+    await app.runHostCommand("build-check", { via: "dom-click" });
     render();
   });
 }

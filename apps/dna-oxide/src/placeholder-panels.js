@@ -24,7 +24,7 @@ export function createCompileOptionsPanelModel(overrides = {}) {
     }),
     compileOptions: Object.freeze({
       state: PLACEHOLDER_PANEL_STATES.pendingOxvbaHardening,
-      disabledReason: "Final OxVba compile options DTO and mutation semantics are pending.",
+      disabledReason: "Legacy placeholder: W355 desktop-native reads current OxVba profile fields; final mutation DTO semantics remain pending.",
       rows: Object.freeze([
         "Option Explicit: displayed from source text only",
         "Compiler constants: pending OxVba DTO",
@@ -33,7 +33,7 @@ export function createCompileOptionsPanelModel(overrides = {}) {
     }),
     buildCheck: Object.freeze({
       state: PLACEHOLDER_PANEL_STATES.oxvbaFixtureEvidenced,
-      disabledReason: "ThinSliceHello covers EmbeddedBuildRunHost::build_workspace, but DnaOxIde adapter proof is pending.",
+      disabledReason: "Legacy placeholder: W355 desktop-native build/check now calls compile_project; wrapper/runtime outputs remain unavailable.",
       outputRows: 0
     }),
     runTarget: Object.freeze({
@@ -131,7 +131,7 @@ export function verifyCompilePanelContract(markup = renderCompileOptionsPanels()
     "data-state=\"proven-oxide-only\"",
     "data-state=\"pending-oxvba-hardening\"",
     "data-state=\"oxvba-fixture-evidenced\"",
-    "EmbeddedBuildRunHost::build_workspace",
+    "W355 desktop-native build/check now calls compile_project",
     "data-output-rows=\"0\"",
     "data-real-execution=\"false\""
   ].every((token) => markup.includes(token));

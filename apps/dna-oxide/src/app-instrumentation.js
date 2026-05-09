@@ -41,6 +41,8 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
     focusedSurface: "none",
     lastCommand: null,
     lastNativeCommandResult: null,
+    lastCompileOptionsResult: null,
+    lastBuildCheckResult: null,
     lifecycleStatus: "clean",
     tempProjectRoot: options.tempProjectRoot ?? "target/w350-temp-project-copy",
     hostServices: options.hostServices ?? null,
@@ -133,8 +135,12 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
         saveActiveModuleAvailable: typeof state.hostServices?.saveActiveModule === "function",
         reloadActiveModuleAvailable: typeof state.hostServices?.reloadActiveModule === "function",
         desktopHostCapabilitiesProbeAvailable: typeof state.hostServices?.desktopHostCapabilitiesProbe === "function",
+        compileOptionsAvailable: typeof state.hostServices?.getCompileOptions === "function",
+        buildCheckAvailable: typeof state.hostServices?.buildCheck === "function",
         provider: state.hostServices?.provider ?? (state.hostServices ? "injected-browser-host-service" : "in-memory-browser-harness"),
-        lastNativeCommandResult: state.lastNativeCommandResult
+        lastNativeCommandResult: state.lastNativeCommandResult,
+        lastCompileOptionsResult: state.lastCompileOptionsResult,
+        lastBuildCheckResult: state.lastBuildCheckResult
       }),
       noClaimFlags: { ...state.claims },
       instrumentation: { ...DNA_OXIDE_APP_INSTRUMENTATION }
@@ -210,6 +216,8 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
     <button type="button" data-testid="focus-editor-command" data-command="focus-editor">Focus editor</button>
     <button type="button" data-testid="save-active-module-command" data-command="save-active-module">Save</button>
     <button type="button" data-testid="reload-active-module-command" data-command="reload-active-module">Reload</button>
+    <button type="button" data-testid="compile-options-command" data-command="compile-options">Compile options</button>
+    <button type="button" data-testid="build-check-command" data-command="build-check">Build check</button>
     <button type="button" data-testid="desktop-host-probe-command" data-command="desktop-host-capabilities-probe">Native host probe</button>
   </nav>
   <section class="dnaoxide-layout" data-testid="app-layout">
@@ -233,6 +241,14 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
         <dt>Host provider</dt><dd data-testid="host-command-provider">${escapeHtml(snap.hostCommandBoundary.provider)}</dd>
         <dt>Native probe</dt><dd data-testid="native-host-probe-result" data-linked-native-rust="${String(snap.hostCommandBoundary.lastNativeCommandResult?.linked_native_rust === true)}">${escapeHtml(snap.hostCommandBoundary.lastNativeCommandResult?.command_name ?? "not-run")}</dd>
       </dl>
+    </aside>
+    <aside class="panel" data-testid="compile-build-panel" data-profile-id="${escapeHtml(snap.hostCommandBoundary.lastBuildCheckResult?.profileId ?? snap.hostCommandBoundary.lastCompileOptionsResult?.profileId ?? "unavailable")}" data-provider="${escapeHtml(snap.hostCommandBoundary.lastBuildCheckResult?.providerLabel ?? snap.hostCommandBoundary.lastCompileOptionsResult?.providerLabel ?? "none")}" data-build-status="${escapeHtml(snap.hostCommandBoundary.lastBuildCheckResult?.status ?? "not-run")}" data-build-enabled="${String(snap.hostCommandBoundary.lastBuildCheckResult?.enabled === true)}" data-fake-responses="false" data-real-execution="false" data-native-runtime="false" data-com-runtime="false">
+      <h2>Compile/build</h2>
+      <p data-testid="compile-profile">${escapeHtml(snap.hostCommandBoundary.lastBuildCheckResult?.profileId ?? snap.hostCommandBoundary.lastCompileOptionsResult?.profileId ?? "not-run")}</p>
+      <p data-testid="compile-options-summary">${escapeHtml(snap.hostCommandBoundary.lastCompileOptionsResult ? `${snap.hostCommandBoundary.lastCompileOptionsResult.outputType}/${snap.hostCommandBoundary.lastCompileOptionsResult.buildTarget}/${snap.hostCommandBoundary.lastCompileOptionsResult.runtimeFlavor}` : "not-run")}</p>
+      <p data-testid="build-check-status">${escapeHtml(snap.hostCommandBoundary.lastBuildCheckResult?.status ?? "not-run")}</p>
+      <p data-testid="build-check-summary">${escapeHtml(snap.hostCommandBoundary.lastBuildCheckResult?.compiledSummary ? `procedures=${snap.hostCommandBoundary.lastBuildCheckResult.compiledSummary.procedure_count}; instructions=${snap.hostCommandBoundary.lastBuildCheckResult.compiledSummary.instruction_count}` : "no compiled summary")}</p>
+      <p data-testid="compile-unavailable-outputs">${escapeHtml((snap.hostCommandBoundary.lastBuildCheckResult?.unavailableOutputs ?? snap.hostCommandBoundary.lastCompileOptionsResult?.unavailableOptions ?? []).join(", "))}</p>
     </aside>
   </section>
   <details class="panel" data-testid="host-shell-details">
@@ -365,6 +381,58 @@ export function createInstrumentedDnaOxIdeApp(options = {}) {
         });
         break;
       }
+      case "compile-options":
+      case "dna_oxide_get_compile_options": {
+        if (typeof state.hostServices?.getCompileOptions !== "function") {
+          return runCommand(commandName, payload);
+        }
+        const response = await state.hostServices.getCompileOptions({
+          ...payload,
+          projectName: sourceSnapshot().projectName,
+          projectFile: sourceSnapshot().projectFile,
+          activeModule: sourceSnapshot().activeModule,
+          tempProjectRoot: sourceSnapshot().tempProjectRoot,
+          requestKind: "compile-options"
+        });
+        state.lastCompileOptionsResult = response;
+        pushEvent("compile-options-loaded", {
+          commandName,
+          commandBoundary: "tauri-linked-native-rust",
+          profileId: response?.profileId ?? response?.profile_id ?? null,
+          providerLabel: response?.providerLabel ?? response?.provider_label ?? null,
+          outputType: response?.outputType ?? response?.output_type ?? null,
+          buildTarget: response?.buildTarget ?? response?.build_target ?? null,
+          noClaimFlagsFalse: compileNoClaimFlagsFalse(response)
+        });
+        break;
+      }
+      case "build-check":
+      case "dna_oxide_build_check": {
+        if (typeof state.hostServices?.buildCheck !== "function") {
+          return runCommand(commandName, payload);
+        }
+        const response = await state.hostServices.buildCheck({
+          ...payload,
+          projectName: sourceSnapshot().projectName,
+          projectFile: sourceSnapshot().projectFile,
+          activeModule: sourceSnapshot().activeModule,
+          tempProjectRoot: sourceSnapshot().tempProjectRoot,
+          sourceTextHash: sourceSnapshot().sourceTextHash,
+          requestKind: "build-check"
+        });
+        state.lastBuildCheckResult = response;
+        pushEvent("build-check-completed", {
+          commandName,
+          commandBoundary: "tauri-linked-native-rust",
+          profileId: response?.profileId ?? response?.profile_id ?? null,
+          providerLabel: response?.providerLabel ?? response?.provider_label ?? null,
+          status: response?.status ?? null,
+          diagnosticCount: response?.diagnostics?.length ?? 0,
+          hasCompiledSummary: Boolean(response?.compiledSummary ?? response?.compiled_summary),
+          noClaimFlagsFalse: compileNoClaimFlagsFalse(response)
+        });
+        break;
+      }
       default:
         return runCommand(commandName, payload);
     }
@@ -475,6 +543,18 @@ export function verifyInstrumentationContract(app = createInstrumentedDnaOxIdeAp
     && markup.includes('data-fake-debug-data="false"')
     && visual.includes('role="dnaoxide-w350-visual-snapshot"')
     && !containsForbiddenClaimToken(markup);
+}
+
+function compileNoClaimFlagsFalse(response) {
+  const flags = response?.noClaims ?? response?.no_claims;
+  if (!flags) {
+    return false;
+  }
+  return flags.real_execution_claimed === false
+    && flags.native_runtime_claimed === false
+    && flags.com_runtime_claimed === false
+    && flags.fake_responses === false
+    && flags.fake_debug_data === false;
 }
 
 export function forbiddenClaimTokens() {
